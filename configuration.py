@@ -1,5 +1,5 @@
 from pydantic import BaseModel, computed_field, NonNegativeInt
-from typing import List, Dict, Any
+from typing import Dict, Any, Tuple, List
 from enum import Enum, auto
 from collections import Counter
 from airbot_data_collection.basis import SystemMode
@@ -9,19 +9,6 @@ from airbot_data_collection.basis import SystemMode
 python3 -m airbot_data_collection.demonstrate \
     --robot.names left_arm right_arm --robot.paths configs/robots/airbot.yaml
 """
-
-
-class ComponentConfig(BaseModel):
-    name: str
-    path: str
-    param: dict
-
-
-class GroupConfig(BaseModel):
-    name: str
-    leader: ComponentConfig
-    followers: List[ComponentConfig]
-    others: List[ComponentConfig] = []
 
 
 class ComponentRole(Enum):
@@ -44,19 +31,49 @@ class AsyncMode(Enum):
     none = auto()
 
 
+class ComponentConfig(BaseModel):
+    name: str
+    path: str
+    param: dict
+    async_mode: AsyncMode = AsyncMode.none
+
+
 class ComponentsConfig(BaseModel):
-    # names of the robots, e.g. ["left_arm", "right_arm"]
-    names: List[str] = []
+    names: Tuple[str] = ()
+    paths: Tuple[str] = ()
+    params: Tuple[dict] = ()
+    async_modes: Tuple[AsyncMode] = ()
+
+    def get_component(self, name: str) -> ComponentConfig:
+        index = self.names.index(name)
+        return ComponentConfig(
+            name=name,
+            path=self.paths[index],
+            param=self.params[index],
+            async_mode=self.async_modes[index],
+        )
+
+
+class GroupConfig(BaseModel):
+    name: str
+    leader: ComponentConfig
+    followers: Tuple[ComponentConfig]
+    others: Tuple[ComponentConfig] = ()
+
+
+class ComponentGroupsConfig(BaseModel):
+    # names of the robots, e.g. ("left_arm", "right_arm")
+    names: Tuple[str] = ()
     # paths to the robot hydra config yaml files
-    paths: List[str]
+    paths: Tuple[str]
     # params to override the robot config in the yaml file
-    params: list[dict] = []
+    params: Tuple[dict] = ()
     # the groups to which the robot belongs,
     # each group must have one and only one leader robot
     # and no less than one follower robot
-    groups: List[str] = []
-    roles: List[ComponentRole] = []
-    types: List[str] = []
+    groups: Tuple[str] = ()
+    roles: Tuple[ComponentRole] = ()
+    types: Tuple[str] = ()
     # indicate the group name from the prefix of the robot name
     # and indicate the role from the suffix of the robot name
     # e.g. "left_arm_leader" will be grouped into "left_arm" and
@@ -185,7 +202,7 @@ class ComponentsConfig(BaseModel):
 
     @computed_field
     @property
-    def grouped_config(self) -> List[GroupConfig]:
+    def grouped_config(self) -> Tuple[GroupConfig]:
         """
         Returns a set of grouped configs.
         """
@@ -244,7 +261,7 @@ class DemonstrateAction(str, Enum):
 
 class SampleConfig(BaseModel):
     # the path to the sampler
-    path: str
+    path: str = ""
     # the parameters to override the sampler config
     param: dict = {}
     # the sample rate (or frequency) of the data collection
@@ -263,8 +280,8 @@ class SampleConfig(BaseModel):
 
 
 class AutoControlConfig(BaseModel):
-    groups: List[str] = []
-    rate: List[NonNegativeInt] = []
+    groups: Tuple[str] = ()
+    rate: Tuple[NonNegativeInt] = ()
 
 
 class ComponentActionConfig(BaseModel):
@@ -273,7 +290,7 @@ class ComponentActionConfig(BaseModel):
 
 
 class DemonstrateConfig(BaseModel):
-    components: ComponentsConfig
+    components: ComponentGroupsConfig
     dataset: DatasetConfig
     sample: SampleConfig
     # the group names where the leader states are used to control follower states
@@ -281,22 +298,26 @@ class DemonstrateConfig(BaseModel):
     # if empty, the control should be implicitly implemented when
     # switching to the active / passive mode
     auto_control: AutoControlConfig = AutoControlConfig()
-    # what to do before performing the actions for each action
-    # and group
+    # what the leaders to do before performing the actions
+    # for each action and group
     # reseting means control the leaders to the default state
     # and the followers will also follow
     # passive means do nothing
     # sampling means to stop the passive mode for leaders
     action_call: Dict[DemonstrateAction, Dict[str, ComponentActionConfig]] = {}
+    # the sampled data will be passed to the visualizers at each update
+    visualizers: ComponentsConfig = ComponentsConfig()
+    # managers to control the demonstrate actions
+    managers: ComponentsConfig
 
 
 if __name__ == "__main__":
     from pprint import pprint
 
-    configs: List[ComponentsConfig] = []
+    configs: List[ComponentGroupsConfig] = []
 
     configs.append(
-        ComponentsConfig(
+        ComponentGroupsConfig(
             names=[
                 "left_arm_leader",
                 "left_arm_follower",
@@ -316,7 +337,7 @@ if __name__ == "__main__":
     )
 
     configs.append(
-        ComponentsConfig(
+        ComponentGroupsConfig(
             paths=["configs/robots/airbot.yaml"],
             params=[{}, {}],
         )
