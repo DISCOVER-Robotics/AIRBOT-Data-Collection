@@ -1,0 +1,67 @@
+from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
+from airbot_data_collection.basis import SystemMode, System
+from typing import List, Optional
+from pydantic import BaseModel, IPvAnyAddress, PositiveInt
+import time
+
+
+class AIRBOTPlayConfig(BaseModel):
+    url: IPvAnyAddress = "localhost"
+    port: PositiveInt = 50050
+    speed_profile: SpeedProfile = SpeedProfile.DEFAULT
+
+
+class AIRBOTPlay(System):
+    config: AIRBOTPlayConfig
+    interface: AIRBOTArm
+
+    def send_action(self, action: List[float]) -> None:
+        mode = self.interface.get_control_mode()
+        if mode is RobotMode.SERVO_JOINT_POS:
+            self.interface.servo_joint_pos(action[:6])
+        elif mode is RobotMode.PLANNING_POS:
+            self.interface.move_to_joint_pos(action[:6])
+        if len(action) == 7:
+            self.interface.servo_eef_pos(action[-1:])
+
+    def on_switch_mode(self, mode: SystemMode) -> bool:
+        if mode is SystemMode.PASSIVE:
+            return self.interface.switch_mode(RobotMode.GRAVITY_COMP)
+        elif mode is SystemMode.RESETING:
+            self.interface.switch_mode(RobotMode.PLANNING_POS)
+        elif mode is SystemMode.SAMPLING:
+            self.interface.switch_mode(RobotMode.SERVO_JOINT_POS)
+        return True
+
+    def on_configure(self) -> bool:
+        return self.interface.connect()
+
+    def capture_observation(self) -> dict:
+        """key: component kind / data type"""
+        return {
+            "arm/joint_state": {
+                "t": time.time(),
+                "data": {
+                    "pos": self.interface.get_joint_pos(),
+                    "vel": self.interface.get_joint_vel(),
+                    "eff": self.interface.get_joint_eff(),
+                },
+            },
+            "eef/joint_state": {
+                "t": time.time(),
+                "data": {
+                    "pos": self.interface.get_eef_pos(),
+                    "vel": self.interface.get_eef_vel(),
+                    "eff": self.interface.get_eef_eff(),
+                },
+            },
+        }
+
+    def shutdown(self) -> bool:
+        return self.interface.disconnect()
+
+
+if __name__ == "__main__":
+
+    player = AIRBOTPlay(AIRBOTPlayConfig())
+    assert player.configure()
