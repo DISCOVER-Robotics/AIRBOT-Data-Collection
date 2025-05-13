@@ -36,6 +36,7 @@ class ComponentConfig(BaseModel):
     path: str
     param: dict
     async_mode: AsyncMode = AsyncMode.none
+    update_rate: NonNegativeInt = 0
 
 
 class ComponentsConfig(BaseModel):
@@ -43,6 +44,7 @@ class ComponentsConfig(BaseModel):
     paths: Tuple[str] = ()
     params: Tuple[dict] = ()
     async_modes: Tuple[AsyncMode] = ()
+    update_rates: Tuple[NonNegativeInt] = ()
 
     def get_component(self, name: str) -> ComponentConfig:
         index = self.names.index(name)
@@ -254,9 +256,19 @@ class DatasetConfig(BaseModel):
 
 
 class DemonstrateAction(str, Enum):
+    activate = auto()
+    sample = auto()
+    update = auto()
     save = auto()
     abandon = auto()
     finish = auto()
+
+
+class DemonstrateState(str, Enum):
+    error = auto()
+    inactive = auto()
+    active = auto()
+    sampling = auto()
 
 
 class SampleConfig(BaseModel):
@@ -264,18 +276,6 @@ class SampleConfig(BaseModel):
     path: str = ""
     # the parameters to override the sampler config
     param: dict = {}
-    # the sample rate (or frequency) of the data collection
-    # 1 / rate is the sample period or interval
-    rate: int
-    # the maximum number of samples
-    # if duration is None, then the size will be used
-    size: int = None
-    # the time duration of the data collection
-    # if size is None, then the duration will be used
-    duration: float = None
-    # what to do when the maximum number of samples is reached
-    # or the time duration is reached if not both are None
-    reach_mode: DemonstrateAction = DemonstrateAction.save
     async_save: AsyncMode = AsyncMode.none
 
 
@@ -307,8 +307,6 @@ class DemonstrateConfig(BaseModel):
     action_call: Dict[DemonstrateAction, Dict[str, ComponentActionConfig]] = {}
     # the sampled data will be passed to the visualizers at each update
     visualizers: ComponentsConfig = ComponentsConfig()
-    # managers to control the demonstrate actions
-    managers: ComponentsConfig
 
 
 if __name__ == "__main__":

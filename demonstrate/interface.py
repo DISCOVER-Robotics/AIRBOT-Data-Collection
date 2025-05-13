@@ -1,4 +1,4 @@
-from airbot_data_collection.configuration import (
+from airbot_data_collection.demonstrate.configs import (
     DemonstrateConfig,
     AsyncMode,
     DemonstrateAction,
@@ -10,7 +10,6 @@ from airbot_data_collection.common import (
     MockDataSampler,
     SampleInfo,
     Visualizer,
-    DemonstrateManager,
 )
 from airbot_data_collection.common.utils.utils import hydra_instance_from_config_path
 from pydantic import BaseModel, ConfigDict
@@ -35,7 +34,7 @@ class DemonstrateGroup(BaseModel):
     others: List[Union[System, Sensor]] = []
 
 
-class Demonstrate:
+class DemonstrateInterface:
     def __init__(self, config: DemonstrateConfig):
         self.config = config
         self.groups: List[DemonstrateGroup] = []
@@ -52,12 +51,6 @@ class Demonstrate:
             name: hydra_instance_from_config_path(path, param)
             for name, path, param in zip(
                 config.visualizers.paths, config.visualizers.params
-            )
-        }
-        self.managers: Dict[str, DemonstrateManager] = {
-            name: hydra_instance_from_config_path(path, param)
-            for name, path, param in zip(
-                config.managers.names, config.managers.paths, config.managers.params
             )
         }
         for group in config.components.grouped_config:
@@ -103,6 +96,10 @@ class Demonstrate:
         else:
             self.save_executor = None
         self.save_future = None
+        self.deactivated = False
+        # initialize the sample update interval
+        self.update_interval = 1 / self.config.sample.rate
+        self.update_stamp = 0
 
     def get_logger(self):
         """
@@ -121,12 +118,8 @@ class Demonstrate:
                 if not component.configure():
                     self.get_logger().error(f"Failed to configure {n}")
                     return False
-        names = ["sampler"] + list(self.visualizers.keys()) + list(self.managers.keys())
-        components = (
-            [self.sampler]
-            + list(self.visualizers.values())
-            + list(self.managers.values())
-        )
+        names = ["sampler"] + list(self.visualizers.keys())
+        components = [self.sampler] + list(self.visualizers.values())
         for name, component in zip(names, components):
             if not component.configure():
                 self.get_logger().error(f"Failed to configure {name}")
@@ -137,17 +130,19 @@ class Demonstrate:
         """"""
         config = self.config.auto_control
         period = 1 / config.rate[0]
-        # TODO: when to stop?
-        while True:
+        while not self.deactivated:
             start = time.perf_counter()
-            for group_name in config.groups:
-                group = self.group_map[group_name]
-                obs = group.leader.capture_observation()
-                for follower in group.followers:
-                    follower.send_action(obs)
+            self._auto_control()
             sleep_time = period - (time.perf_counter() - start)
             if sleep_time > 0:
                 time.sleep(sleep_time)
+
+    def _auto_control(self):
+        for group_name in self.config.auto_control.groups:
+            group = self.group_map[group_name]
+            obs = group.leader.capture_observation()
+            for follower in group.followers:
+                follower.send_action(obs)
 
     def _post_action(self, config: Dict[str, ComponentActionConfig]) -> bool:
         """Control the leaders after some demonstrate action"""
@@ -171,32 +166,78 @@ class Demonstrate:
         return True
 
     def activate(self) -> bool:
-        """Start to demonstrate the components."""
         # set the mode for followers
+        if self._set_followers_mode(SystemMode.RESETING):
+            # TODO: control until the joint positions are near the leader
+            self._auto_control()
+            if self._set_followers_mode(SystemMode.SAMPLING):
+                # start the auto control loop
+                # TODO: should choose to use a process?
+                if self.config.auto_control:
+                    self.deactivated = False
+                    self.auto_control_thread = Thread(
+                        target=self._auto_control_loop,
+                        name="auto_control_loop",
+                        daemon=True,
+                    )
+                    self.auto_control_thread.start()
+                # set the mode for leaders
+                # the beginning mode can be considered as data are
+                # saved in the -1 round, so save_mode is performed
+                if self._post_action(
+                    self.config.action_call.get(DemonstrateAction.save)
+                ):
+                    return True
+        return False
+
+    def deactivate(self) -> bool:
+        self.deactivated = True
+        self.auto_control_thread.join(5.0)
+        if self.auto_control_thread.is_alive():
+            self.get_logger().error(
+                "Failed to stop the auto control thread after 5 seconds"
+            )
+            return False
+        return True
+
+    def _set_leaders_mode(self, mode: SystemMode) -> bool:
+        """
+        Set the mode for the leaders
+        """
+        for group in self.groups:
+            if not group.leader.switch_mode(mode):
+                self.get_logger().error(
+                    f"Failed to set {group.name} leader to {mode} mode"
+                )
+                return False
+        return True
+
+    def _set_followers_mode(self, mode: SystemMode) -> bool:
+        """
+        Set the mode for the followers
+        """
         for group in self.groups:
             for follower in group.followers:
-                follower.switch_mode(SystemMode.SAMPLING)
-        # start the auto control loop
-        # TODO: should choose to use a process?
-        if self.config.auto_control:
-            Thread(
-                target=self._auto_control_loop,
-                name="auto_control_loop",
-                daemon=True,
-            ).start()
-        # set the mode for leaders
-        # the beginning mode can be considered as data are
-        # saved in the -1 round, so save_mode is performed
-        if self._post_action(self.config.action_call.get(DemonstrateAction.save)):
-            # initialize the sample update interval
-            self.update_interval = 1 / self.config.sample.rate
-            self.update_stamp = 0
+                if not follower.switch_mode(mode):
+                    # TODO: log follower name
+                    self.get_logger().error(
+                        f"Failed to set {group.name} follower to {mode} mode"
+                    )
+                    return False
+        return True
+
+    def sample(self) -> bool:
+        """
+        Start to sample the data (switch the leaders mode to passive)
+        """
+        # set the mode for leaders to passive
+        if self._set_leaders_mode(SystemMode.PASSIVE):
             return True
         return False
 
     def update(self) -> bool:
         """
-        Update the components (including visualizers and managers).
+        Update the components (including visualizers).
         """
         # sleep before update
         sleep_time = self.update_interval - (time.perf_counter() - self.update_stamp)
@@ -219,9 +260,6 @@ class Demonstrate:
         # update the visualizers
         for name, visualizer in self.visualizers.items():
             visualizer.update(data, self.sample_info)
-        # update the managers
-        for name, manager in self.managers.items():
-            pass
         return True
 
     def save(self) -> None:
@@ -247,7 +285,7 @@ class Demonstrate:
         )
 
     def remove(self) -> bool:
-        """Remote the last saved data."""
+        """Remove the last round saved sample."""
         if self.sample_info.round > 0:
             if self.save_future is not None:
                 if not self.save_future.done():
@@ -279,23 +317,3 @@ class Demonstrate:
         for group in self.groups:
             for component in group.leader, *group.followers, *group.others:
                 component.shutdown()
-
-
-if __name__ == "__main__":
-    from argdantic import ArgParser
-
-    cli = ArgParser("Demonstrate and collect data.")
-
-    @cli.command(singleton=True)
-    def demontrate(config: DemonstrateConfig):
-        """
-        Demonstrate the airbot data collection.
-        """
-
-        demonstrator = Demonstrate(config)
-        demonstrator.configure()
-        demonstrator.activate()
-        while True:
-            demonstrator.update()
-
-    cli()

@@ -59,6 +59,7 @@ class AIRBOTPlay(System):
 
     def shutdown(self) -> bool:
         return self.interface.disconnect()
+    
 
 
 if __name__ == "__main__":

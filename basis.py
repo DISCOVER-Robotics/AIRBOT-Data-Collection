@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from pydantic import BaseModel
 import inspect
 from dataclasses import replace, asdict
+from logging import getLogger
 
 
 class SystemMode(Enum):
@@ -44,7 +45,11 @@ class ConfigBasis(ABC):
         return self.on_configure()
 
     @abstractmethod
-    def on_configure(self) -> bool: ...
+    def on_configure(self) -> bool:
+        """Callback to be called when configuring"""
+
+    def get_logger(self):
+        return getLogger(self.__class__.__name__)
 
 
 class Sensor(ConfigBasis):
