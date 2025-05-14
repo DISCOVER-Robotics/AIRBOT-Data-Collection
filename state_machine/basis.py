@@ -31,13 +31,16 @@ class LogLevel(str, Enum):
         }[level]
 
 
+SMCallable = Optional[Union[Callable, str, List[Union[Callable, str]]]]
+
+
 class ToDestConfig(BaseModel):
-    dest: Optional[State]
-    conditions: Optional[List[Union[str, Callable]]] = None
-    unless: Optional[List[Union[str, Callable]]] = None
-    before: Optional[Callable] = None
-    after: Optional[Callable] = None
-    prepare: Optional[Callable] = None
+    dest: State
+    conditions: SMCallable = None
+    unless: SMCallable = None
+    before: SMCallable = None
+    after: SMCallable = None
+    prepare: SMCallable = None
 
 
 ActionTransitions = Dict[State, List[ToDestConfig]]
@@ -58,7 +61,7 @@ class StateMachineConfig(BaseModel):
     # ignored rather than raising an invalid transition exception.
     ignore_invalid_triggers: bool = False
     # If a name is set, it will be used as a prefix for logger output
-    name: str = None
+    name: Optional[str] = None
     # # When True, processes transitions sequentially. A trigger
     # # executed in a state callback function will be queued and executed later.
     # # Due to the nature of the queued processing, all transitions will
@@ -66,7 +69,7 @@ class StateMachineConfig(BaseModel):
     # queued: bool = False
     # A callable called on for each triggered event after transitions have been processed.
     # This is also called when a transition raises an exception.
-    finalize_event: Callable = None
+    finalize_event: SMCallable = None
     log_level: LogLevel = LogLevel.info
     # # A callable called on for before possible transitions will be processed.
     # # It receives the very same args as normal callbacks.

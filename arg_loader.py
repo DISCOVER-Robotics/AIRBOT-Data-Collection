@@ -1,22 +1,80 @@
-from typing import Any, Dict, Tuple, Type, Union
+from typing import Any, Dict, Tuple, Type, Union, TypeVar, cast, Optional
 from pydantic.fields import FieldInfo
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
-from argdantic.sources.base import FileBaseSettingsSource, FileSettingsSourceBuilder
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    InitSettingsSource,
+)
+from pathlib import Path
+from pydantic import BaseModel
+from argdantic.sources.base import FileBaseSettingsSource
+from argdantic.sources.dynamic import DynamicFileSource
 
 
-class FileBaseSettingsSource(PydanticBaseSettingsSource):
+T = TypeVar("T", bound=BaseModel)
+
+
+def from_file(
+    loader: Type[FileBaseSettingsSource],
+    use_field: Optional[str] = None,
+    required: bool = True,
+):
+    def decorator(cls: Type[T]) -> Type[T]:
+        if not issubclass(cls, BaseModel):
+            raise TypeError("@from_file can only be applied to Pydantic models")
+        if use_field is not None:
+            if use_field not in cls.model_fields:
+                raise ValueError(f"Field {use_field} not found in model {cls.__name__}")
+            field_annotation = cls.model_fields[use_field].annotation
+            if not issubclass(field_annotation, (str, Path)):
+                raise ValueError(
+                    f"Field {use_field} must be a string or Path to be used as file source"
+                )
+
+        class DynamicSourceSettings(cls, BaseSettings):  # type: ignore
+            __arg_source_field__ = use_field
+            __arg_source_required__ = required
+
+            @classmethod
+            def settings_customise_sources(
+                cls,
+                settings_cls: Type[BaseSettings],
+                init_settings: PydanticBaseSettingsSource,
+                env_settings: PydanticBaseSettingsSource,
+                dotenv_settings: PydanticBaseSettingsSource,
+                file_secret_settings: PydanticBaseSettingsSource,
+            ) -> Tuple[PydanticBaseSettingsSource, ...]:
+                source = DynamicFileSource(
+                    settings_cls,
+                    loader,
+                    cast(InitSettingsSource, init_settings).init_kwargs,
+                    required,
+                    use_field,
+                )
+                return (source,)
+
+        # Tell the type checker that we are returning the 
+        # original class (but we are actually returning the inherited class)
+        return cast(Type[T], DynamicSourceSettings)
+
+    return decorator
+
+
+class PydanticModelBaseSettingsSource(PydanticBaseSettingsSource):
     """
     Abstract settings source that expects an extra path, together with the settings class.
     """
 
     def __init__(
-        self, settings_cls: Type[BaseSettings], path: Union[str, Path]
+        self, settings_cls: Type[BaseSettings], path: Union[str, Path, BaseModel]
     ) -> None:
         super().__init__(settings_cls)
-        self.path = Path(path)
+        if isinstance(path, str):
+            path = Path(path)
+        self.path = path
 
 
-class YamlFileLoader(FileBaseSettingsSource):
+class PydanticModelYamlLoader(PydanticModelBaseSettingsSource):
     """
     Class internal to pydantic-settings that reads settings from a YAML file.
     This gets spawned by the YamlSettingsSource class.
@@ -28,26 +86,14 @@ class YamlFileLoader(FileBaseSettingsSource):
         return None, field_name, False  # pragma: no cover
 
     def __call__(self) -> Dict[str, Any]:
-        return self.path
-
-
-class PydanticModelLoader(FileBaseSettingsSource):
-    """
-    Class internal to pydantic-settings that reads settings from a YAML file.
-    This gets spawned by the YamlSettingsSource class.
-    """
-
-    def get_field_value(
-        self, field: FieldInfo, field_name: str
-    ) -> Tuple[Any, str, bool]:
-        return None, field_name, False  # pragma: no cover
-
-    def __call__(self) -> Dict[str, Any]:
-        try:
-            import yaml
-        except ImportError:
-            raise ImportError(
-                "You need to install YAML dependencies to use the YAML source. "
-                "You can do so by running `pip install argdantic[yaml]`."
-            )
-        return yaml.safe_load(self.path.read_text())
+        if isinstance(self.path, Path):
+            try:
+                import yaml
+            except ImportError:
+                raise ImportError(
+                    "You need to install YAML dependencies to use the YAML source. "
+                    "You can do so by running `pip install argdantic[yaml]`."
+                )
+            return yaml.safe_load(self.path.read_text())
+        else:
+            return self.path.model_dump()

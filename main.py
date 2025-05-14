@@ -1,32 +1,13 @@
-from airbot_data_collection.state_machine.fsm import (
-    DemonstrateFSMConfig,
-    DemonstrateFSM,
-)
-from pydantic import BaseModel
-from airbot_data_collection.demonstrate.configs import (
-    ComponentsConfig,
-    DemonstrateConfig,
-)
-import time
-from typing import Dict
-from airbot_data_collection.managers.basis import DemonstrateManager
 from airbot_data_collection.common.utils.utils import (
     hydra_instance_from_config_path,
     init_logging,
 )
 from logging import getLogger
-
-
-class DataCollectionConfig(BaseModel):
-    """Configuration for the data collection."""
-
-    # the maximum rate for the managers
-    # 0 means as fast as possible
-    update_rate: int = 0
-    # the finite state machine config
-    fsm: DemonstrateFSMConfig
-    # managers to control the demonstrate actions
-    managers: ComponentsConfig
+from airbot_data_collection.config import DataCollectionArgs
+from airbot_data_collection.state_machine.fsm import DemonstrateFSM
+from airbot_data_collection.managers.basis import DemonstrateManager
+from typing import Dict
+import time
 
 
 if __name__ == "__main__":
@@ -34,37 +15,14 @@ if __name__ == "__main__":
     logger = getLogger("airbot_data_collection")
 
     from argdantic import ArgParser
-    from argdantic.sources import YamlFileLoader, from_file
-    from pathlib import Path
-
-    @from_file(loader=YamlFileLoader, required=False, use_field=)
-    class DemonstrateFSMArgsFF(DemonstrateFSMConfig):
-        """Arguments for the finite state machine."""
-        path: Path = Path("")
-
-    class DataCollectionArgs(DemonstrateConfig):
-        """Arguments for the data collection."""
-
-        # the maximum rate for the managers
-        # 0 means as fast as possible
-        update_rate: int = 0
-        # the finite state machine config file path
-        fsm_path: str = ""
-        # managers to control the demonstrate actions
-        managers: ComponentsConfig
-
-    @from_file(loader=YamlFileLoader, required=False)
-    class DataCollectionArgsFF(DataCollectionArgs):
-        """Arguments for the data collection with from file."""
 
     cli = ArgParser("Demonstrate and collect data.")
 
     @cli.command(singleton=True)
-    def main(args: DataCollectionArgsFF):
+    def main(config: DataCollectionArgs):
         """
         The main manager of data collection.
         """
-        config: DataCollectionArgs = args
         fsm = DemonstrateFSM(config.fsm)
         managers: Dict[str, DemonstrateManager] = {
             name: hydra_instance_from_config_path(path, param)
