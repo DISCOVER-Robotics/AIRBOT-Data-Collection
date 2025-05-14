@@ -1,4 +1,7 @@
-from airbot_data_collection.state_machine.fsm import DemonstrateFSMConfig
+from airbot_data_collection.state_machine.fsm import (
+    DemonstrateFSMConfig,
+    StateMachineConfig,
+)
 from pydantic import BaseModel
 from airbot_data_collection.demonstrate.configs import (
     ComponentsConfig,
@@ -22,18 +25,22 @@ class DataCollectionConfig(BaseModel):
 
 
 @from_file(loader=YamlFileLoader, required=False)
-class DemonstrateFSMArgs(DemonstrateFSMConfig):
+class StateMachineArgs(StateMachineConfig):
     """Arguments for the finite state machine."""
 
 
 @from_file(loader=YamlFileLoader, required=False)
 class DataCollectionArgs(DemonstrateConfig):
-    """Arguments for the data collection."""
+    """Top level arguments for the data collection.
+    The structure is similar but not identical to the
+    DataCollectionConfig class which is more suitable
+    for the command line interface.
+    """
 
     # the maximum rate for the managers
     # 0 means as fast as possible
     update_rate: int = 0
     # the finite state machine config file path
-    fsm: DemonstrateFSMArgs = STATE_MACHINE_CONFIG
+    fsm: StateMachineArgs = STATE_MACHINE_CONFIG
     # managers to control the demonstrate actions
     managers: ComponentsConfig
