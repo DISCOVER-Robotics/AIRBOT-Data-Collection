@@ -33,13 +33,7 @@ class DemonstrateManagerBasis(ConfigBasis):
         """Shutdown the manager."""
 
 
-class SelfManagerConfig(BaseModel):
-    """Configuration for the self manager."""
-
-    # the sample rate (or frequency) of the data collection
-    # 1 / rate is the sample period or interval
-    # 0 means as fast as possible
-    udpate_rate: NonNegativeInt = 0
+class SampleLimit(BaseModel):
     # the maximum number of samples
     # if duration is 0, then the size will be used
     size: NonNegativeInt = 0
@@ -49,6 +43,12 @@ class SelfManagerConfig(BaseModel):
     # what to do when the maximum number of samples is reached
     # or the time duration is reached if not both are 0
     reach_mode: DemonstrateAction = DemonstrateAction.save
+
+
+class SelfManagerConfig(BaseModel):
+    """Configuration for the self manager."""
+
+    sample_limit: SampleLimit = SampleLimit()
 
 
 class SelfManager(DemonstrateManagerBasis):
@@ -61,28 +61,34 @@ class SelfManager(DemonstrateManagerBasis):
     config: SelfManagerConfig
 
     def on_configure(self):
-        pass
+        self.reach_mode = self.config.sample_limit.reach_mode
 
     def update(self) -> bool:
         state = self.fsm.get_state()
         if state is State.sampling:
-            if self.fsm.sample_info.index + 1 >= self.config.size:
+            if self.fsm.sample_info.index + 1 >= self.config.sample_limit.size:
                 self.get_logger().info("Maximum number of samples reached.")
-                if self.config.reach_mode is DemonstrateAction.save:
+                if self.reach_mode is DemonstrateAction.save:
                     self.get_logger().info("Saving samples.")
                     return self.fsm.act(DemonstrateAction.save)
-                elif self.config.reach_mode is DemonstrateAction.abandon:
+                elif self.reach_mode is DemonstrateAction.abandon:
                     self.get_logger().info("Abandoning samples.")
                     return self.fsm.act(DemonstrateAction.abandon)
                 else:
-                    raise ValueError(
-                        f"Unsupported reach mode: {self.config.reach_mode}"
-                    )
+                    raise ValueError(f"Unsupported reach mode: {self.reach_mode}")
             else:
                 return self.fsm.act(DemonstrateAction.update)
-        elif state is State.inactive:
-            self.get_logger().info("Activating the demonstrate interface.")
-            return self.fsm.act(DemonstrateAction.activate)
+        elif state is State.unconfigured:
+            self.get_logger().info("Configuring the demonstrate interface.")
+            if self.fsm.act(DemonstrateAction.configure):
+                self.get_logger().info("Activating the demonstrate interface.")
+                return self.fsm.act(DemonstrateAction.activate)
+            else:
+                self.get_logger().info("Failed to configure the demonstrate interface.")
+                return False
+        elif state is State.active:
+            # capture to update the visualizers
+            return self.fsm.act(DemonstrateAction.capture)
 
     def shutdown(self) -> bool:
         return self.fsm.act(DemonstrateAction.finish)

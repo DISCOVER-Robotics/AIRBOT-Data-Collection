@@ -3,6 +3,7 @@ from airbot_data_collection.demonstrate.configs import (
     AsyncMode,
     DemonstrateAction,
     ComponentActionConfig,
+    ComponentRole,
 )
 from airbot_data_collection.basis import SystemMode, System, Sensor
 from airbot_data_collection.common import (
@@ -13,11 +14,12 @@ from airbot_data_collection.common import (
 )
 from airbot_data_collection.common.utils.utils import hydra_instance_from_config_path
 from pydantic import BaseModel, ConfigDict
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Any
 from logging import getLogger
 import time
 from threading import Lock, Thread
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from collections import defaultdict
 
 
 class GroupComponentNames(BaseModel):
@@ -38,9 +40,9 @@ class DemonstrateInterface:
     def __init__(self, config: DemonstrateConfig):
         self.config = config
         self.groups: List[DemonstrateGroup] = []
-        self.group_map: Dict[str, DemonstrateGroup] = {}
         self.group_component_names: List[GroupComponentNames] = []
-        sample_cfg = config.sample
+        self.group_map: Dict[str, DemonstrateGroup] = {}
+        sample_cfg = config.sampler
         if sample_cfg.path:
             self.sampler: DataSampler = hydra_instance_from_config_path(
                 sample_cfg.path, sample_cfg.param
@@ -98,7 +100,7 @@ class DemonstrateInterface:
         self.save_future = None
         self.deactivated = False
         # initialize the sample update interval
-        self.update_interval = 1 / self.config.sample.rate
+        self.update_interval = 1 / self.config.sampler.rate
         self.update_stamp = 0
 
     def get_logger(self):
@@ -235,16 +237,8 @@ class DemonstrateInterface:
             return True
         return False
 
-    def update(self) -> bool:
-        """
-        Update the components (including visualizers).
-        """
-        # sleep before update
-        sleep_time = self.update_interval - (time.perf_counter() - self.update_stamp)
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-        self.update_stamp = time.perf_counter()
-        # sample once
+    def capture(self) -> Dict[str, Any]:
+        # TODO: can be called when sampling?
         data = {}
         for group in self.groups:
             action = group.leader.capture_observation()
@@ -255,16 +249,30 @@ class DemonstrateInterface:
                 observation = component.capture_observation()
                 for key, value in observation.items():
                     data[f"/obervation/{get_suffix(key)}"] = value
-        self.sampler.append(data)
-        self.sample_info.index += 1
+        self.last_capture = data
         # update the visualizers
         for name, visualizer in self.visualizers.items():
             visualizer.update(data, self.sample_info)
+        return data
+
+    def update(self) -> bool:
+        """
+        Update the components (including visualizers).
+        """
+        # sleep before update
+        sleep_time = self.update_interval - (time.perf_counter() - self.update_stamp)
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        self.update_stamp = time.perf_counter()
+        # sample once
+        data = self.capture()
+        self.sampler.append(data)
+        self.sample_info.index += 1
         return True
 
     def save(self) -> None:
         """Save the sampled data and be ready for the next round."""
-        async_save = self.config.sample.async_save
+        async_save = self.config.async_save
         if async_save != AsyncMode.none:
             self.save_future = self.save_executor.submit(
                 self.sampler.save, self.sample_info.round
@@ -317,3 +325,24 @@ class DemonstrateInterface:
         for group in self.groups:
             for component in group.leader, *group.followers, *group.others:
                 component.shutdown()
+
+    def capture_by_role(self, role: ComponentRole) -> Dict[str, Dict[str, Any]]:
+        """Get the components observations by role.
+        TODO: should use the same data structure as the capture function？
+        """
+        obs = defaultdict(dict)
+        if role in {ComponentRole.l, ComponentRole.leader}:
+            for group, names in zip(self.groups, self.group_component_names):
+                obs[names.leader] = group.leader.capture_observation()
+        else:
+            if role in {ComponentRole.f, ComponentRole.follower}:
+                handle = "followers"
+            else:
+                handle = "others"
+            component: System
+            for group, names in zip(self.groups, self.group_component_names):
+                for component, f_name in zip(
+                    getattr(names, handle), getattr(names, handle)
+                ):
+                    obs[f_name] = component.capture_observation()
+        return obs

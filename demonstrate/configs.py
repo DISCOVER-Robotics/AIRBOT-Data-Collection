@@ -5,18 +5,13 @@ from collections import Counter
 from airbot_data_collection.basis import SystemMode
 
 
-"""
-python3 -m airbot_data_collection.demonstrate \
-    --robot.names left_arm right_arm --robot.paths configs/robots/airbot.yaml
-"""
-
-
 class ComponentRole(Enum):
     leader = auto()
     l = auto()
     follower = auto()
     f = auto()
     other = auto()
+    o = auto()
 
 
 class DataType(Enum):
@@ -256,27 +251,24 @@ class DatasetConfig(BaseModel):
 
 
 class DemonstrateAction(str, Enum):
+    configure = auto()
     activate = auto()
+    capture = auto()
     sample = auto()
     update = auto()
     save = auto()
+    remove = auto()
     abandon = auto()
     finish = auto()
 
 
 class DemonstrateState(str, Enum):
     error = auto()
+    unconfigured = auto()
     inactive = auto()
     active = auto()
     sampling = auto()
-
-
-class SampleConfig(BaseModel):
-    # the path to the sampler
-    path: str = ""
-    # the parameters to override the sampler config
-    param: dict = {}
-    async_save: AsyncMode = AsyncMode.none
+    finalized = auto()
 
 
 class AutoControlConfig(BaseModel):
@@ -292,7 +284,6 @@ class ComponentActionConfig(BaseModel):
 class DemonstrateConfig(BaseModel):
     components: ComponentGroupsConfig
     dataset: DatasetConfig
-    sample: SampleConfig
     # the group names where the leader states are used to control follower states
     # None means all group names are used
     # if empty, the control should be implicitly implemented when
@@ -305,8 +296,13 @@ class DemonstrateConfig(BaseModel):
     # passive means do nothing
     # sampling means to stop the passive mode for leaders
     action_call: Dict[DemonstrateAction, Dict[str, ComponentActionConfig]] = {}
+    # the sampler to be used to collect and save the data
+    sampler: ComponentConfig
     # the sampled data will be passed to the visualizers at each update
     visualizers: ComponentsConfig = ComponentsConfig()
+    # TODO: should use a dict to set the async mode for
+    # other actions, such as remove, abandon, etc?
+    async_save: AsyncMode = AsyncMode.none
 
 
 if __name__ == "__main__":
