@@ -1,10 +1,8 @@
-from airbot_data_collection.common.utils.utils import (
-    hydra_instance_from_config_path,
-    init_logging,
-)
+from airbot_data_collection.common.utils.utils import init_logging
+from airbot_data_collection.demonstrate.interface import ComponentsInstancer
 from logging import getLogger
 from airbot_data_collection.config import DataCollectionArgs
-from airbot_data_collection.state_machine.fsm import DemonstrateFSM
+from airbot_data_collection.state_machine.fsm import DemonstrateFSM, DemonstrateState
 from airbot_data_collection.managers.basis import DemonstrateManager
 from typing import Dict
 import time
@@ -24,12 +22,10 @@ if __name__ == "__main__":
         The main manager of data collection.
         """
         fsm = DemonstrateFSM(config.fsm)
-        managers: Dict[str, DemonstrateManager] = {
-            name: hydra_instance_from_config_path(path, param)
-            for name, path, param in zip(
-                config.managers.names, config.managers.paths, config.managers.params
-            )
-        }
+        instancer = ComponentsInstancer(config.search_dirs)
+        managers: Dict[str, DemonstrateManager] = instancer.instance(
+            config.managers, True
+        )
         for name, manager in managers.items():
             manager.set_fsm(fsm)
             if not manager.configure():
@@ -44,6 +40,9 @@ if __name__ == "__main__":
                 for name, manager in managers.items():
                     if not manager.update():
                         logger.error(f"Failed to update manager: {name}.")
+                if fsm.get_state() is DemonstrateState.finalized:
+                    logger.info("Demonstration finished.")
+                    break
                 if interval > 0:
                     sleep_time = interval - (time.perf_counter() - start_time)
                     if sleep_time > 0:
@@ -54,7 +53,8 @@ if __name__ == "__main__":
             logger.info("Keyboard interrupt received. Exiting...")
 
         for name, manager in managers.items():
+            logger.info(f"Shutting down: {name}.")
             if not manager.shutdown():
-                logger.error(f"Failed to deactivate manager: {name}.")
+                logger.error(f"Failed to shutdown manager: {name}.")
 
     cli()

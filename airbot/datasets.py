@@ -1,11 +1,12 @@
-from airbot_data_collection.basis import DictDataSampler, DataSamplerConfig
+from airbot_data_collection.common.samplers.basis import DictDataSampler
 from typing import Dict, List, Union
 from numpy import ndarray
 from airbot_data.io import save_bson
 import os
+from pydantic import BaseModel
 
 
-class AIRBOTDataSamplerConfig(DataSamplerConfig):
+class AIRBOTDataSamplerConfig(BaseModel):
     schema: dict = {
         "id": "734ad1c8-66ee-4479-b3cb-41d16c9b2e22",
         "timestamp": 1734076528859,
@@ -29,7 +30,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         super().on_configure()
         self.topics = {}
         # reference to the data
-        self.config.schema["data"] = self.data
+        self.config.schema["data"] = self._data
 
     def append(self, data: Dict[str, Union[List[float], ndarray]]):
         if not self.topics:
@@ -66,11 +67,11 @@ class AIRBOTBsonDataSampler(DictDataSampler):
             self.config.schema["metadata"]["topics"] = self.topics
         return super().append(data)
 
-    def save(self, number):
+    def save(self, directory: str, round: int):
         """Save the data to a BSON file."""
         return save_bson(
             self.config.schema,
-            os.path.join(self.config.directory, f"{number}.bson"),
+            os.path.join(directory, f"{round}.bson"),
         )
 
 

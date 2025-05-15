@@ -1,0 +1,6 @@
+sampler:
+  name: airbot_bson_sampler
+  path: ""
+  params:
+    _target_: airbot_data_collection.samplers.bson_sampler.BsonSampler
+    

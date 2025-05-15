@@ -29,7 +29,7 @@ class StateMachineArgs(StateMachineConfig):
     """Arguments for the finite state machine."""
 
 
-@from_file(loader=YamlFileLoader, required=False)
+@from_file(loader=YamlFileLoader, required=False, use_field="path")
 class DataCollectionArgs(DemonstrateConfig):
     """Top level arguments for the data collection.
     The structure is similar but not identical to the
@@ -37,6 +37,7 @@ class DataCollectionArgs(DemonstrateConfig):
     for the command line interface.
     """
 
+    path: str = "defaults/config.yaml"
     # the maximum rate for the managers
     # 0 means as fast as possible
     update_rate: int = 0

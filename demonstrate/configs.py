@@ -1,23 +1,25 @@
-from pydantic import BaseModel, computed_field, NonNegativeInt
-from typing import Dict, Any, Tuple, List
+from pydantic import BaseModel, computed_field, NonNegativeInt, NonNegativeFloat
+from typing import Any, Tuple, List, Set, Optional, Union
 from enum import Enum, auto
 from collections import Counter
 from airbot_data_collection.basis import SystemMode
+import os
 
 
 class ComponentRole(Enum):
+    """The role of the component in the group."""
+
+    # the leader of the group
     leader = auto()
     l = auto()
+    # the follower of the group
     follower = auto()
     f = auto()
+    # the other components in the group
+    # e.g. the sensors such as cameras,
+    # imus, tactiles, etc.
     other = auto()
     o = auto()
-
-
-class DataType(Enum):
-    joint_state = auto()
-    pose = auto()
-    image = auto()
 
 
 class AsyncMode(Enum):
@@ -27,8 +29,13 @@ class AsyncMode(Enum):
 
 
 class ComponentConfig(BaseModel):
+    # the name of the component
     name: str
+    # the path or file name of the component hydra config file
+    # if empty, the param must be provided and has a _target_
+    # field to indicate the class to be used
     path: str
+    # the parameters to override the yaml file config
     param: dict
     async_mode: AsyncMode = AsyncMode.none
     update_rate: NonNegativeInt = 0
@@ -59,7 +66,7 @@ class GroupConfig(BaseModel):
 
 
 class ComponentGroupsConfig(BaseModel):
-    # names of the robots, e.g. ("left_arm", "right_arm")
+    # names of the robots, e.g. ("left_arm", "right_arm", "head_camera")
     names: Tuple[str] = ()
     # paths to the robot hydra config yaml files
     paths: Tuple[str]
@@ -70,7 +77,6 @@ class ComponentGroupsConfig(BaseModel):
     # and no less than one follower robot
     groups: Tuple[str] = ()
     roles: Tuple[ComponentRole] = ()
-    types: Tuple[str] = ()
     # indicate the group name from the prefix of the robot name
     # and indicate the role from the suffix of the robot name
     # e.g. "left_arm_leader" will be grouped into "left_arm" and
@@ -240,14 +246,15 @@ class ComponentGroupsConfig(BaseModel):
 
 
 class DatasetConfig(BaseModel):
-    root: str  # root directory of all data
+    root: str = "./data"  # root directory of all data
     # relative directory to the root directory where the data files are stored
     directory: str
-    # the start index number of the data files to be saved
-    start_index: NonNegativeInt = 0
-    # the end index number of the data files to be saved
-    # -1 means not limited
-    end_index: int = -1
+
+    @computed_field
+    @property
+    def absolute_directory(self) -> str:
+        """Returns the absolute directory path."""
+        return os.path.abspath(os.path.join(self.root, self.directory))
 
 
 class DemonstrateAction(str, Enum):
@@ -272,37 +279,76 @@ class DemonstrateState(str, Enum):
 
 
 class AutoControlConfig(BaseModel):
-    groups: Tuple[str] = ()
-    rate: Tuple[NonNegativeInt] = ()
+    # the group names where the leader states
+    # are used to control follower states
+    # None means all group names are used
+    # if empty, the control should be implicitly implemented when
+    # switching to the active / passive mode
+    groups: Optional[Tuple[str]] = None
+    # the rate of the auto control loop for each group
+    # 0 means as fast as possible
+    rate: Tuple[NonNegativeInt] = (0,)
 
 
 class ComponentActionConfig(BaseModel):
-    action: Any = None
-    mode: SystemMode
+    """Which action value and mode to perform for each group
+    when the action is called. The action values and mode will be sent
+    to the leaders unless the to_follower is set to True.
+    """
+
+    groups: Tuple[str]
+    action_names: Tuple[DemonstrateAction]
+    action_values: Tuple[Any]
+    modes: Tuple[SystemMode]
+    to_follower: Tuple[bool]
+
+
+class SampleLimit(BaseModel):
+    # the start round of the data files to be saved
+    start_round: NonNegativeInt = 0
+    # the maximum number of samples
+    # if duration is 0, then the size will be used
+    size: NonNegativeInt = 0
+    # the time duration of the data collection
+    # if size is 0, then the duration will be used
+    duration: NonNegativeFloat = 0.0
+    # the total rounds of sampling
+    # 0 means no limit
+    rounds: NonNegativeInt = 0
 
 
 class DemonstrateConfig(BaseModel):
     components: ComponentGroupsConfig
     dataset: DatasetConfig
-    # the group names where the leader states are used to control follower states
-    # None means all group names are used
-    # if empty, the control should be implicitly implemented when
-    # switching to the active / passive mode
+    sample_limit: SampleLimit = SampleLimit()
     auto_control: AutoControlConfig = AutoControlConfig()
-    # what the leaders to do before performing the actions
-    # for each action and group
-    # reseting means control the leaders to the default state
-    # and the followers will also follow
-    # passive means do nothing
-    # sampling means to stop the passive mode for leaders
-    action_call: Dict[DemonstrateAction, Dict[str, ComponentActionConfig]] = {}
+    # what the leaders / followers to act when
+    # performing an actions for each group
+    # if None, no action values will be sent
+    send_actions: Optional[ComponentActionConfig] = None
     # the sampler to be used to collect and save the data
-    sampler: ComponentConfig
+    # if None, a mock sampler will be used
+    sampler: Optional[ComponentConfig] = None
     # the sampled data will be passed to the visualizers at each update
     visualizers: ComponentsConfig = ComponentsConfig()
     # TODO: should use a dict to set the async mode for
     # other actions, such as remove, abandon, etc?
     async_save: AsyncMode = AsyncMode.none
+    # the directories where the config files are stored
+    search_dirs: Set[str] = {"."}
+
+    def model_post_init(self, context):
+        if self.auto_control.groups is None:
+            self.auto_control.groups = self.components.groups
+        if len(self.auto_control.rate) == 1:
+            self.auto_control.rate = [self.auto_control.rate[0]] * len(
+                self.components.groups
+            )
+        # for action, calls in self.send_actions.items():
+        #     if not isinstance(calls, dict):
+        #         self.send_actions[action] = {
+        #             group: calls for group in self.components.groups
+        #         }
 
 
 if __name__ == "__main__":

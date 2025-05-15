@@ -1,11 +1,11 @@
-from typing import Protocol, final
+from typing import Protocol, final, Optional
 from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSM,
     State,
     DemonstrateAction,
 )
 from airbot_data_collection.basis import ConfigBasis
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from pydantic import BaseModel, NonNegativeInt, NonNegativeFloat
 
 
@@ -24,31 +24,34 @@ class DemonstrateManagerBasis(ConfigBasis):
     def set_fsm(self, fsm: DemonstrateFSM):
         self.fsm = fsm
 
+    @final
+    def configure(self):
+        self.finalized = False
+        return super().configure()
+
+    @final
+    def shutdown(self) -> bool:
+        """Shutdown the manager."""
+        self.finalized = True
+        return self.on_shutdown()
+
     @abstractmethod
     def update(self) -> bool:
         """Update the manager."""
 
     @abstractmethod
-    def shutdown(self) -> bool:
-        """Shutdown the manager."""
-
-
-class SampleLimit(BaseModel):
-    # the maximum number of samples
-    # if duration is 0, then the size will be used
-    size: NonNegativeInt = 0
-    # the time duration of the data collection
-    # if size is 0, then the duration will be used
-    duration: NonNegativeFloat = 0.0
-    # what to do when the maximum number of samples is reached
-    # or the time duration is reached if not both are 0
-    reach_mode: DemonstrateAction = DemonstrateAction.save
-
+    def on_shutdown(self) -> bool:
+        """Callback to be called when shutting down the manager."""
 
 class SelfManagerConfig(BaseModel):
     """Configuration for the self manager."""
-
-    sample_limit: SampleLimit = SampleLimit()
+    # what to do when the maximum number of samples is reached
+    # or the time duration is reached if not both are 0
+    # usually save, abondon or None
+    on_reach: Optional[DemonstrateAction] = DemonstrateAction.save
+    # what to do when the maximum round of samples is reached
+    # usually finish or None
+    on_round_reach: Optional[DemonstrateAction] = DemonstrateAction.finish
 
 
 class SelfManager(DemonstrateManagerBasis):
@@ -61,24 +64,35 @@ class SelfManager(DemonstrateManagerBasis):
     config: SelfManagerConfig
 
     def on_configure(self):
-        self.reach_mode = self.config.sample_limit.reach_mode
+        self.on_reach = self.config.sample_limit.on_reach
+        self.on_round_reach = self.config.sample_limit.on_round_reach
+        self.first_configure = True
+        self.last_state = None
 
     def update(self) -> bool:
         state = self.fsm.get_state()
-        if state is State.sampling:
-            if self.fsm.sample_info.index + 1 >= self.config.sample_limit.size:
+        sample_info = self.fsm.sample_info
+        sample_limit = self.config.sample_limit
+        reached_round = (
+            sample_limit.rounds > 0 and sample_info.round > sample_limit.rounds
+        )
+        if reached_round:
+            self.get_logger().info("Maximum number of rounds reached.")
+            if self.on_round_reach:
+                return self.fsm.act(self.on_round_reach)
+        if state is State.sampling and not reached_round:
+            reached_size = (
+                sample_limit.size > 0 and sample_info.index >= sample_limit.size
+            )
+            reached_duration = False
+            if reached_size or reached_duration:
                 self.get_logger().info("Maximum number of samples reached.")
-                if self.reach_mode is DemonstrateAction.save:
-                    self.get_logger().info("Saving samples.")
-                    return self.fsm.act(DemonstrateAction.save)
-                elif self.reach_mode is DemonstrateAction.abandon:
-                    self.get_logger().info("Abandoning samples.")
-                    return self.fsm.act(DemonstrateAction.abandon)
-                else:
-                    raise ValueError(f"Unsupported reach mode: {self.reach_mode}")
+                if self.on_reach:
+                    return self.fsm.act(self.on_reach)
             else:
                 return self.fsm.act(DemonstrateAction.update)
-        elif state is State.unconfigured:
+        elif state is State.unconfigured and self.first_configure:
+            self.first_configure = False
             self.get_logger().info("Configuring the demonstrate interface.")
             if self.fsm.act(DemonstrateAction.configure):
                 self.get_logger().info("Activating the demonstrate interface.")
@@ -86,9 +100,10 @@ class SelfManager(DemonstrateManagerBasis):
             else:
                 self.get_logger().info("Failed to configure the demonstrate interface.")
                 return False
-        elif state is State.active:
+        else:
             # capture to update the visualizers
             return self.fsm.act(DemonstrateAction.capture)
+        return True
 
-    def shutdown(self) -> bool:
-        return self.fsm.act(DemonstrateAction.finish)
+    def on_shutdown(self) -> bool:
+        return True

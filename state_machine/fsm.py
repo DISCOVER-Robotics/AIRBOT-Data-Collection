@@ -41,3 +41,6 @@ class DemonstrateFSM(StateMachineBasis):
     def last_capture(self) -> dict:
         """Get the last capture."""
         return self.__interface.last_capture
+
+    @property
+    def sample_limit()

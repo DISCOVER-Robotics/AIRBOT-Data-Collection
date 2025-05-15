@@ -1,5 +1,5 @@
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
-import keyboard
+from pynput import keyboard
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from pprint import pformat
 
@@ -15,6 +15,8 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
     def on_configure(self):
         self.print_round()
         self.show_instruction()
+        self.listener = keyboard.Listener(on_press=self.keypress_callback)
+        self.listener.start()
         return True
 
     def update(self):
@@ -83,3 +85,8 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
                 print("Invalid key pressed")
         except Exception as e:
             print("ERROR: ", e)
+
+    def on_shutdown(self):
+        self.listener.stop()
+        self.listener.join(5.0)
+        return self.listener.is_alive()

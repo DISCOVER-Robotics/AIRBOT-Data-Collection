@@ -1,6 +1,6 @@
 from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from airbot_data_collection.basis import SystemMode, System
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel, IPvAnyAddress, PositiveInt
 import time
 

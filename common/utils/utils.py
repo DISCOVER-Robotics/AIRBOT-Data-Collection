@@ -108,5 +108,9 @@ def hydra_instance_from_config_path(config_path: str, params: dict = None):
     return hydra_instance(config)
 
 
+def hydra_instance_from_dict(config: dict):
+    return hydra_instance(DictConfig(config))
+
+
 def capture_timestamp_utc():
     return datetime.now(timezone.utc)

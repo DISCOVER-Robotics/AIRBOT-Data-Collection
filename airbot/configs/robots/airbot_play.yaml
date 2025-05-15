@@ -1,0 +1,5 @@
+_target_: airbot_data_collection.airbot.robots.airbot_play.AIRBOTPlay
+
+url: localhost
+port: 50050
+speed_profile: DEFAULT  # DEFAULT, SLOW, FAST
