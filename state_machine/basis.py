@@ -48,10 +48,10 @@ SourceTransitions = Dict[Action, List[ToDestConfig]]
 
 
 class StateMachineConfig(BaseModel):
-    states: List[State]
-    initial: State
+    states: List[State] = []
+    initial: State = None
     # The action transitions will be added first, then the source transitions.
-    action_transitions: Dict[Action, ActionTransitions]
+    action_transitions: Dict[Action, ActionTransitions] = {}
     # The source transitions will be added after the action transitions.
     # Usually, this is used for the error source state.
     source_transitions: Dict[State, SourceTransitions] = {}
@@ -96,16 +96,18 @@ class StateMachineBasis:
             on_exception=self.on_exception,
             queued=False,
             # finalize_event=
-            **config.model_dump(exclude={"transitions"}),
+            **config.model_dump(
+                exclude={"action_transitions", "source_transitions", "log_level"}
+            ),
         )
-        self.add_action_transitions(config.action_transitions)
-        self.add_source_transitions(config.source_transitions or {})
         self._action_result: Dict[str, bool] = {}
         self._last_state = self.get_state()
         self._last_action = None
         self._action_transitions = defaultdict(lambda: defaultdict(list))
         self._action_calls_raw: Dict[Action, Callable] = {}
         self._action_calls: Dict[str, Callable] = {}
+        self.add_action_transitions(config.action_transitions)
+        self.add_source_transitions(config.source_transitions or {})
 
     def get_logger(self):
         return getLogger(
@@ -159,29 +161,41 @@ class StateMachineBasis:
     ):
         action_name = self.get_action_name(action)
         assert not self.is_action_source_added(action_name, source)
-        not_only_success = not_only_success or []
-        not_only_failure = not_only_failure or []
-        self._action_transitions[action_name][source].extend(
-            success, failure, *not_only_success, *not_only_failure
+        self._add_action_source_transitions(
+            action_name, source, success, not_only_success, "success"
         )
-        to_check = [success, failure]
-        check_fields = ["conditions", "unless"]
-        for to_dest in to_check:
-            for field in check_fields:
-                assert getattr(to_dest, field) is None, f"{field} should be None"
+        self._add_action_source_transitions(
+            action_name, source, failure, not_only_failure, "failure"
+        )
+
+    def _add_action_source_transitions(
+        self,
+        action_name: str,
+        source: State,
+        only: ToDestConfig,
+        not_only: Optional[List[ToDestConfig]] = None,
+        kind: str = "success",
+    ):
+        not_only = not_only or []
+        trans = self._action_transitions[action_name][source]
+        if only:
+            exclude_fields = ["conditions", "unless"]
+            trans.append(only)
+            for field in exclude_fields:
+                assert getattr(only, field) is None, f"{field} should be None"
+        trans.extend(not_only)
         args = (f"t_{action_name}", source)
-        self._add_not_only_transitions(action_name, source, not_only_success, "success")
-        self.machine.add_transition(
-            *args,
-            **success.model_dump(exclude_none=True),
-            conditions=self.is_action_success,
-        )
-        self._add_not_only_transitions(action_name, source, not_only_failure, "failure")
-        self.machine.add_transition(
-            *args,
-            **failure.model_dump(exclude_none=True),
-            unless=self.is_action_success,
-        )
+        self._add_not_only_transitions(action_name, source, not_only, kind)
+        cond_mappin = {
+            "success": "conditions",
+            "failure": "unless",
+        }
+        if only:
+            self.machine.add_transition(
+                *args,
+                **only.model_dump(exclude=exclude_fields),
+                **{cond_mappin[kind]: self.is_action_success},
+            )
 
     def _add_not_only_transitions(
         self, action: str, source: State, to_dests: List[ToDestConfig], kind: str

@@ -1,9 +1,12 @@
-from airbot_data_collection.airbot.robots.airbot_play import AIRBOTPlay
+from airbot_data_collection.airbot.robots.airbot_play import (
+    AIRBOTPlay,
+    AIRBOTPlayConfig,
+)
 
 
 class AIRBOTArmMock:
 
-    def __init__(self, config, **kwargs):
+    def __init__(self, config=None, **kwargs):
         self.value = [0.0] * 6
 
     def get_joint_pos(self):
@@ -30,6 +33,7 @@ class AIRBOTPlayMock(AIRBOTPlay):
     A mock class for AIRBOTPlay.
     """
 
+    config: AIRBOTPlayConfig
     interface: AIRBOTArmMock
 
     def send_action(self, action):

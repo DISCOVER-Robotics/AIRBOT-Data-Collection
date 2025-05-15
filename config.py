@@ -37,11 +37,11 @@ class DataCollectionArgs(DemonstrateConfig):
     for the command line interface.
     """
 
-    path: str = "defaults/config.yaml"
+    path: str
     # the maximum rate for the managers
     # 0 means as fast as possible
     update_rate: int = 0
     # the finite state machine config file path
-    fsm: StateMachineArgs = STATE_MACHINE_CONFIG
+    fsm: StateMachineArgs = STATE_MACHINE_CONFIG.model_dump()
     # managers to control the demonstrate actions
-    managers: ComponentsConfig
+    managers: ComponentsConfig = None

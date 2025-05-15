@@ -2,6 +2,36 @@ from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from pynput import keyboard
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from pprint import pformat
+from pydantic import BaseModel
+from typing import Dict
+from bidict import bidict
+
+
+class KeyboardCallbackConfig(BaseModel):
+    action_key: Dict[Action, str] = {
+        Action.sample: keyboard.Key.space.name,
+        Action.save: "s",
+        Action.abandon: "q",
+        Action.remove: "r",
+        Action.capture: "p",
+        Action.finish: "z",
+    }
+    instruction: Dict[str, str] = {
+        "b": "Back to sample the last round (override the last saved file)",
+        "i": "Show this instruction again",
+    }
+
+    def model_post_init(self, context):
+        action_info = {
+            Action.sample: "Start sampling",
+            Action.save: "Save sampled data in the current round",
+            Action.abandon: "Abandon current sampling without saving",
+            Action.finish: "Finish the current round and save all data",
+            Action.remove: "Remove the last saved episode",
+            Action.capture: "Capture current component observations",
+        }
+        for action, key in self.action_key.items():
+            self.instruction[key] = action_info[action]
 
 
 class KeyboardCallbackManager(DemonstrateManagerBasis):
@@ -12,11 +42,14 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
     current component states, removing the last saved episode, etc.
     """
 
+    config: KeyboardCallbackConfig
+
     def on_configure(self):
         self.print_round()
         self.show_instruction()
         self.listener = keyboard.Listener(on_press=self.keypress_callback)
         self.listener.start()
+        self.key_to_action = bidict(self.config.action_key).inverse
         return True
 
     def update(self):
@@ -29,19 +62,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         This function provides a user-friendly guide to inform the user about the available
         key press actions for controlling the system.
         """
-        self.get_logger().info(
-            pformat(
-                {
-                    "Space Bar": "Start sampling",
-                    "s": "Save sampled data in the current round",
-                    "q": "Abandon current sampling without saving",
-                    "r": "Remove the last saved episode",
-                    "b": "Re-sampling the last round (override the last saved file)",
-                    "p": "Print current component observations",
-                    "i": "Show this instruction again",
-                }
-            )
-        )
+        self.get_logger().info(pformat(self.config.instruction))
 
     def print_round(self):
         self.get_logger().info(f"Current sample round: {self.fsm.sample_info.round}")
@@ -59,34 +80,40 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         Returns:
             None: This function does not return any value.
         """
-        try:
-            if key == keyboard.Key.space:
-                self.fsm.act(Action.sample)
-            elif key.char == "q":
-                self.fsm.act(Action.abandon)
-                self.print_round()
-            elif key.char == "p":
-                self.fsm.act(Action.capture)
-                data = {}
-                # only print low dim data
-                for key, value in self.fsm.last_capture.items():
-                    if "image" not in key and "depth" not in key:
-                        data[key] = value
-                self.get_logger().info(pformat(data))
-            elif key.char == "r":
-                self.fsm.act(Action.remove)
-                self.print_round()
-            elif key.char == "i":
-                self.show_instruction()
-            elif key.char == "s":
-                self.fsm.act(Action.save)
+        key = self._key_to_str(key).lower()
+        action = self.key_to_action.get(key, None)
+        if action is Action.capture:
+            self.fsm.act(action)
+            data = {}
+            # only print low dim data
+            for key, value in self.fsm.last_capture.items():
+                if "image" not in key and "depth" not in key:
+                    data[key] = value
+            self.get_logger().info(pformat(data))
+        elif key == "i":
+            self.show_instruction()
+        elif key == "b":
+            self.get_logger().warning("Not implemented yet")
+        else:
+            if action is not None:
+                self.fsm.act(action)
                 self.print_round()
             else:
-                print("Invalid key pressed")
-        except Exception as e:
-            print("ERROR: ", e)
+                self.get_logger().info(f"Invalid key pressed: {key}")
 
     def on_shutdown(self):
         self.listener.stop()
         self.listener.join(5.0)
         return self.listener.is_alive()
+
+    def _key_to_str(self, key):
+        if isinstance(key, str):
+            return key
+        try:
+            key_char = key.char
+            assert (
+                key_char is not None
+            ), "Uknown key pressed. There may be a situation where the number keys on the numeric keypad cannot be recognized properly."
+        except AttributeError:
+            key_char = str(key)
+        return key_char

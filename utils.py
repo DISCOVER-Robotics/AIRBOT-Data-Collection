@@ -1,5 +1,6 @@
 import os
 from typing import Tuple, List, Optional
+from enum import Enum
 
 
 def find_matching_files(
@@ -8,12 +9,16 @@ def find_matching_files(
     end_with: Tuple[str, ...] = (".yaml", ".yml"),
     strict: bool = False,
     ignore_path: bool = False,
+    ignore_empty: bool = True,
 ) -> List[Optional[str]]:
     # 对于每个 filename，单独搜索
     result: List[Optional[str]] = []
     search_dirs = [os.path.abspath(dir) for dir in search_dirs]
     for name in filenames:
-        if ignore_path and "/" in name:
+        if ignore_empty and not name:
+            result.append(name)
+            continue
+        elif ignore_path and "/" in name:
             assert os.path.exists(name), f"File {os.path.abspath(name)} does not exist."
             result.append(name)
             continue
@@ -38,6 +43,46 @@ def find_matching_files(
                 )
         result.append(found_path)  # None if not found
     return result
+
+
+class ReprEnum(Enum):
+    """
+    Only changes the repr(), leaving str() and format() to the mixed-in type.
+    """
+
+
+class StrEnum(str, ReprEnum):
+    """
+    Enum where members are also (and must be) strings
+    """
+
+    def __new__(cls, *values):
+        "values must already be of type `str`"
+        if len(values) > 3:
+            raise TypeError("too many arguments for str(): %r" % (values,))
+        if len(values) == 1:
+            # it must be a string
+            if not isinstance(values[0], str):
+                raise TypeError("%r is not a string" % (values[0],))
+        if len(values) >= 2:
+            # check that encoding argument is a string
+            if not isinstance(values[1], str):
+                raise TypeError("encoding must be a string, not %r" % (values[1],))
+        if len(values) == 3:
+            # check that errors argument is a string
+            if not isinstance(values[2], str):
+                raise TypeError("errors must be a string, not %r" % (values[2]))
+        value = str(*values)
+        member = str.__new__(cls, value)
+        member._value_ = value
+        return member
+
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        """
+        Return the lower-cased version of the member name.
+        """
+        return name.lower()
 
 
 if __name__ == "__main__":

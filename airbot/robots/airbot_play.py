@@ -1,14 +1,20 @@
 from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from airbot_data_collection.basis import SystemMode, System
 from typing import List
-from pydantic import BaseModel, IPvAnyAddress, PositiveInt
+from pydantic import BaseModel, PositiveInt
 import time
+from typing import Union, Optional
 
 
 class AIRBOTPlayConfig(BaseModel):
-    url: IPvAnyAddress = "localhost"
+    url: str = "localhost"
     port: PositiveInt = 50050
-    speed_profile: SpeedProfile = SpeedProfile.DEFAULT
+    speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.DEFAULT
+
+    def model_post_init(self, context):
+        if isinstance(self.speed_profile, str):
+            self.speed_profile = SpeedProfile[self.speed_profile]
+        assert 5000 < self.port < 500000, f"Please choose a correct port: {self.port}"
 
 
 class AIRBOTPlay(System):
@@ -59,7 +65,6 @@ class AIRBOTPlay(System):
 
     def shutdown(self) -> bool:
         return self.interface.disconnect()
-    
 
 
 if __name__ == "__main__":

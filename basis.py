@@ -15,7 +15,8 @@ class SystemMode(Enum):
 
 class ConfigBasis(ABC):
     def __init__(self, config: Optional[BaseModel] = None, **kwargs) -> None:
-        config_type = self.__annotations__["config"]
+        config_type = self.__annotations__.get("config", None)
+        assert config_type, "config must be annotated at top level class"
         if config is None:
             config = config_type(**kwargs)
         else:

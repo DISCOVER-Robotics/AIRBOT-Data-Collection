@@ -52,7 +52,7 @@ class ComponentsInstancer:
     ) -> Any:
         if isinstance(config, ComponentConfig):
             config.path = find_matching_files(self.search_dirs, (config.path,))[0]
-            ins = hydra_instance_from_config_path(config.path, config.param)
+            ins = self._hydra_instance(config.path, config.param)
             if name_dict:
                 return {config.name: ins}
             else:
@@ -61,14 +61,14 @@ class ComponentsInstancer:
             config.paths = find_matching_files(self.search_dirs, config.paths)
             if name_dict:
                 return {
-                    name: hydra_instance_from_config_path(path, param)
+                    name: self._hydra_instance(path, param)
                     for name, path, param in zip(
                         config.names, config.paths, config.params
                     )
                 }
             else:
                 return [
-                    hydra_instance_from_config_path(path, param)
+                    self._hydra_instance(path, param)
                     for path, param in zip(config.paths, config.params)
                 ]
 
@@ -101,7 +101,7 @@ class DemonstrateInterface:
             others = [self.instancer.instance(other) for other in group.others]
             self.groups.append(
                 DemonstrateGroup(
-                    group.name,
+                    name=group.name,
                     leader=leader,
                     followers=followers,
                     others=others,
@@ -333,12 +333,8 @@ class DemonstrateInterface:
         if self.sample_info.round > 0:
             if self.save_future is not None:
                 if not self.save_future.done():
-                    self.get_logger().warning(
-                        "Waiting for the last sample to be saved before removing (30s)"
-                    )
-                    if not self.save_future.result(30):
-                        self.get_logger().error("Failed to save the last sampled data")
-                        return False
+                    if not self.save_future.cancel():
+                        self.get_logger().error("Failed to cancel the saving task")
             self.sampler.remove()
             self.sample_info.round -= 1
             self.sample_info.index = 0

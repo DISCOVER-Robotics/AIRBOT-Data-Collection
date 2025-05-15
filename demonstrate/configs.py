@@ -1,12 +1,14 @@
 from pydantic import BaseModel, computed_field, NonNegativeInt, NonNegativeFloat
-from typing import Any, Tuple, List, Set, Optional, Union
+from typing import Any, List, Set, Optional, Union
 from enum import Enum, auto
 from collections import Counter
 from airbot_data_collection.basis import SystemMode
 import os
+from ast import literal_eval
+from airbot_data_collection.utils import StrEnum
 
 
-class ComponentRole(Enum):
+class ComponentRole(StrEnum):
     """The role of the component in the group."""
 
     # the leader of the group
@@ -22,7 +24,7 @@ class ComponentRole(Enum):
     o = auto()
 
 
-class AsyncMode(Enum):
+class AsyncMode(StrEnum):
     thread = auto()
     process = auto()
     none = auto()
@@ -30,23 +32,23 @@ class AsyncMode(Enum):
 
 class ComponentConfig(BaseModel):
     # the name of the component
-    name: str
+    name: str = ""
     # the path or file name of the component hydra config file
     # if empty, the param must be provided and has a _target_
     # field to indicate the class to be used
-    path: str
+    path: str = ""
     # the parameters to override the yaml file config
-    param: dict
+    param: dict = {}
     async_mode: AsyncMode = AsyncMode.none
     update_rate: NonNegativeInt = 0
 
 
 class ComponentsConfig(BaseModel):
-    names: Tuple[str] = ()
-    paths: Tuple[str] = ()
-    params: Tuple[dict] = ()
-    async_modes: Tuple[AsyncMode] = ()
-    update_rates: Tuple[NonNegativeInt] = ()
+    names: List[str] = []
+    paths: List[str] = []
+    params: List[dict] = []
+    async_modes: List[AsyncMode] = []
+    update_rates: List[NonNegativeInt] = []
 
     def get_component(self, name: str) -> ComponentConfig:
         index = self.names.index(name)
@@ -61,22 +63,22 @@ class ComponentsConfig(BaseModel):
 class GroupConfig(BaseModel):
     name: str
     leader: ComponentConfig
-    followers: Tuple[ComponentConfig]
-    others: Tuple[ComponentConfig] = ()
+    followers: List[ComponentConfig]
+    others: List[ComponentConfig] = []
 
 
 class ComponentGroupsConfig(BaseModel):
     # names of the robots, e.g. ("left_arm", "right_arm", "head_camera")
-    names: Tuple[str] = ()
+    names: List[str] = []
     # paths to the robot hydra config yaml files
-    paths: Tuple[str]
+    paths: List[str]
     # params to override the robot config in the yaml file
-    params: Tuple[dict] = ()
+    params: List[Union[str, dict]] = []
     # the groups to which the robot belongs,
     # each group must have one and only one leader robot
     # and no less than one follower robot
-    groups: Tuple[str] = ()
-    roles: Tuple[ComponentRole] = ()
+    groups: List[str] = []
+    roles: List[ComponentRole] = []
     # indicate the group name from the prefix of the robot name
     # and indicate the role from the suffix of the robot name
     # e.g. "left_arm_leader" will be grouped into "left_arm" and
@@ -102,6 +104,9 @@ class ComponentGroupsConfig(BaseModel):
         assert name_length == len(
             self.params
         ), "names and params must have the same length"
+        self.params = [
+            literal_eval(param) for param in self.params if isinstance(param, str)
+        ]
         group_num = len(self.groups)
         role_num = len(self.roles)
         if group_num == 1:
@@ -129,7 +134,7 @@ class ComponentGroupsConfig(BaseModel):
                     self.groups = []
                     leader_cnt = 0
                     # e.g. [l, f, f, l, f, f] will be grouped info [0, 0, 0, 1, 1, 1]
-                    assert self.roles[-1] not in {
+                    assert self.roles[-1] in {
                         ComponentRole.f,
                         ComponentRole.follower,
                     }, "the last role must be a follower"
@@ -205,7 +210,7 @@ class ComponentGroupsConfig(BaseModel):
 
     @computed_field
     @property
-    def grouped_config(self) -> Tuple[GroupConfig]:
+    def grouped_config(self) -> List[GroupConfig]:
         """
         Returns a set of grouped configs.
         """
@@ -257,7 +262,7 @@ class DatasetConfig(BaseModel):
         return os.path.abspath(os.path.join(self.root, self.directory))
 
 
-class DemonstrateAction(str, Enum):
+class DemonstrateAction(StrEnum):
     configure = auto()
     activate = auto()
     capture = auto()
@@ -269,7 +274,7 @@ class DemonstrateAction(str, Enum):
     finish = auto()
 
 
-class DemonstrateState(str, Enum):
+class DemonstrateState(StrEnum):
     error = auto()
     unconfigured = auto()
     inactive = auto()
@@ -284,10 +289,10 @@ class AutoControlConfig(BaseModel):
     # None means all group names are used
     # if empty, the control should be implicitly implemented when
     # switching to the active / passive mode
-    groups: Optional[Tuple[str]] = None
+    groups: Optional[List[str]] = None
     # the rate of the auto control loop for each group
     # 0 means as fast as possible
-    rate: Tuple[NonNegativeInt] = (0,)
+    rate: List[NonNegativeInt] = [0]
 
 
 class ComponentActionConfig(BaseModel):
@@ -296,11 +301,11 @@ class ComponentActionConfig(BaseModel):
     to the leaders unless the to_follower is set to True.
     """
 
-    groups: Tuple[str]
-    action_names: Tuple[DemonstrateAction]
-    action_values: Tuple[Any]
-    modes: Tuple[SystemMode]
-    to_follower: Tuple[bool]
+    groups: List[str] = []
+    action_names: List[DemonstrateAction] = []
+    action_values: List[Any] = []
+    modes: List[SystemMode] = []
+    to_follower: List[bool] = []
 
 
 class SampleLimit(BaseModel):

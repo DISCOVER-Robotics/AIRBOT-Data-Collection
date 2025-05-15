@@ -2,7 +2,11 @@ from airbot_data_collection.common.utils.utils import init_logging
 from airbot_data_collection.demonstrate.interface import ComponentsInstancer
 from logging import getLogger
 from airbot_data_collection.config import DataCollectionArgs
-from airbot_data_collection.state_machine.fsm import DemonstrateFSM, DemonstrateState
+from airbot_data_collection.state_machine.fsm import (
+    DemonstrateFSM,
+    DemonstrateState,
+    DemonstrateFSMConfig,
+)
 from airbot_data_collection.managers.basis import DemonstrateManager
 from typing import Dict
 import time
@@ -14,14 +18,16 @@ if __name__ == "__main__":
 
     from argdantic import ArgParser
 
-    cli = ArgParser("Demonstrate and collect data.")
+    cli = ArgParser("Demonstrate and collect data")
 
     @cli.command(singleton=True)
     def main(config: DataCollectionArgs):
         """
         The main manager of data collection.
         """
-        fsm = DemonstrateFSM(config.fsm)
+        fsm = DemonstrateFSM(
+            DemonstrateFSMConfig(state_machine=config.fsm, interface=config)
+        )
         instancer = ComponentsInstancer(config.search_dirs)
         managers: Dict[str, DemonstrateManager] = instancer.instance(
             config.managers, True
@@ -41,7 +47,7 @@ if __name__ == "__main__":
                     if not manager.update():
                         logger.error(f"Failed to update manager: {name}.")
                 if fsm.get_state() is DemonstrateState.finalized:
-                    logger.info("Demonstration finished.")
+                    logger.info("Data collection finished.")
                     break
                 if interval > 0:
                     sleep_time = interval - (time.perf_counter() - start_time)

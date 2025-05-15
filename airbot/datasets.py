@@ -72,8 +72,11 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         """Save the data to a BSON file."""
         return save_bson(
             self.config.schema,
-            os.path.join(directory, f"{round}.bson"),
+            self.compose_path(directory, round),
         )
+
+    def compose_path(self, directory, round) -> str:
+        return os.path.join(directory, f"{round}.bson")
 
 
 if __name__ == "__main__":

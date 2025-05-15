@@ -23,11 +23,7 @@ class DemonstrateManagerBasis(ConfigBasis):
     @final
     def set_fsm(self, fsm: DemonstrateFSM):
         self.fsm = fsm
-
-    @final
-    def configure(self):
         self.finalized = False
-        return super().configure()
 
     @final
     def shutdown(self) -> bool:
@@ -70,6 +66,7 @@ class SelfManager(DemonstrateManagerBasis):
         self.on_reach_round = self.config.on_reach_round
         self.first_configure = True
         self.last_state = None
+        return True
 
     def update(self) -> bool:
         state = self.fsm.get_state()

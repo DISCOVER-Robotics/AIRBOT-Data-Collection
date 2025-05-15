@@ -2,6 +2,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
 from airbot_data_collection.basis import ConfigBasis
+import shutil
 
 
 @runtime_checkable
@@ -14,8 +15,9 @@ class DataSampler(Protocol):
     def extend(self, data) -> None: ...
     def clear(self) -> None: ...
     def pop(self, index: int = -1) -> Any: ...
-    def save(self, number: int) -> bool: ...
-    def remove(self, path: Optional[str] = None) -> None: ...
+    def save(self, directory: str, number: int) -> bool: ...
+    def remove(self, directory: str, round: int) -> bool: ...
+
 
 class DictDataSampler(ConfigBasis):
     """Data sampler for sampling dict-like data."""
@@ -49,9 +51,17 @@ class DictDataSampler(ConfigBasis):
     def save(self, directory: str, round: int) -> bool:
         """Save the data by the given number."""
 
-    @abstractmethod
-    def remove(self, path: Optional[str] = None) -> bool:
+    def remove(self, directory: str, round: int) -> bool:
         """Remove the data from the given or last saved path."""
+        try:
+            shutil.rmtree(self.compose_path(directory, round))
+            return True
+        except OSError as e:
+            self.get_logger().error(e.strerror)
+            return False
+
+    @abstractmethod
+    def compose_path(self, directory: str, round: int) -> str: ...
 
 
 class MockDataSampler:

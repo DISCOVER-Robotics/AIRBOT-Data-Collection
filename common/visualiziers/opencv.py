@@ -59,6 +59,9 @@ class OpenCVisualizer(GUIVisualizer):
             cv2.imshow("info", image)
         cv2.waitKey(1)
 
+    def shutdown(self):
+        cv2.destroyAllWindows()
+
     def _put_info(self, image: np.ndarray, info: SampleInfo) -> None:
         """Put the current episode and step information on the image.
 
