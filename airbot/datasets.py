@@ -4,12 +4,13 @@ from numpy import ndarray
 from airbot_data.io import save_bson
 import os
 from pydantic import BaseModel
+import time
 
 
 class AIRBOTDataSamplerConfig(BaseModel):
     schema: dict = {
         "id": "734ad1c8-66ee-4479-b3cb-41d16c9b2e22",
-        "timestamp": 1734076528859,
+        "timestamp": time.time(),
         "metadata": {
             "driver_version": "1.0.0",
             "operator": "manual",
@@ -33,7 +34,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         self.config.schema["data"] = self._data
 
     def append(self, data: Dict[str, Union[List[float], ndarray]]):
-        if not self.topics:
+        if not self.topics:  # TODO: howt to configure?
             for key, value in data.items():
                 prefix, data_type = key.rsplit("/", 1)
                 if data_type in {"joint_state" "pose"}:
@@ -55,7 +56,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                         "distortion_params": None,
                         "intrinsics": None,
                         "fov": 120.0,
-                        "start_time": 1733377253041,
+                        "start_time": time.time(),
                     }
                 elif data_type == "depth_image":
                     raise NotImplementedError

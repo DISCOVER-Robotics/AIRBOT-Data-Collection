@@ -313,8 +313,17 @@ class SampleLimit(BaseModel):
     # if size is 0, then the duration will be used
     duration: NonNegativeFloat = 0.0
     # the total rounds of sampling
+    # if end_round is 0, then the rounds will be used
+    # end_round = start_round + rounds
     # 0 means no limit
     rounds: NonNegativeInt = 0
+    # the end round of sampling
+    # 0 means no limit
+    end_round: NonNegativeInt = 0
+
+    def model_post_init(self, context):
+        if self.end_round == 0 and self.rounds > 0:
+            self.end_round = self.start_round + self.rounds
 
 
 class DemonstrateConfig(BaseModel):

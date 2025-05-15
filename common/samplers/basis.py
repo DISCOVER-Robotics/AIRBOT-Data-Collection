@@ -1,4 +1,3 @@
-from pydantic import BaseModel
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Any, Dict, Optional, Protocol, runtime_checkable
@@ -17,9 +16,6 @@ class DataSampler(Protocol):
     def pop(self, index: int = -1) -> Any: ...
     def save(self, number: int) -> bool: ...
     def remove(self, path: Optional[str] = None) -> None: ...
-    @property
-    def data(self) -> Any: ...
-
 
 class DictDataSampler(ConfigBasis):
     """Data sampler for sampling dict-like data."""
@@ -56,11 +52,6 @@ class DictDataSampler(ConfigBasis):
     @abstractmethod
     def remove(self, path: Optional[str] = None) -> bool:
         """Remove the data from the given or last saved path."""
-
-    @property
-    def data(self) -> Any:
-        """Return the data."""
-        return self._data
 
 
 class MockDataSampler:

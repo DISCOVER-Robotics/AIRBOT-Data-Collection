@@ -1,5 +1,5 @@
 import cv2
-from airbot_data_collection.basis import (
+from airbot_data_collection.common.visualiziers.basis import (
     GUIVisualizer,
     GUIVisualizerConfig,
     SampleInfo,

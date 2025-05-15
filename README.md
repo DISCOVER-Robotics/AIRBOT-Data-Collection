@@ -7,4 +7,6 @@ python3 main.py --components.names left_arm_leader left_arm \
                 --dataset.start-round 0 \
                 --auto-control.rate 100 \
                 --update_rate 20 \
+                --sample-limit.start-round 0 \
+                --sample-limit.size 1000
 ```

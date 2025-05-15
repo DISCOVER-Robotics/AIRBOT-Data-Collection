@@ -3,4 +3,18 @@ sampler:
   path: ""
   params:
     _target_: airbot_data_collection.samplers.bson_sampler.BsonSampler
-    
+
+managers:
+  names: [self_manager, keyboard]
+  paths: ["", ""]
+  params:
+    - _target_: airbot_data_collection.managers.basis.SelfManager
+    - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+
+visualizers:
+  names: [opencv]
+  paths: ["", ""]
+  params:
+    - _target_: airbot_data_collection.common.visualiziers.opencv.OpenCVisualizer
+      width: 640
+      height: 480

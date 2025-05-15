@@ -117,7 +117,8 @@ class DemonstrateInterface:
             self.group_map[group.name] = self.groups[-1]
         self.control_lock = Lock()
         self.finished = False
-        self.sample_info = SampleInfo(round=self.config.sample_limit.start_round)
+        sample_limit = self.config.sample_limit
+        self.sample_info = SampleInfo(round=sample_limit.start_round)
         if config.async_save == AsyncMode.thread:
             self.save_executor = ThreadPoolExecutor(
                 max_workers=1,
@@ -397,5 +398,5 @@ class DemonstrateInterface:
 
     @property
     def is_reached_round(self) -> bool:
-        limit = self.config.sample_limit
-        return limit.rounds > 0 and self.sample_info.round > limit.rounds
+        end_round = self.config.sample_limit.end_round
+        return end_round > 0 and self.sample_info.round > end_round
