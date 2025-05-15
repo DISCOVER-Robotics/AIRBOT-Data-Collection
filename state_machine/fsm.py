@@ -43,4 +43,11 @@ class DemonstrateFSM(StateMachineBasis):
         return self.__interface.last_capture
 
     @property
-    def sample_limit()
+    def is_reached(self) -> bool:
+        """Check if the maximum number of samples is reached."""
+        return self.__interface.is_reached
+
+    @property
+    def is_reached_round(self) -> bool:
+        """Check if the maximum number of rounds is reached."""
+        return self.__interface.is_reached_round

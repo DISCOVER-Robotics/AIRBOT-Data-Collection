@@ -6,7 +6,7 @@ from airbot_data_collection.state_machine.fsm import (
 )
 from airbot_data_collection.basis import ConfigBasis
 from abc import abstractmethod
-from pydantic import BaseModel, NonNegativeInt, NonNegativeFloat
+from pydantic import BaseModel
 
 
 class DemonstrateManager(Protocol):
@@ -43,15 +43,17 @@ class DemonstrateManagerBasis(ConfigBasis):
     def on_shutdown(self) -> bool:
         """Callback to be called when shutting down the manager."""
 
+
 class SelfManagerConfig(BaseModel):
     """Configuration for the self manager."""
+
     # what to do when the maximum number of samples is reached
     # or the time duration is reached if not both are 0
     # usually save, abondon or None
     on_reach: Optional[DemonstrateAction] = DemonstrateAction.save
     # what to do when the maximum round of samples is reached
     # usually finish or None
-    on_round_reach: Optional[DemonstrateAction] = DemonstrateAction.finish
+    on_reach_round: Optional[DemonstrateAction] = DemonstrateAction.finish
 
 
 class SelfManager(DemonstrateManagerBasis):
@@ -64,29 +66,21 @@ class SelfManager(DemonstrateManagerBasis):
     config: SelfManagerConfig
 
     def on_configure(self):
-        self.on_reach = self.config.sample_limit.on_reach
-        self.on_round_reach = self.config.sample_limit.on_round_reach
+        self.on_reach = self.config.on_reach
+        self.on_reach_round = self.config.on_reach_round
         self.first_configure = True
         self.last_state = None
 
     def update(self) -> bool:
         state = self.fsm.get_state()
-        sample_info = self.fsm.sample_info
-        sample_limit = self.config.sample_limit
-        reached_round = (
-            sample_limit.rounds > 0 and sample_info.round > sample_limit.rounds
-        )
+        reached_round = self.fsm.is_reached_round
         if reached_round:
             self.get_logger().info("Maximum number of rounds reached.")
-            if self.on_round_reach:
-                return self.fsm.act(self.on_round_reach)
+            if self.on_reach_round:
+                return self.fsm.act(self.on_reach_round)
         if state is State.sampling and not reached_round:
-            reached_size = (
-                sample_limit.size > 0 and sample_info.index >= sample_limit.size
-            )
-            reached_duration = False
-            if reached_size or reached_duration:
-                self.get_logger().info("Maximum number of samples reached.")
+            if self.fsm.is_reached:
+                self.get_logger().info("Sample limitation reached.")
                 if self.on_reach:
                     return self.fsm.act(self.on_reach)
             else:
