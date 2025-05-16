@@ -21,6 +21,11 @@ airbot_fsm -i can0 -p 50050
 airbot_fsm -i can1 -p 50051
 ```
 
+Enter the package directory:
+```bash
+cd airbot_data_collection
+```
+
 Then run the datacollection program:
 
 ```bash
