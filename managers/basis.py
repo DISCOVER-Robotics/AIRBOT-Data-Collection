@@ -1,4 +1,4 @@
-from typing import Protocol, final, Optional
+from typing import Protocol, final, Optional, runtime_checkable
 from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSM,
     State,
@@ -8,7 +8,7 @@ from airbot_data_collection.basis import ConfigBasis
 from abc import abstractmethod
 from pydantic import BaseModel
 
-
+@runtime_checkable
 class DemonstrateManager(Protocol):
     def configure(self) -> bool: ...
     def on_configure(self) -> bool: ...

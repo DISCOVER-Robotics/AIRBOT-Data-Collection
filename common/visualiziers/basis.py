@@ -1,4 +1,4 @@
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 from abc import abstractmethod
 from pydantic import BaseModel, NonNegativeInt
 from airbot_data_collection.basis import ConfigBasis
@@ -39,6 +39,7 @@ class GUIVisualizer(ConfigBasis):
     def shutdown(self) -> None: ...
 
 
+@runtime_checkable
 class Visualizer(Protocol):
     """Visualizer for visualizing the data."""
 

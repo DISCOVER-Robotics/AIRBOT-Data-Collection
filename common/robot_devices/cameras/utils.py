@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import cv2
 import einops
@@ -51,6 +51,7 @@ def convert_torch_image_to_cv2(tensor, rgb_to_bgr=True):
 
 
 # Defines a camera type
+@runtime_checkable
 class Camera(Protocol):
     def connect(self): ...
     def read(self, temporary_color: str | None = None) -> np.ndarray: ...
