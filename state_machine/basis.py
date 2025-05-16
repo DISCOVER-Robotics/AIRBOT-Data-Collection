@@ -238,7 +238,10 @@ class StateMachineBasis:
 
     def act(self, action: Action) -> bool:
         """Act the action and return the result."""
-        return self.trigger(f"t_{self.get_action_name(action)}")
+        if not self.trigger(f"t_{self.get_action_name(action)}"):
+            self.get_logger().warning(f"Action failed: {action}")
+            return False
+        return True
 
     def prepare_event(self, event_data: EventData):
         """Prepare the action."""

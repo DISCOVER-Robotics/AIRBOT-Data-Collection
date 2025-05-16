@@ -312,18 +312,20 @@ class DemonstrateInterface:
         async_save = self.config.async_save
         sample_round = self.sample_info.round
         directory = self.config.dataset.absolute_directory
+        show_info = lambda: self.get_logger().info(
+            f"Saved round {sample_round} successfully"
+        )
         if async_save != AsyncMode.none:
             self.save_future = self.save_executor.submit(
                 self.sampler.save, directory, sample_round
             )
-            self.save_future.add_done_callback(
-                lambda f: self.get_logger().info(
-                    f"Saved {sample_round} data successfully"
-                )
-            )
+            self.save_future.add_done_callback(show_info)
         else:
             if not self.sampler.save(directory, sample_round):
+                self.get_logger().error(f"Failed to save round: {sample_round}")
                 return False
+            else:
+                show_info()
         self.sample_info.round += 1
         self.sample_info.index = 0
         return self._post_action(DemonstrateAction.save)
@@ -336,7 +338,7 @@ class DemonstrateInterface:
                     if not self.save_future.cancel():
                         self.get_logger().error("Failed to cancel the saving task")
             self.sampler.remove()
-            self.sample_info.round -= 1
+            self.sample_info.round = max(0, self.sample_info.round - 1)
             self.sample_info.index = 0
         else:
             self.get_logger().warning("No data saved before")

@@ -7,6 +7,7 @@ from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSMConfig,
 )
 from airbot_data_collection.managers.basis import DemonstrateManager
+from airbot_data_collection.utils import init_logging
 from typing import Dict
 import time
 
@@ -15,8 +16,12 @@ if __name__ == "__main__":
     import logging
     from argdantic import ArgParser
 
-    logging.basicConfig(level=logging.INFO)
+    init_logging(logging.INFO)
     logger = getLogger("airbot_data_collection")
+
+    from airbot_data_collection.common.visualiziers.opencv import prepare_cv2_imshow
+
+    prepare_cv2_imshow(logger)
 
     cli = ArgParser("Demonstrate and collect data")
 

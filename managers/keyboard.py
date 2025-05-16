@@ -21,6 +21,9 @@ class KeyboardCallbackConfig(BaseModel):
         "b": "Back to sample the last round (override the last saved file)",
         "i": "Show this instruction again",
     }
+    key_mapping: Dict[str, str] = {
+        keyboard.Key.esc.name: "z",
+    }
 
     def model_post_init(self, context):
         action_info = {
@@ -81,7 +84,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             None: This function does not return any value.
         """
         key = self._key_to_str(key).lower()
-        action = self.key_to_action.get(key, None)
+        action = self.key_to_action.get(self.config.key_mapping.get(key, key), None)
         if action is Action.capture:
             self.fsm.act(action)
             data = {}

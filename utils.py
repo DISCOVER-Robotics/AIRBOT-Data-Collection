@@ -1,6 +1,7 @@
 import os
 from typing import Tuple, List, Optional
 from enum import Enum
+import logging
 
 
 def find_matching_files(
@@ -83,6 +84,39 @@ class StrEnum(str, ReprEnum):
         Return the lower-cased version of the member name.
         """
         return name.lower()
+
+
+class CustomFormatter(logging.Formatter):
+
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "[%(levelname)s] %(asctime)s %(name)s %(message)s (%(filename)s:%(lineno)d)"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset,
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+
+def init_logging(level):
+    logging.basicConfig(level=level)
+    ch = logging.StreamHandler()
+    # ch.setLevel(level)
+    ch.setFormatter(CustomFormatter())
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    logging.root.addHandler(ch)
 
 
 if __name__ == "__main__":

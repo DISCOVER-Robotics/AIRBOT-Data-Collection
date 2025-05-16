@@ -7,6 +7,25 @@ from airbot_data_collection.common.visualiziers.basis import (
 import numpy as np
 from typing import Union, Iterable, Dict, Tuple
 from pydantic import BaseModel
+import logging
+
+
+def prepare_cv2_imshow(logger: logging.Logger):
+
+    logger.info("Preparing cv2.imshow")
+    image = np.zeros((480, 640, 3), np.uint8)
+
+    def show_image(name):
+        logger.info(f"Showing {name}")
+        for _ in range(1):
+            cv2.imshow(name, image)
+            cv2.waitKey(1)
+        logger.info(f"{name} is ready")
+        cv2.destroyAllWindows()
+
+    show_image("Main image")
+
+    logger.info("cv2.imshow is ready")
 
 
 class OpenCVisualizerConfig(GUIVisualizerConfig):
@@ -46,20 +65,20 @@ class OpenCVisualizer(GUIVisualizer):
         info: SampleInfo,
     ) -> None:
         """ "Show the data on the OpenCV window."""
-        # # TODO: add concatenation for the data
-        # if isinstance(data, np.ndarray):
-        #     cv2.imshow(self.config.title, data)
-        # elif isinstance(data, dict):
-        #     for key, value in data.items():
-        #         if "color" in key:
-        #             cv2.imshow(f"{key}", value)
-        # else:
-        #     for i, value in enumerate(data):
-        #         cv2.imshow(f"{i}", value)
-        # if not self.config.ignore_info:
-        #     image = self._put_info(self.info_image.copy(), info)
-        #     cv2.imshow("info", image)
-        # cv2.waitKey(1)
+        # TODO: add concatenation for the data
+        if isinstance(data, np.ndarray):
+            cv2.imshow(self.config.title, data)
+        elif isinstance(data, dict):
+            for key, value in data.items():
+                if "color" in key:
+                    cv2.imshow(f"{key}", value)
+        else:
+            for i, value in enumerate(data):
+                cv2.imshow(f"{i}", value)
+        if not self.config.ignore_info:
+            image = self._put_info(self.info_image.copy(), info)
+            cv2.imshow("info", image)
+        cv2.waitKey(1)
         return True
 
     def shutdown(self):
