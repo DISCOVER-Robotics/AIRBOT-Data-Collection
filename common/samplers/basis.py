@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Any, Dict, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, Protocol, runtime_checkable
 from airbot_data_collection.basis import ConfigBasis
-import shutil
+import os
 
 
 @runtime_checkable
@@ -13,8 +13,9 @@ class DataSampler(Protocol):
     def on_configure(self) -> bool: ...
     def append(self, data) -> None: ...
     def clear(self) -> None: ...
-    def save(self, directory: str, number: int) -> bool: ...
-    def remove(self, directory: str, round: int) -> bool: ...
+    def save(self, path: str) -> bool: ...
+    def remove(self, path: str) -> bool: ...
+    def compose_path(self, directory: str, round: int) -> str: ...
 
     # def extend(self, data) -> None: ...
     # def pop(self, index: int = -1) -> Any: ...
@@ -49,16 +50,20 @@ class DictDataSampler(ConfigBasis):
         return popd
 
     @abstractmethod
-    def save(self, directory: str, round: int) -> bool:
+    def save(self, path: str) -> bool:
         """Save the data by the given number."""
 
-    def remove(self, directory: str, round: int) -> bool:
+    def remove(self, path: str) -> bool:
         """Remove the data from the given or last saved path."""
-        try:
-            shutil.rmtree(self.compose_path(directory, round))
-            return True
-        except OSError as e:
-            self.get_logger().error(e.strerror)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                return True
+            except OSError as e:
+                self.get_logger().error(e.strerror)
+                return False
+        else:
+            self.get_logger().warning(f"Path {path} does not exist.")
             return False
 
     @abstractmethod
@@ -86,8 +91,11 @@ class MockDataSampler:
     def pop(self, index: int = -1) -> Any:
         return None
 
-    def save(self, number: int) -> bool:
+    def save(self, path: str) -> bool:
         return True
 
-    def remove(self, path: Optional[str] = None) -> bool:
+    def remove(self, path: str) -> bool:
         return True
+
+    def compose_path(self, directory: str, round: int) -> str:
+        return os.path.join(directory, f"mock_{round}.data")

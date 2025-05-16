@@ -2,7 +2,6 @@ from airbot_data_collection.demonstrate.configs import (
     DemonstrateConfig,
     AsyncMode,
     DemonstrateAction,
-    GroupsSendActionConfig,
     ComponentRole,
     ComponentConfig,
     ComponentsConfig,
@@ -25,7 +24,7 @@ import time
 from threading import Lock, Thread
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from collections import defaultdict
-from airbot_data_collection.utils import find_matching_files
+from airbot_data_collection.utils import find_matching_files, bcolors
 
 
 class GroupComponentNames(BaseModel):
@@ -268,6 +267,9 @@ class DemonstrateInterface:
             self.get_logger().warning("Maximum number of rounds reached.")
         # set the mode for leaders to passive
         elif self._set_leaders_mode(SystemMode.PASSIVE):
+            self.get_logger().info(
+                bcolors.OKBLUE + f"Start sampling round: {self.sample_info.round}"
+            )
             return True
         return False
 
@@ -307,41 +309,48 @@ class DemonstrateInterface:
             info.index += 1
             return True
 
+    def _show_save_info(self, path: str, flag: bool) -> bool:
+        if flag:
+            self.get_logger().info(bcolors.OKGREEN + f"Saved to {path}")
+        else:
+            self.get_logger().error(f"Failed to save to {path}")
+        return flag
+
     def save(self) -> None:
         """Save the sampled data and be ready for the next round."""
         async_save = self.config.async_save
-        sample_round = self.sample_info.round
-        directory = self.config.dataset.absolute_directory
-        show_info = lambda: self.get_logger().info(
-            f"Saved round {sample_round} successfully"
+        path = self.sampler.compose_path(
+            self.config.dataset.absolute_directory, self.sample_info.round
         )
         if async_save != AsyncMode.none:
-            self.save_future = self.save_executor.submit(
-                self.sampler.save, directory, sample_round
+            self.save_future = self.save_executor.submit(self.sampler.save, path)
+            self.save_future.add_done_callback(
+                lambda f: self._show_save_info(path, f.result())
             )
-            self.save_future.add_done_callback(show_info)
         else:
-            if not self.sampler.save(directory, sample_round):
-                self.get_logger().error(f"Failed to save round: {sample_round}")
+            if not self._show_save_info(path, self.sampler.save(path)):
                 return False
-            else:
-                show_info()
         self.sample_info.round += 1
         self.sample_info.index = 0
         return self._post_action(DemonstrateAction.save)
 
     def remove(self) -> bool:
         """Remove the last round saved sample."""
-        if self.sample_info.round > 0:
+        last_round = self.sample_info.round - 1
+        if last_round >= 0:
+            path = self.sampler.compose_path(
+                self.config.dataset.absolute_directory, last_round
+            )
             if self.save_future is not None:
                 if not self.save_future.done():
                     if not self.save_future.cancel():
                         self.get_logger().error("Failed to cancel the saving task")
-            self.sampler.remove()
-            self.sample_info.round = max(0, self.sample_info.round - 1)
+            self.sampler.remove(path)
+            self.sample_info.round -= 1
             self.sample_info.index = 0
+            self.get_logger().info(bcolors.OKGREEN + f"Removed {path}")
         else:
-            self.get_logger().warning("No data saved before")
+            self.get_logger().warning("Not ever saved yet")
         return True
 
     def abandon(self) -> bool:
@@ -358,6 +367,9 @@ class DemonstrateInterface:
         for group in self.groups:
             for component in group.leader, *group.followers, *group.others:
                 component.shutdown()
+        self.get_logger().info(
+            f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info}"
+        )
         return True
 
     def capture_by_role(self, role: ComponentRole) -> Dict[str, Dict[str, Any]]:

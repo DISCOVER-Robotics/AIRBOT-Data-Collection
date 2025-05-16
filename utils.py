@@ -4,6 +4,18 @@ from enum import Enum
 import logging
 
 
+class bcolors:
+    MAGENTA = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
+
 def find_matching_files(
     search_dirs: Tuple[str, ...],
     filenames: Tuple[str, ...],
@@ -93,7 +105,9 @@ class CustomFormatter(logging.Formatter):
     red = "\x1b[31;20m"
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
-    format = "[%(levelname)s] %(asctime)s %(name)s %(message)s (%(filename)s:%(lineno)d)"
+    format = (
+        "[%(levelname)s] %(asctime)s %(name)s: %(message)s (%(filename)s:%(lineno)d)"
+    )
 
     FORMATS = {
         logging.DEBUG: grey + format + reset,

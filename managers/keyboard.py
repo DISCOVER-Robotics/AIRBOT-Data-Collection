@@ -1,6 +1,7 @@
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
-from pynput import keyboard
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
+from airbot_data_collection.utils import bcolors
+from pynput import keyboard
 from pprint import pformat
 from pydantic import BaseModel
 from typing import Dict
@@ -65,7 +66,9 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         This function provides a user-friendly guide to inform the user about the available
         key press actions for controlling the system.
         """
-        self.get_logger().info(f" \n{pformat(self.config.instruction)}")
+        self.get_logger().info(
+            bcolors.OKCYAN + f" \n{pformat(self.config.instruction)}"
+        )
 
     def print_round(self):
         self.get_logger().info(f"Current sample round: {self.fsm.sample_info.round}")
@@ -92,7 +95,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             for key, value in self.fsm.last_capture.items():
                 if "image" not in key and "depth" not in key:
                     data[key] = value
-            self.get_logger().info(f":\n{pformat(data)}")
+            self.get_logger().info(bcolors.OKBLUE + f":\n{pformat(data)}")
         elif key == "i":
             self.show_instruction()
         elif key == "b":
