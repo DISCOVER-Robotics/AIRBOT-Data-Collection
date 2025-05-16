@@ -3,9 +3,9 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "your_package"
+name = "airbot_data_collection"
 version = "0.1.0"
-description = "A short description of your package"
+description = "AIRBOT Data Collection"
 authors = [
     { name="OpenGHz", email="your.email@example.com" }
 ]
