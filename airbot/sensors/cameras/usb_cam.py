@@ -17,11 +17,17 @@ class USBCamera(Sensor):
     A class to represent a USB camera using OpenCV.
     """
 
-    config: OpenCVCameraConfig
+    config: USBCameraConfig
     interface: OpenCVCamera
 
     def on_configure(self):
-        return self.interface.connect()
+        self.interface.connect()
+        if self.interface.is_connected:
+            self.get_logger().info(
+                f"Camera info: fps: {self.interface.fps} width: {self.interface.width} height: {self.interface.height}"
+            )
+            return True
+        return False
 
     def capture_observation(self):
         return {

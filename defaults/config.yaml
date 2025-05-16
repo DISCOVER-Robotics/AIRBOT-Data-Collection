@@ -8,7 +8,7 @@ visualizers:
   names: [opencv]
   paths: ["", ""]
   params:
-    - _target_: airbot_data_collection.common.visualiziers.opencv.OpenCVisualizer
+    - _target_: airbot_data_collection.airbot.visualiziers.opencv.AIRBOTBsonOpenCVisualizer
       width: 640
       height: 480
 

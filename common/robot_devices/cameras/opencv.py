@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Thread
+from typing import Union
 
 import numpy as np
 from PIL import Image
@@ -51,7 +52,9 @@ def find_camera_indices(
         possible_camera_ids = range(max_index_search_range)
 
     if mock:
-        from tests.mock_cv2 import VideoCapture
+        from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
+            VideoCapture,
+        )
     else:
         from cv2 import VideoCapture
 
@@ -217,7 +220,10 @@ class OpenCVCamera:
     """
 
     def __init__(
-        self, camera_index: int, config: OpenCVCameraConfig | None = None, **kwargs
+        self,
+        camera_index: Union[int, str],
+        config: OpenCVCameraConfig | None = None,
+        **kwargs,
     ):
         if config is None:
             config = OpenCVCameraConfig()
@@ -246,7 +252,7 @@ class OpenCVCamera:
             )
 
         if self.mock:
-            from tests.mock_cv2 import (
+            from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
                 CAP_PROP_FPS,
                 CAP_PROP_FRAME_HEIGHT,
                 CAP_PROP_FRAME_WIDTH,
@@ -264,12 +270,13 @@ class OpenCVCamera:
             # Use 1 thread to avoid blocking the main thread. Especially useful during data collection
             # when other threads are used to save the images.
             setNumThreads(1)
-
-        camera_idx = (
-            f"/dev/video{self.camera_index}"
-            if platform.system() == "Linux"
-            else self.camera_index
-        )
+        camera_idx = self.camera_index
+        if isinstance(camera_idx, int):
+            camera_idx = (
+                f"/dev/video{self.camera_index}"
+                if platform.system() == "Linux"
+                else self.camera_index
+            )
         # First create a temporary camera trying to access `camera_index`,
         # and verify it is a valid camera by calling `isOpened`.
         tmp_camera = VideoCapture(camera_idx)
@@ -278,17 +285,7 @@ class OpenCVCamera:
         tmp_camera.release()
         del tmp_camera
 
-        # If the camera doesn't work, display the camera indices corresponding to
-        # valid cameras.
         if not is_camera_open:
-            # Verify that the provided `camera_index` is valid before printing the traceback
-            available_cam_ids = find_camera_indices()
-            if self.camera_index not in available_cam_ids:
-                raise ValueError(
-                    f"`camera_index` is expected to be one of these available cameras {available_cam_ids}, but {self.camera_index} is provided instead. "
-                    "To find the camera index you should use, run `python lerobot/common/robot_devices/cameras/opencv.py`."
-                )
-
             raise OSError(f"Can't access OpenCVCamera({camera_idx}).")
 
         # Secondly, create the camera that will be used downstream.
@@ -363,7 +360,10 @@ class OpenCVCamera:
         # so we convert the image color from BGR to RGB.
         if requested_color_mode == "rgb":
             if self.mock:
-                from tests.mock_cv2 import COLOR_BGR2RGB, cvtColor
+                from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
+                    COLOR_BGR2RGB,
+                    cvtColor,
+                )
             else:
                 from cv2 import COLOR_BGR2RGB, cvtColor
 

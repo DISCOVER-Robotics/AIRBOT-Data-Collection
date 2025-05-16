@@ -8,6 +8,7 @@ from airbot_data_collection.basis import ConfigBasis
 from abc import abstractmethod
 from pydantic import BaseModel
 
+
 @runtime_checkable
 class DemonstrateManager(Protocol):
     def configure(self) -> bool: ...
@@ -66,6 +67,7 @@ class SelfManager(DemonstrateManagerBasis):
         self.on_reach_round = self.config.on_reach_round
         self.first_configure = True
         self.last_state = None
+        self.failed_capture = False
         return True
 
     def update(self) -> bool:
@@ -91,9 +93,14 @@ class SelfManager(DemonstrateManagerBasis):
             else:
                 self.get_logger().info("Failed to configure the demonstrate interface.")
                 return False
-        else:
+        elif (
+            state not in {State.unconfigured, State.inactive}
+            and not self.failed_capture
+        ):
             # capture to update the visualizers
-            assert self.fsm.act(DemonstrateAction.capture)
+            if not self.fsm.act(DemonstrateAction.capture):
+                self.failed_capture = True
+                return False
         return True
 
     def on_shutdown(self) -> bool:

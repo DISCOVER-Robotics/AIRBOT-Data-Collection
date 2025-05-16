@@ -33,7 +33,7 @@ def find_camera_indices(raise_when_empty=True, mock=False) -> list[int]:
     connected to the computer.
     """
     if mock:
-        from tests.mock_pyrealsense2 import (
+        from airbot_data_collection.common.robot_devices.cameras.mock_pyrealsense2 import (
             RSCameraInfo,
             RSContext,
         )
@@ -84,7 +84,10 @@ def save_images_from_cameras(
         camera_ids = find_camera_indices(mock=mock)
 
     if mock:
-        from tests.mock_cv2 import COLOR_RGB2BGR, cvtColor
+        from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
+            COLOR_RGB2BGR,
+            cvtColor,
+        )
     else:
         from cv2 import COLOR_RGB2BGR, cvtColor
 
@@ -273,7 +276,7 @@ class IntelRealSenseCamera:
             )
 
         if self.mock:
-            from tests.mock_pyrealsense2 import (
+            from airbot_data_collection.common.robot_devices.cameras.mock_pyrealsense2 import (
                 RSConfig,
                 RSFormat,
                 RSPipeline,
@@ -395,7 +398,10 @@ class IntelRealSenseCamera:
         # IntelRealSense uses RGB format as default (red, green, blue).
         if requested_color_mode == "bgr":
             if self.mock:
-                from tests.mock_cv2 import COLOR_RGB2BGR, cvtColor
+                from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
+                    COLOR_RGB2BGR,
+                    cvtColor,
+                )
             else:
                 from cv2 import COLOR_RGB2BGR, cvtColor
 

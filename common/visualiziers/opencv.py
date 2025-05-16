@@ -70,8 +70,7 @@ class OpenCVisualizer(GUIVisualizer):
             cv2.imshow(self.config.title, data)
         elif isinstance(data, dict):
             for key, value in data.items():
-                if "color" in key:
-                    cv2.imshow(f"{key}", value)
+                cv2.imshow(f"{key}", value)
         else:
             for i, value in enumerate(data):
                 cv2.imshow(f"{i}", value)
