@@ -159,6 +159,13 @@ class DemonstrateInterface:
 
     def _auto_control_loop(self):
         """Control the followers to follow the leader."""
+        # TODO: There should be a way to stop the followering
+        # enven the leader is moving, since some leaders can
+        # not be stopped / fixed
+        # maybe an action named stop_auto_control can be used
+        # to stop the auto control at any state
+        # or maybe if the send control is to follower, then the
+        # auto control will be automatically stopped
         period = 1 / self.config.auto_control.rate[0]
         while not self.deactivated:
             start = time.perf_counter()
@@ -259,6 +266,13 @@ class DemonstrateInterface:
                     return False
         return True
 
+    def _get_sample_suffix(self, group_name: str, component_name: str, key: str) -> str:
+        # TODO: should allow component_name to be empty?
+        if component_name:
+            return f"{group_name}/{component_name}/{key}"
+        else:
+            return f"{group_name}/{key}"
+
     def sample(self) -> bool:
         """
         Start to sample the data (switch the leaders mode to passive)
@@ -276,15 +290,19 @@ class DemonstrateInterface:
     def capture(self) -> Dict[str, Any]:
         # TODO: can be called when sampling?
         data = {}
-        for group in self.groups:
+        for group, all_names in zip(self.groups, self.group_component_names):
             action = group.leader.capture_observation()
-            get_suffix = lambda key: f"{group.name}/{key}"
+            get_suffix = lambda name, key: self._get_sample_suffix(
+                group.name, name, key
+            )
             for key, value in action.items():
-                data[f"/action/{get_suffix(key)}"] = value
-            for component in group.followers + group.others:
+                data[f"/action/{get_suffix(all_names.leader, key)}"] = value
+            for component, name in zip(
+                group.followers + group.others, all_names.followers + all_names.others
+            ):
                 observation = component.capture_observation()
                 for key, value in observation.items():
-                    data[f"/obervation/{get_suffix(key)}"] = value
+                    data[f"/obervation/{get_suffix(name, key)}"] = value
         self.last_capture = data
         # update the visualizers
         for name, visualizer in self.visualizers.items():

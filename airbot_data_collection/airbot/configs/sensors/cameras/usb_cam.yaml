@@ -1,8 +1,7 @@
 _target_: airbot_data_collection.airbot.sensors.cameras.usb_cam.USBCamera
 camera_index: 0
-config:
-  fps: null
-  width: 640
-  height: 480
-  color_mode: rgb
-  mock: false
+fps: null
+width: 640
+height: 480
+color_mode: rgb
+mock: false

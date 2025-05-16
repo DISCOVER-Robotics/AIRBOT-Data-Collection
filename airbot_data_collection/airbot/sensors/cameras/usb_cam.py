@@ -3,13 +3,7 @@ from airbot_data_collection.common.robot_devices.cameras.opencv import (
     OpenCVCameraConfig,
 )
 from airbot_data_collection.basis import Sensor
-from pydantic import BaseModel, NonNegativeInt
 from airbot_data_collection.utils import get_stamp_ms
-
-
-class USBCameraConfig(BaseModel):
-    camera_index: NonNegativeInt = 0
-    config: OpenCVCameraConfig = OpenCVCameraConfig()
 
 
 class USBCamera(Sensor):
@@ -17,7 +11,7 @@ class USBCamera(Sensor):
     A class to represent a USB camera using OpenCV.
     """
 
-    config: USBCameraConfig
+    config: OpenCVCameraConfig
     interface: OpenCVCamera
 
     def on_configure(self):
@@ -39,12 +33,3 @@ class USBCamera(Sensor):
 
     def shutdown(self):
         return self.interface.disconnect()
-
-
-if __name__ == "__main__":
-    # Example usage
-    camera = USBCamera(USBCameraConfig())
-    camera.configure()
-    print("Camera configured:", camera)
-    camera.shutdown()
-    print("Camera shut down.")

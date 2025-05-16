@@ -14,27 +14,56 @@ pip install -e . -i https://mirrors.huaweicloud.com/repository/pypi/simple
 
 # Usage
 
-Start AIRBOT FSM fisrt:
+Enter the package directory:
+```bash
+cd airbot_data_collection
+```
+
+Start AIRBOT FSMs first:
+
+One leader arm and one follower:
 
 ```bash
 airbot_fsm -i can0 -p 50050
 airbot_fsm -i can1 -p 50051
 ```
 
-Enter the package directory:
+Two leader arms and two follower arms
+
 ```bash
-cd airbot_data_collection
+airbot_fsm -i can0 -p 50050
+airbot_fsm -i can1 -p 50051
+airbot_fsm -i can2 -p 50052
+airbot_fsm -i can3 -p 50053
 ```
 
-Then run the datacollection program:
+Then run the data collection program:
+
+One leader arm, one follower arm and one usb camera case:
 
 ```bash
 python3 main.py --path defaults/config.yaml \
-                --components.names arm_leader arm left_camera \
+                --components.names arm_leader arm camera \
                 --components.paths airbot_play airbot_play usb_cam \
                 --components.params '{}' '{"port": 50051}' '{"camera_index": 0}' \
                 --components.roles l f o \
                 --components.groups left left left \
+                --dataset.directory example_task \
+                --auto-control.rate 100 \
+                --update-rate 20 \
+                --sample-limit.start-round 0 \
+                --sample-limit.size 1000
+```
+
+Two leader arms, two follower arms and three usb cameras case:
+
+```bash
+python3 main.py --path defaults/config.yaml \
+                --components.names left_arm_leader left_arm left_camera right_arm_leader right_arm right_camera head_camera \
+                --components.paths airbot_play airbot_play usb_cam airbot_play airbot_play usb_cam usb_cam \
+                --components.params '{}' '{"port": 50051}' '{"camera_index": 0}' '{"port": 50052}' '{"port": 50053}' '{"camera_index": 2}' '{"camera_index": 4}' \
+                --components.roles l f o l f o o \
+                --components.groups left left left right right right right \
                 --dataset.directory example_task \
                 --auto-control.rate 100 \
                 --update-rate 20 \

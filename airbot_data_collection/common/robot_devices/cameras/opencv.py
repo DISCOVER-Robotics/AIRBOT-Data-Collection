@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Thread
-from typing import Union
+from typing import Union, Optional
 import numpy as np
 from airbot_data_collection.common.robot_devices.utils import (
     RobotDeviceAlreadyConnectedError,
@@ -83,9 +83,10 @@ class OpenCVCameraConfig:
     ```
     """
 
-    fps: int | None = None
-    width: int | None = None
-    height: int | None = None
+    camera_index: Union[int, str] = 0
+    fps: Optional[int] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
     color_mode: str = "rgb"
     mock: bool = False
 
@@ -137,7 +138,6 @@ class OpenCVCamera:
 
     def __init__(
         self,
-        camera_index: Union[int, str],
         config: OpenCVCameraConfig | None = None,
         **kwargs,
     ):
@@ -147,7 +147,7 @@ class OpenCVCamera:
         # Overwrite config arguments using kwargs
         config = replace(config, **kwargs)
 
-        self.camera_index = camera_index
+        self.camera_index = config.camera_index
         self.fps = config.fps
         self.width = config.width
         self.height = config.height

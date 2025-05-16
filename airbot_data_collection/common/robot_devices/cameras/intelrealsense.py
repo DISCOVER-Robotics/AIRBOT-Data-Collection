@@ -2,27 +2,19 @@
 This file contains utilities for recording frames from Intel Realsense cameras.
 """
 
-import argparse
-import concurrent.futures
-import logging
 import math
-import shutil
 import threading
 import time
 import traceback
 from dataclasses import dataclass, replace
-from pathlib import Path
 from threading import Thread
-
 import numpy as np
-from PIL import Image
-
 from airbot_data_collection.common.robot_devices.utils import (
     RobotDeviceAlreadyConnectedError,
     RobotDeviceNotConnectedError,
-    busy_wait,
 )
 from airbot_data_collection.common.utils.utils import capture_timestamp_utc
+from typing import Optional
 
 SERIAL_NUMBER_INDEX = 1
 
@@ -54,105 +46,6 @@ def find_camera_indices(raise_when_empty=True, mock=False) -> list[int]:
     return camera_ids
 
 
-def save_image(img_array, camera_idx, frame_index, images_dir):
-    try:
-        img = Image.fromarray(img_array)
-        path = images_dir / f"camera_{camera_idx}_frame_{frame_index:06d}.png"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        img.save(str(path), quality=100)
-        logging.info(f"Saved image: {path}")
-    except Exception as e:
-        logging.error(
-            f"Failed to save image for camera {camera_idx} frame {frame_index}: {e}"
-        )
-
-
-def save_images_from_cameras(
-    images_dir: Path,
-    camera_ids: list[int] | None = None,
-    fps=None,
-    width=None,
-    height=None,
-    record_time_s=2,
-    mock=False,
-):
-    """
-    Initializes all the cameras and saves images to the directory. Useful to visually identify the camera
-    associated to a given camera index.
-    """
-    if camera_ids is None:
-        camera_ids = find_camera_indices(mock=mock)
-
-    if mock:
-        from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
-            COLOR_RGB2BGR,
-            cvtColor,
-        )
-    else:
-        from cv2 import COLOR_RGB2BGR, cvtColor
-
-    print("Connecting cameras")
-    cameras = []
-    for cam_idx in camera_ids:
-        camera = IntelRealSenseCamera(
-            cam_idx, fps=fps, width=width, height=height, mock=mock
-        )
-        camera.connect()
-        print(
-            f"IntelRealSenseCamera({camera.camera_index}, fps={camera.fps}, width={camera.width}, height={camera.height}, color_mode={camera.color_mode})"
-        )
-        cameras.append(camera)
-
-    images_dir = Path(images_dir)
-    if images_dir.exists():
-        shutil.rmtree(
-            images_dir,
-        )
-    images_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"Saving images to {images_dir}")
-    frame_index = 0
-    start_time = time.perf_counter()
-    try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            while True:
-                now = time.perf_counter()
-
-                for camera in cameras:
-                    # If we use async_read when fps is None, the loop will go full speed, and we will end up
-                    # saving the same images from the cameras multiple times until the RAM/disk is full.
-                    image = camera.read() if fps is None else camera.async_read()
-                    if image is None:
-                        print("No Frame")
-
-                    bgr_converted_image = cvtColor(image, COLOR_RGB2BGR)
-
-                    executor.submit(
-                        save_image,
-                        bgr_converted_image,
-                        camera.camera_index,
-                        frame_index,
-                        images_dir,
-                    )
-
-                if fps is not None:
-                    dt_s = time.perf_counter() - now
-                    busy_wait(1 / fps - dt_s)
-
-                if time.perf_counter() - start_time > record_time_s:
-                    break
-
-                print(
-                    f"Frame: {frame_index:04d}\tLatency (ms): {(time.perf_counter() - now) * 1000:.2f}"
-                )
-
-                frame_index += 1
-    finally:
-        print(f"Images have been saved to {images_dir}")
-        for camera in cameras:
-            camera.disconnect()
-
-
 @dataclass
 class IntelRealSenseCameraConfig:
     """
@@ -167,9 +60,10 @@ class IntelRealSenseCameraConfig:
     ```
     """
 
-    fps: int | None = None
-    width: int | None = None
-    height: int | None = None
+    camera_index: Optional[int] = None
+    fps: Optional[int] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
     color_mode: str = "rgb"
     use_depth: bool = False
     force_hardware_reset: bool = True
@@ -242,7 +136,6 @@ class IntelRealSenseCamera:
 
     def __init__(
         self,
-        camera_index: int,
         config: IntelRealSenseCameraConfig | None = None,
         **kwargs,
     ):
@@ -252,7 +145,7 @@ class IntelRealSenseCamera:
         # Overwrite the config arguments using kwargs
         config = replace(config, **kwargs)
 
-        self.camera_index = camera_index
+        self.camera_index = config.camera_index
         self.fps = config.fps
         self.width = config.width
         self.height = config.height
@@ -496,48 +389,3 @@ class IntelRealSenseCamera:
     def __del__(self):
         if getattr(self, "is_connected", False):
             self.disconnect()
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Save a few frames using `IntelRealSenseCamera` for all cameras connected to the computer, or a selected subset."
-    )
-    parser.add_argument(
-        "--camera-ids",
-        type=int,
-        nargs="*",
-        default=None,
-        help="List of camera indices used to instantiate the `IntelRealSenseCamera`. If not provided, find and use all available camera indices.",
-    )
-    parser.add_argument(
-        "--fps",
-        type=int,
-        default=30,
-        help="Set the number of frames recorded per seconds for all cameras. If not provided, use the default fps of each camera.",
-    )
-    parser.add_argument(
-        "--width",
-        type=str,
-        default=640,
-        help="Set the width for all cameras. If not provided, use the default width of each camera.",
-    )
-    parser.add_argument(
-        "--height",
-        type=str,
-        default=480,
-        help="Set the height for all cameras. If not provided, use the default height of each camera.",
-    )
-    parser.add_argument(
-        "--images-dir",
-        type=Path,
-        default="outputs/images_from_intelrealsense_cameras",
-        help="Set directory to save a few frames for each camera.",
-    )
-    parser.add_argument(
-        "--record-time-s",
-        type=float,
-        default=2.0,
-        help="Set the number of seconds used to record the frames. By default, 2 seconds.",
-    )
-    args = parser.parse_args()
-    save_images_from_cameras(**vars(args))

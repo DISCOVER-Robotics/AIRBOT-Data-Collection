@@ -3,13 +3,7 @@ from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
     IntelRealSenseCameraConfig,
 )
 from airbot_data_collection.basis import Sensor
-from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.utils import get_stamp_ms
-
-
-class RealSenseConfig(BaseModel):
-    camera_index: PositiveInt
-    config: IntelRealSenseCameraConfig = IntelRealSenseCameraConfig()
 
 
 class RealSense(Sensor):
@@ -17,7 +11,7 @@ class RealSense(Sensor):
     A class to represent a USB camera using OpenCV.
     """
 
-    config: RealSenseConfig
+    config: IntelRealSenseCameraConfig
     interface: IntelRealSenseCamera
 
     def on_configure(self):
@@ -40,12 +34,3 @@ class RealSense(Sensor):
 
     def shutdown(self):
         return self.interface.disconnect()
-
-
-if __name__ == "__main__":
-    # Example usage
-    camera = RealSense(RealSenseConfig(camera_index=1))
-    camera.configure()
-    print("Camera configured:", camera)
-    camera.shutdown()
-    print("Camera shut down.")
