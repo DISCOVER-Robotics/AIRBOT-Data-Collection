@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "airbot_data_collection"
+name = "airbot-data-collection"
 version = "0.1.0"
 description = "AIRBOT Data Collection"
 authors = [
@@ -11,6 +11,7 @@ authors = [
 ]
 readme = "README.md"
 license = { text = "MIT" }
+requires-python = ">=3.9"
 dependencies = [
     "omegaconf >=2.3.0",
     "hydra-core >=1.3.2",
@@ -24,5 +25,6 @@ dependencies = [
     "pyrealsense2"
 ]
 
-[tool.setuptools]
-packages = ["airbot_data_collection"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["airbot_data_collection*"]
