@@ -1,21 +1,17 @@
 from airbot_data_collection.common.samplers.basis import DictDataSampler
+from airbot_data_collection.utils import get_stamp_ms
 from typing import Dict, List, Union
 from numpy import ndarray
 from airbot_data.io import save_bson
 import os
 from pydantic import BaseModel
-import time
 from pathlib import Path
-
-
-def get_stamp() -> int:
-    return int(time.time() * 1e3)
 
 
 class AIRBOTDataSamplerConfig(BaseModel):
     data_schema: dict = {
         "id": "734ad1c8-66ee-4479-b3cb-41d16c9b2e22",
-        "timestamp": get_stamp(),
+        "timestamp": get_stamp_ms(),
         "metadata": {
             "driver_version": "1.0.0",
             "operator": "manual",
@@ -39,7 +35,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         self.config.data_schema["data"] = self._data
         return True
 
-    def append(self, data: Dict[str, Union[List[float], ndarray]]):
+    def append(self, data: Dict[str, Dict[str, Union[ndarray, List[float]]]]):
         if not self.topics:  # TODO: howt to configure?
             for key, value in data.items():
                 prefix, data_type = key.rsplit("/", 1)
@@ -51,7 +47,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                         "firmware_version": "0.0.0",
                     }
                 elif data_type == "color_image":
-                    h, w = value.shape[:2]
+                    h, w = value["data"].shape[:2]
                     self.topics[key] = {
                         "description": "DSJ-2062-309",
                         "type": "image",
@@ -62,7 +58,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                         "distortion_params": None,
                         "intrinsics": None,
                         "fov": 120.0,
-                        "start_time": get_stamp(),
+                        "start_time": get_stamp_ms(),
                     }
                 elif data_type == "depth_image":
                     raise NotImplementedError

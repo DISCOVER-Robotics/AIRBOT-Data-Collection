@@ -3,8 +3,8 @@ from airbot_data_collection.common.robot_devices.cameras.opencv import (
     OpenCVCameraConfig,
 )
 from airbot_data_collection.basis import Sensor
-import time
 from pydantic import BaseModel, NonNegativeInt
+from airbot_data_collection.utils import get_stamp_ms
 
 
 class USBCameraConfig(BaseModel):
@@ -32,7 +32,7 @@ class USBCamera(Sensor):
     def capture_observation(self):
         return {
             "camera/color_image": {
-                "t": time.time(),
+                "t": get_stamp_ms(),
                 "data": self.interface.read(),
             }
         }

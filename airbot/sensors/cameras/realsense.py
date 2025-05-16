@@ -3,8 +3,8 @@ from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
     IntelRealSenseCameraConfig,
 )
 from airbot_data_collection.basis import Sensor
-import time
 from pydantic import BaseModel, PositiveInt
+from airbot_data_collection.utils import get_stamp_ms
 
 
 class RealSenseConfig(BaseModel):
@@ -33,7 +33,7 @@ class RealSense(Sensor):
             obs["camera/color_image"] = output
         for key, value in obs.items():
             obs[key] = {
-                "t": time.time(),
+                "t": get_stamp_ms(),
                 "data": value,
             }
         return obs

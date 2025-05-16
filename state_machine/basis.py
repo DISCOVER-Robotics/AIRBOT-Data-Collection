@@ -59,7 +59,7 @@ class StateMachineConfig(BaseModel):
     # that are not valid for the present state (e.g., calling an
     # a_to_b() trigger when the current state is c) will be silently
     # ignored rather than raising an invalid transition exception.
-    ignore_invalid_triggers: bool = False
+    ignore_invalid_triggers: bool = True
     # If a name is set, it will be used as a prefix for logger output
     name: Optional[str] = None
     # # When True, processes transitions sequentially. A trigger

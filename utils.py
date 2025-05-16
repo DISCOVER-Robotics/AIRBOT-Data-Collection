@@ -2,6 +2,11 @@ import os
 from typing import Tuple, List, Optional
 from enum import Enum
 import logging
+import time
+
+
+def get_stamp_ms() -> int:
+    return int(time.time() * 1e3)
 
 
 class bcolors:

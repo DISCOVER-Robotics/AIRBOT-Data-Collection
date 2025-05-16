@@ -201,7 +201,7 @@ class DemonstrateInterface:
         return True
 
     def activate(self) -> bool:
-        # set the mode for followers
+        # set the followers to reseting mode to move smoothly
         if self._set_followers_mode(SystemMode.RESETING):
             # TODO: control until the joint positions are near the leader
             self._auto_control()
@@ -357,6 +357,9 @@ class DemonstrateInterface:
         """Abandon the current round of sampling."""
         self.sampler.clear()
         self.sample_info.index = 0
+        self.get_logger().info(
+            bcolors.OKGREEN + f"Abandoned the current round: {self.sample_info.round}"
+        )
         return self._post_action(DemonstrateAction.abandon)
 
     def finish(self) -> bool:

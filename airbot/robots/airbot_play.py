@@ -4,6 +4,7 @@ from typing import List
 from pydantic import BaseModel, PositiveInt
 import time
 from typing import Union, Optional
+from airbot_data_collection.utils import get_stamp_ms
 
 
 class AIRBOTPlayConfig(BaseModel):
@@ -21,7 +22,10 @@ class AIRBOTPlay(System):
     config: AIRBOTPlayConfig
     interface: AIRBOTArm
 
-    def send_action(self, action: List[float]) -> None:
+    def send_action(self, action: Union[List[float], dict]) -> None:
+        if isinstance(action, dict):
+            # TODO: should make this a abs method?
+            action = self.observation_to_action(action)
         mode = self.interface.get_control_mode()
         if mode is RobotMode.SERVO_JOINT_POS:
             self.interface.servo_joint_pos(action[:6])
@@ -40,13 +44,16 @@ class AIRBOTPlay(System):
         return True
 
     def on_configure(self) -> bool:
+        self.get_logger().info(
+            f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
+        )
         return self.interface.connect()
 
     def capture_observation(self) -> dict:
         """key: component kind / data type"""
         return {
             "arm/joint_state": {
-                "t": time.time(),
+                "t": get_stamp_ms(),
                 "data": {
                     "pos": self.interface.get_joint_pos(),
                     "vel": self.interface.get_joint_vel(),
@@ -54,10 +61,10 @@ class AIRBOTPlay(System):
                 },
             },
             "eef/joint_state": {
-                "t": time.time(),
+                "t": get_stamp_ms(),
                 "data": {
                     "pos": self.interface.get_eef_pos(),
-                    "vel": self.interface.get_eef_vel(),
+                    "vel": [0.0] * 6,
                     "eff": self.interface.get_eef_eff(),
                 },
             },
@@ -65,6 +72,13 @@ class AIRBOTPlay(System):
 
     def shutdown(self) -> bool:
         return self.interface.disconnect()
+
+    def observation_to_action(self, obs: dict) -> List[float]:
+        """Convert the observation to final action"""
+        action = []
+        for kind in ["arm", "eef"]:
+            action.extend(obs[f"{kind}/joint_state"]["data"]["pos"])
+        return action
 
 
 if __name__ == "__main__":
