@@ -70,7 +70,7 @@ class StateMachineConfig(BaseModel):
     # A callable called on for each triggered event after transitions have been processed.
     # This is also called when a transition raises an exception.
     finalize_event: SMCallable = None
-    log_level: LogLevel = LogLevel.info
+    log_level: LogLevel = LogLevel.warning
     # # A callable called on for before possible transitions will be processed.
     # # It receives the very same args as normal callbacks.
     # prepare_event: Callable = None
@@ -88,13 +88,14 @@ class StateMachineConfig(BaseModel):
 class StateMachineBasis:
 
     def __init__(self, config: StateMachineConfig):
-        logging.getLogger("transitions").setLevel(LogLevel.get(config.log_level))
+        getLogger("transitions").setLevel(LogLevel.get(config.log_level))
         self.machine = LockedMachine(
             self,
             before_state_change=self.before_state_change,
             prepare_event=self.prepare_event,
             on_exception=self.on_exception,
             queued=False,
+            send_event=True,
             # finalize_event=
             **config.model_dump(
                 exclude={"action_transitions", "source_transitions", "log_level"}
@@ -110,9 +111,7 @@ class StateMachineBasis:
         self.add_source_transitions(config.source_transitions or {})
 
     def get_logger(self):
-        return getLogger(
-            f"{self.__class__.__name__}.{self.machine.name}".removesuffix(".")
-        )
+        return getLogger("transitions").getChild(self.__class__.__name__)
 
     def add_action_transitions(
         self, action_transitions: Dict[Action, ActionTransitions]
@@ -244,12 +243,15 @@ class StateMachineBasis:
     def prepare_event(self, event_data: EventData):
         """Prepare the action."""
         action = self._get_action_from_event(event_data)
+        self.get_logger().info(
+            f"Excuting action: {action} in state: {self.get_state()}"
+        )
         self._action_result[action] = self._call_action(action)
         self._last_action = action
 
     def before_state_change(self, event_data: EventData):
         """Prepare the state."""
-        self._last_state = self.state
+        self._last_state = self.get_state()
 
     def _get_action_from_event(self, event_data: EventData) -> str:
         return event_data.event.name.removeprefix("t_")
@@ -261,9 +263,9 @@ class StateMachineBasis:
         else:
             return getattr(self, action)()
 
-    def is_action_success(self, event_data: EventData) -> Any:
+    def is_action_success(self, event_data: EventData) -> bool:
         """Check if the action is success."""
-        return self._action_result[self._get_action_from_event(event_data)]
+        return bool(self._action_result[self._get_action_from_event(event_data)])
 
     def get_last_action(self) -> str:
         """Get the last action."""

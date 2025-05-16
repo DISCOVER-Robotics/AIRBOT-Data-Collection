@@ -1,4 +1,3 @@
-from airbot_data_collection.common.utils.utils import init_logging
 from airbot_data_collection.demonstrate.interface import ComponentsInstancer
 from logging import getLogger
 from airbot_data_collection.config import DataCollectionArgs
@@ -13,10 +12,11 @@ import time
 
 
 if __name__ == "__main__":
-    init_logging()
-    logger = getLogger("airbot_data_collection")
-
+    import logging
     from argdantic import ArgParser
+
+    logging.basicConfig(level=logging.INFO)
+    logger = getLogger("airbot_data_collection")
 
     cli = ArgParser("Demonstrate and collect data")
 
@@ -41,7 +41,9 @@ if __name__ == "__main__":
         # start updating the managers
         # TODO: 基于async io实现分频异步更新？
         try:
+            cnt = 0
             while True:
+                # while (cnt := cnt + 1) < 3:
                 start_time = time.perf_counter()
                 for name, manager in managers.items():
                     if not manager.update():
@@ -50,7 +52,8 @@ if __name__ == "__main__":
                     logger.info("Data collection finished.")
                     break
                 if interval > 0:
-                    sleep_time = interval - (time.perf_counter() - start_time)
+                    cost_time = time.perf_counter() - start_time
+                    sleep_time = interval - cost_time
                     if sleep_time > 0:
                         time.sleep(sleep_time)
                     elif sleep_time < 0:

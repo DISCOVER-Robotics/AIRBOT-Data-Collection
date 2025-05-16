@@ -5,6 +5,7 @@ from pprint import pformat
 from pydantic import BaseModel
 from typing import Dict
 from bidict import bidict
+from enum import Enum
 
 
 class KeyboardCallbackConfig(BaseModel):
@@ -52,9 +53,8 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         self.key_to_action = bidict(self.config.action_key).inverse
         return True
 
-    def update(self):
-        # do nothing
-        pass
+    def update(self) -> bool:
+        return True
 
     def show_instruction(self) -> None:
         """Displays the instructions for the key press actions.
@@ -62,7 +62,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         This function provides a user-friendly guide to inform the user about the available
         key press actions for controlling the system.
         """
-        self.get_logger().info(pformat(self.config.instruction))
+        self.get_logger().info(f" \n{pformat(self.config.instruction)}")
 
     def print_round(self):
         self.get_logger().info(f"Current sample round: {self.fsm.sample_info.round}")
@@ -89,31 +89,39 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             for key, value in self.fsm.last_capture.items():
                 if "image" not in key and "depth" not in key:
                     data[key] = value
-            self.get_logger().info(pformat(data))
+            self.get_logger().info(f":\n{pformat(data)}")
         elif key == "i":
             self.show_instruction()
         elif key == "b":
             self.get_logger().warning("Not implemented yet")
+        elif key in {"ctrl", "c"}:
+            pass
         else:
             if action is not None:
+                self.get_logger().info(f"Executing action: {action.name}")
                 self.fsm.act(action)
                 self.print_round()
             else:
                 self.get_logger().info(f"Invalid key pressed: {key}")
 
-    def on_shutdown(self):
+    def on_shutdown(self) -> bool:
         self.listener.stop()
-        self.listener.join(5.0)
-        return self.listener.is_alive()
+        # TOOD: why can not be stopped?
+        # self.listener.join(2)
+        # return not self.listener.is_alive()
+        return True
 
     def _key_to_str(self, key):
         if isinstance(key, str):
             return key
-        try:
-            key_char = key.char
-            assert (
-                key_char is not None
-            ), "Uknown key pressed. There may be a situation where the number keys on the numeric keypad cannot be recognized properly."
-        except AttributeError:
-            key_char = str(key)
-        return key_char
+        elif isinstance(key, Enum):
+            return key.name
+        else:
+            try:
+                key_char = key.char
+                assert (
+                    key_char is not None
+                ), "Uknown key pressed. There may be a situation where the number keys on the numeric keypad cannot be recognized properly."
+            except AttributeError:
+                key_char = str(key)
+            return key_char

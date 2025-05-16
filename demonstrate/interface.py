@@ -2,7 +2,7 @@ from airbot_data_collection.demonstrate.configs import (
     DemonstrateConfig,
     AsyncMode,
     DemonstrateAction,
-    ComponentActionConfig,
+    GroupsSendActionConfig,
     ComponentRole,
     ComponentConfig,
     ComponentsConfig,
@@ -159,9 +159,8 @@ class DemonstrateInterface:
         return True
 
     def _auto_control_loop(self):
-        """"""
-        config = self.config.auto_control
-        period = 1 / config.rate[0]
+        """Control the followers to follow the leader."""
+        period = 1 / self.config.auto_control.rate[0]
         while not self.deactivated:
             start = time.perf_counter()
             self._auto_control()
@@ -170,23 +169,28 @@ class DemonstrateInterface:
                 time.sleep(sleep_time)
 
     def _auto_control(self):
+        """Control the followers to follow the leader."""
         for group_name in self.config.auto_control.groups:
             group = self.group_map[group_name]
             obs = group.leader.capture_observation()
             for follower in group.followers:
                 follower.send_action(obs)
 
-    def _post_action(self, config: Dict[str, ComponentActionConfig]) -> bool:
+    def _post_action(self, action: DemonstrateAction) -> bool:
         """Control the leaders after some demonstrate action"""
-        for group_name, action_cfg in config.items():
+        config = self.config.send_actions.get(action, None)
+        if config is None:
+            return True
+        for group_name, action_value, mode, to_follower in zip(
+            config.groups, config.action_values, config.modes, config.to_follower
+        ):
             group = self.group_map[group_name]
-            mode = action_cfg.mode
             if group.leader.switch_mode():
                 if mode is SystemMode.RESETING:
-                    group.leader.send_action(action_cfg.action)
+                    group.leader.send_action(action_value)
                 else:
                     self.get_logger().warning(
-                        f"Action {action_cfg.action} is ignored in {mode} mode for {group_name}. "
+                        f"Action is ignored in {mode} mode for {group_name}. "
                         "Please use reseting mode"
                     )
                     return False
@@ -216,9 +220,7 @@ class DemonstrateInterface:
                 # set the mode for leaders
                 # the beginning mode can be considered as data are
                 # saved in the -1 round, so save_mode is performed
-                if self._post_action(
-                    self.config.send_actions.get(DemonstrateAction.save)
-                ):
+                if self._post_action(DemonstrateAction.save):
                     return True
         return False
 
@@ -324,9 +326,7 @@ class DemonstrateInterface:
                 return False
         self.sample_info.round += 1
         self.sample_info.index = 0
-        return self._post_action(
-            self.config.send_actions.get(DemonstrateAction.save, {})
-        )
+        return self._post_action(DemonstrateAction.save)
 
     def remove(self) -> bool:
         """Remove the last round saved sample."""
@@ -346,20 +346,17 @@ class DemonstrateInterface:
         """Abandon the current round of sampling."""
         self.sampler.clear()
         self.sample_info.index = 0
-        action_call = self.config.send_actions
-        return self._post_action(
-            action_call.get(DemonstrateAction.abandon, {})
-            or action_call.get(DemonstrateAction.save, {})
-        )
+        return self._post_action(DemonstrateAction.abandon)
 
-    def finish(self):
+    def finish(self) -> bool:
         """
         Finish the demonstration and shutdown all components.
         """
-        self._post_action(self.config.send_actions.get(DemonstrateAction.finish, {}))
+        self._post_action(DemonstrateAction.finish)
         for group in self.groups:
             for component in group.leader, *group.followers, *group.others:
                 component.shutdown()
+        return True
 
     def capture_by_role(self, role: ComponentRole) -> Dict[str, Dict[str, Any]]:
         """Get the components observations by role.

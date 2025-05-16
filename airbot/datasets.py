@@ -8,7 +8,7 @@ import time
 
 
 class AIRBOTDataSamplerConfig(BaseModel):
-    schema: dict = {
+    data_schema: dict = {
         "id": "734ad1c8-66ee-4479-b3cb-41d16c9b2e22",
         "timestamp": time.time(),
         "metadata": {
@@ -31,7 +31,8 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         super().on_configure()
         self.topics = {}
         # reference to the data
-        self.config.schema["data"] = self._data
+        self.config.data_schema["data"] = self._data
+        return True
 
     def append(self, data: Dict[str, Union[List[float], ndarray]]):
         if not self.topics:  # TODO: howt to configure?
@@ -65,13 +66,13 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                         f"Unknown data type: {data_type}. "
                         "Please choose from ['joint_state', 'pose', 'color_image', 'depth_image']"
                     )
-            self.config.schema["metadata"]["topics"] = self.topics
+            self.config.data_schema["metadata"]["topics"] = self.topics
         return super().append(data)
 
     def save(self, directory: str, round: int):
         """Save the data to a BSON file."""
         return save_bson(
-            self.config.schema,
+            self.config.data_schema,
             self.compose_path(directory, round),
         )
 

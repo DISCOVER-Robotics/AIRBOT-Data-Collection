@@ -31,33 +31,36 @@ class OpenCVisualizer(GUIVisualizer):
 
     config: OpenCVisualizerConfig
 
-    def on_configure(self):
-        cv2.namedWindow(self.config.title, self.config.window_type)
+    def on_configure(self) -> bool:
         if not self.config.ignore_info:
             self.text_config = TextConfig()
             self.info_image = (
                 np.ones((self.config.height, self.config.width, 3), dtype=np.uint8)
                 * 255
             )
+        return True
 
     def update(
         self,
         data: Union[np.ndarray, Iterable[np.ndarray], Dict[str, np.ndarray]],
         info: SampleInfo,
     ) -> None:
-        # TODO: add concatenation for the data
-        if isinstance(data, np.ndarray):
-            cv2.imshow(self.config.title, data)
-        elif isinstance(data, dict):
-            for key, value in data.items():
-                cv2.imshow(f"{key}", value)
-        else:
-            for i, value in enumerate(data):
-                cv2.imshow(f"{i}", value)
-        if not self.config.ignore_info:
-            image = self._put_info(self.info_image.copy(), info)
-            cv2.imshow("info", image)
-        cv2.waitKey(1)
+        """ "Show the data on the OpenCV window."""
+        # # TODO: add concatenation for the data
+        # if isinstance(data, np.ndarray):
+        #     cv2.imshow(self.config.title, data)
+        # elif isinstance(data, dict):
+        #     for key, value in data.items():
+        #         if "color" in key:
+        #             cv2.imshow(f"{key}", value)
+        # else:
+        #     for i, value in enumerate(data):
+        #         cv2.imshow(f"{i}", value)
+        # if not self.config.ignore_info:
+        #     image = self._put_info(self.info_image.copy(), info)
+        #     cv2.imshow("info", image)
+        # cv2.waitKey(1)
+        return True
 
     def shutdown(self):
         cv2.destroyAllWindows()
@@ -95,7 +98,7 @@ class OpenCVisualizer(GUIVisualizer):
         text_cfg_dict["text"] = text_top
         text_cfg_dict["org"] = (x_top, y_top)
         cv2.putText(image, **text_cfg_dict)
-        self.text_config["text"] = text_bottom
-        self.text_config["org"] = (x_bottom, y_bottom)
+        text_cfg_dict["text"] = text_bottom
+        text_cfg_dict["org"] = (x_bottom, y_bottom)
         cv2.putText(image, **text_cfg_dict)
         return image

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, computed_field, NonNegativeInt, NonNegativeFloat
-from typing import Any, List, Set, Optional, Union
+from typing import Any, List, Set, Optional, Union, Dict
 from enum import Enum, auto
 from collections import Counter
 from airbot_data_collection.basis import SystemMode
@@ -292,17 +292,16 @@ class AutoControlConfig(BaseModel):
     groups: Optional[List[str]] = None
     # the rate of the auto control loop for each group
     # 0 means as fast as possible
-    rate: List[NonNegativeInt] = [0]
+    rate: List[NonNegativeInt] = []
 
 
-class ComponentActionConfig(BaseModel):
+class GroupsSendActionConfig(BaseModel):
     """Which action value and mode to perform for each group
     when the action is called. The action values and mode will be sent
     to the leaders unless the to_follower is set to True.
     """
 
     groups: List[str] = []
-    action_names: List[DemonstrateAction] = []
     action_values: List[Any] = []
     modes: List[SystemMode] = []
     to_follower: List[bool] = []
@@ -339,7 +338,7 @@ class DemonstrateConfig(BaseModel):
     # what the leaders / followers to act when
     # performing an actions for each group
     # if None, no action values will be sent
-    send_actions: Optional[ComponentActionConfig] = None
+    send_actions: Dict[DemonstrateAction, GroupsSendActionConfig] = {}
     # the sampler to be used to collect and save the data
     # if None, a mock sampler will be used
     sampler: Optional[ComponentConfig] = None

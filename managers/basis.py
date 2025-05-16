@@ -93,7 +93,7 @@ class SelfManager(DemonstrateManagerBasis):
                 return False
         else:
             # capture to update the visualizers
-            return self.fsm.act(DemonstrateAction.capture)
+            assert self.fsm.act(DemonstrateAction.capture)
         return True
 
     def on_shutdown(self) -> bool:
