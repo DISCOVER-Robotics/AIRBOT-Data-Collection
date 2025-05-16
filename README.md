@@ -14,6 +14,15 @@ pip install -e . -i https://mirrors.huaweicloud.com/repository/pypi/simple
 
 # Usage
 
+Start AIRBOT FSM fisrt:
+
+```bash
+airbot_fsm -i can0 -p 50050
+airbot_fsm -i can1 -p 50051
+```
+
+Then run the datacollection program:
+
 ```bash
 python3 main.py --path defaults/config.yaml \
                 --components.names arm_leader arm left_camera \
