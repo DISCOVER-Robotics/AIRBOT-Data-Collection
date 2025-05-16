@@ -17,7 +17,7 @@ class AIRBOTDataSamplerConfig(BaseModel):
             "operator": "manual",
             "station_id": "3784D4BA-87AF-47E7-B86D-42CA1904AA77",
             "task": "example",
-            "version": "1.2.1",
+            "version": "1.2.2",
             "topics": {},
         },
         "data": {},
