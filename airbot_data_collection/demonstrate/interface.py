@@ -161,13 +161,6 @@ class DemonstrateInterface:
 
     def _auto_control_loop(self):
         """Control the followers to follow the leader."""
-        # TODO: There should be a way to stop the followering
-        # enven the leader is moving, since some leaders can
-        # not be stopped / fixed
-        # maybe an action named stop_auto_control can be used
-        # to stop the auto control at any state
-        # or maybe if the send control is to follower, then the
-        # auto control will be automatically stopped
         period = 1 / self.config.auto_control.rate[0]
         while not self.deactivated:
             self._auto_control_event.wait()
