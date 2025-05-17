@@ -2,6 +2,8 @@ from airbot_data_collection.demonstrate.configs import (
     DemonstrateAction,
     DemonstrateState,
     DemonstrateConfig,
+    SystemMode,
+    ComponentRole,
 )
 from airbot_data_collection.state_machine.basis import (
     StateMachineBasis,
@@ -9,6 +11,7 @@ from airbot_data_collection.state_machine.basis import (
 )
 from airbot_data_collection.demonstrate.interface import DemonstrateInterface
 from pydantic import BaseModel
+from typing import Optional
 
 
 Action = DemonstrateAction
@@ -31,6 +34,14 @@ class DemonstrateFSM(StateMachineBasis):
         self.action_calls = {
             action: getattr(self.__interface, action.name) for action in Action
         }
+
+    def set_auto_control(self, start: bool = True) -> bool:
+        """Start/Stop the auto control loop if any"""
+        return self.__interface.set_auto_control(start)
+
+    def set_role_mode(self, role: ComponentRole,  mode: Optional[SystemMode]) -> bool:
+        """Set the mode of all the role."""
+        return self.__interface.set_role_mode(role, mode)
 
     @property
     def sample_info(self):

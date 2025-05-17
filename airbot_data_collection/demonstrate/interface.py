@@ -18,10 +18,10 @@ from airbot_data_collection.common.utils.utils import (
     hydra_instance_from_dict,
 )
 from pydantic import BaseModel, ConfigDict
-from typing import Union, List, Dict, Any, Set
+from typing import Union, List, Dict, Any, Set, Optional
 from logging import getLogger
 import time
-from threading import Lock, Thread
+from threading import Lock, Thread, Event
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from collections import defaultdict
 from airbot_data_collection.utils import find_matching_files, bcolors
@@ -131,6 +131,8 @@ class DemonstrateInterface:
             self.save_executor = None
         self.save_future = None
         self.deactivated = False
+        self._auto_control_event = Event()
+        self._role_mode_set = {}
 
     def get_logger(self):
         """
@@ -168,11 +170,16 @@ class DemonstrateInterface:
         # auto control will be automatically stopped
         period = 1 / self.config.auto_control.rate[0]
         while not self.deactivated:
+            self._auto_control_event.wait()
             start = time.perf_counter()
             self._auto_control()
             sleep_time = period - (time.perf_counter() - start)
             if sleep_time > 0:
                 time.sleep(sleep_time)
+            # else:
+            #     self.get_logger().warning(
+            #         f"Auto control loop is too slow: exceeds {-sleep_time}s"
+            #     )
 
     def _auto_control(self):
         """Control the followers to follow the leader."""
@@ -207,27 +214,65 @@ class DemonstrateInterface:
                 return False
         return True
 
-    def activate(self) -> bool:
-        # set the followers to reseting mode to move smoothly
-        if self._set_followers_mode(SystemMode.RESETING):
-            # TODO: control until the joint positions are near the leader
-            self._auto_control()
-            if self._set_followers_mode(SystemMode.SAMPLING):
-                # start the auto control loop
-                # TODO: should choose to use a process?
-                if self.config.auto_control:
-                    self.deactivated = False
-                    self.auto_control_thread = Thread(
-                        target=self._auto_control_loop,
-                        name="auto_control_loop",
-                        daemon=True,
-                    )
-                    self.auto_control_thread.start()
-                # set the mode for leaders
-                # the beginning mode can be considered as data are
-                # saved in the -1 round, so save_mode is performed
-                if self._post_action(DemonstrateAction.save):
+    def set_auto_control(self, start: Optional[bool] = True) -> bool:
+        """Start/Stop the auto control loop."""
+        if not self.config.auto_control:
+            self.get_logger().error("Auto control is not enabled")
+            return False
+        if start is None:
+            start = not self._auto_control_event.is_set()
+        if start:
+            # set the followers to reseting mode to move smoothly
+            if self._set_followers_mode(SystemMode.RESETING):
+                # TODO: control until the joint positions are near the leader
+                self._auto_control()
+                if self._set_followers_mode(SystemMode.SAMPLING):
+                    self._auto_control_event.set()
                     return True
+        else:
+            self._auto_control_event.clear()
+            return True
+        self.get_logger().error("Failed to start auto control")
+        return False
+
+    def set_role_mode(self, role: ComponentRole, mode: Optional[SystemMode]) -> bool:
+        """Set the mode of all the components of a role."""
+        self.get_logger().info(f"Setting {role} mode to {mode}")
+        if mode is None:
+            if self._role_mode_set[role] is SystemMode.PASSIVE:
+                mode = SystemMode.RESETING
+            else:
+                mode = SystemMode.PASSIVE
+        if role is ComponentRole.l:
+            return self._set_leaders_mode(mode)
+        elif role is ComponentRole.f:
+            # for safety movement, the mode should be reset now
+            assert isinstance(mode, SystemMode.RESETING)
+            return self._set_followers_mode(mode)
+        else:
+            raise ValueError(
+                f"Invalid role: {role}. Only 'leader' and 'follower' are supported."
+            )
+
+    def activate(self) -> bool:
+        # start the auto control loop
+        # TODO: should choose to use a process?
+        if self.config.auto_control:
+            self.deactivated = False
+            self.auto_control_thread = Thread(
+                target=self._auto_control_loop,
+                name="auto_control_loop",
+                daemon=True,
+            )
+            self.auto_control_thread.start()
+            # start auto control by default
+            if not self.set_auto_control():
+                return False
+        # set the mode for leaders
+        # the beginning mode can be considered as data are
+        # saved in the -1 round, so save_mode is performed
+        if self._post_action(DemonstrateAction.save):
+            return True
         return False
 
     def deactivate(self) -> bool:
@@ -250,6 +295,7 @@ class DemonstrateInterface:
                     f"Failed to set {group.name} leader to {mode} mode"
                 )
                 return False
+        self._role_mode_set[ComponentRole.l] = mode
         return True
 
     def _set_followers_mode(self, mode: SystemMode) -> bool:
@@ -264,6 +310,7 @@ class DemonstrateInterface:
                         f"Failed to set {group.name} follower to {mode} mode"
                     )
                     return False
+        self._role_mode_set[ComponentRole.f] = mode
         return True
 
     def _get_sample_suffix(self, group_name: str, component_name: str, key: str) -> str:
@@ -398,11 +445,11 @@ class DemonstrateInterface:
         TODO: should use the same data structure as the capture function？
         """
         obs = defaultdict(dict)
-        if role in {ComponentRole.l, ComponentRole.leader}:
+        if role is ComponentRole.l:
             for group, names in zip(self.groups, self.group_component_names):
                 obs[names.leader] = group.leader.capture_observation()
         else:
-            if role in {ComponentRole.f, ComponentRole.follower}:
+            if role is ComponentRole.f:
                 handle = "followers"
             else:
                 handle = "others"

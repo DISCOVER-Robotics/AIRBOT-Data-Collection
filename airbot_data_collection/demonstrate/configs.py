@@ -1,6 +1,6 @@
 from pydantic import BaseModel, computed_field, NonNegativeInt, NonNegativeFloat
 from typing import Any, List, Set, Optional, Union, Dict
-from enum import Enum, auto
+from enum import auto
 from collections import Counter
 from airbot_data_collection.basis import SystemMode
 import os
@@ -12,15 +12,12 @@ class ComponentRole(StrEnum):
     """The role of the component in the group."""
 
     # the leader of the group
-    leader = auto()
     l = auto()
     # the follower of the group
-    follower = auto()
     f = auto()
     # the other components in the group
     # e.g. the sensors such as cameras,
     # imus, tactiles, etc.
-    other = auto()
     o = auto()
 
 
@@ -123,7 +120,7 @@ class ComponentGroupsConfig(BaseModel):
                 if role_num == 0:
                     self.groups = [f"group{i // 2}" for i in range(len(self.names))]
                     self.roles = [
-                        ComponentRole.leader if i % 2 == 0 else ComponentRole.follower
+                        ComponentRole.l if i % 2 == 0 else ComponentRole.f
                         for i in range(len(self.names))
                     ]
                 else:
@@ -134,19 +131,14 @@ class ComponentGroupsConfig(BaseModel):
                     self.groups = []
                     leader_cnt = 0
                     # e.g. [l, f, f, l, f, f] will be grouped info [0, 0, 0, 1, 1, 1]
-                    assert self.roles[-1] in {
-                        ComponentRole.f,
-                        ComponentRole.follower,
-                    }, "the last role must be a follower"
-                    assert self.roles[0] in {
-                        ComponentRole.l,
-                        ComponentRole.leader,
-                    }, "the first role must be a leader"
+                    assert (
+                        self.roles[-1] is ComponentRole.f
+                    ), "the last role must be a follower"
+                    assert (
+                        self.roles[0] is ComponentRole.l
+                    ), "the first role must be a leader"
                     for i, role in enumerate(self.roles):
-                        if (
-                            role in {ComponentRole.l, ComponentRole.leader}
-                            or i == role_num - 1
-                        ):
+                        if role is ComponentRole.l or i == role_num - 1:
                             leader_cnt += 1
                             if leader_cnt > 1:
                                 # e.g. i=3, groups length=0, member_num should be 3
@@ -168,10 +160,10 @@ class ComponentGroupsConfig(BaseModel):
                     seen_twice = set()
                     for item in self.groups:
                         if item not in seen:
-                            roles.append(ComponentRole.leader)
+                            roles.append(ComponentRole.l)
                             seen.add(item)
                         else:
-                            roles.append(ComponentRole.follower)
+                            roles.append(ComponentRole.f)
                             seen_twice.add(item)
                     seen_once = seen - seen_twice
                     if seen_once:
@@ -192,14 +184,13 @@ class ComponentGroupsConfig(BaseModel):
                         group_roles = [self.roles[i] for i in indexes]
                         group_counter = Counter(group_roles)
                         leader_cnt = 0
-                        for ld in {ComponentRole.l, ComponentRole.leader}:
-                            leader_cnt += group_counter[ld]
+                        leader_cnt += group_counter[ComponentRole.l]
+                        # TODO: support groups that only have other roles
                         assert (
                             leader_cnt == 1
                         ), f"each group must have one and only one leader robot, but {group} has {leader_cnt} leaders"
                         follower_cnt = 0
-                        for fl in {ComponentRole.f, ComponentRole.follower}:
-                            follower_cnt += group_counter[fl]
+                        follower_cnt += group_counter[ComponentRole.f]
                         assert (
                             follower_cnt > 0
                         ), f"each group must have at least one follower robot, but {group} has {follower_cnt} followers"
@@ -227,15 +218,9 @@ class ComponentGroupsConfig(BaseModel):
                         path=self.paths[index],
                         param=self.params[index],
                     )
-                    if role in {
-                        ComponentRole.l,
-                        ComponentRole.leader,
-                    }:
+                    if role is ComponentRole.l:
                         leader = config
-                    elif role in {
-                        ComponentRole.f,
-                        ComponentRole.follower,
-                    }:
+                    elif role is ComponentRole.f:
                         followers.append(config)
                     else:
                         others.append(config)
@@ -381,10 +366,10 @@ if __name__ == "__main__":
             params=[{}] * 4,
             groups=["left", "left", "right", "right"],
             roles=[
-                ComponentRole.leader,
-                ComponentRole.follower,
-                ComponentRole.leader,
-                ComponentRole.follower,
+                ComponentRole.l,
+                ComponentRole.f,
+                ComponentRole.l,
+                ComponentRole.f,
             ],
         )
     )

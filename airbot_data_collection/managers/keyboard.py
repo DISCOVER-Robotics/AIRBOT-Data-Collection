@@ -1,6 +1,7 @@
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from airbot_data_collection.utils import bcolors
+from airbot_data_collection.demonstrate.configs import ComponentRole, SystemMode
 from pynput import keyboard
 from pprint import pformat
 from pydantic import BaseModel
@@ -21,7 +22,10 @@ class KeyboardCallbackConfig(BaseModel):
     instruction: Dict[str, str] = {
         "b": "Back to sample the last round (override the last saved file)",
         "i": "Show this instruction again",
+        "g": "Switch passive (gravity composation) / resetting mode of the leaders",
+        "f": "Start / stop following",
     }
+    # TODO: auto add mapped keys to the instruction
     key_mapping: Dict[str, str] = {
         keyboard.Key.esc.name: "z",
     }
@@ -100,6 +104,10 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             self.show_instruction()
         elif key == "b":
             self.get_logger().warning("Not implemented yet")
+        elif key == "g":
+            self.fsm.set_role_mode(ComponentRole.l, None)
+        elif key == "f":
+            self.fsm.set_auto_control(None)
         elif key in {"ctrl", "c"}:
             pass
         else:
