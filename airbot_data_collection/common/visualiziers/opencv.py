@@ -11,6 +11,9 @@ import logging
 
 
 def prepare_cv2_imshow(logger: logging.Logger):
+    """Prepare OpenCV imshow for displaying images before import pynput.
+    Otherwise, the imshow will block and not show the image.
+    """
 
     logger.info("Preparing cv2.imshow")
     image = np.zeros((480, 640, 3), np.uint8)
@@ -23,7 +26,7 @@ def prepare_cv2_imshow(logger: logging.Logger):
         logger.info(f"{name} is ready")
         cv2.destroyAllWindows()
 
-    show_image("Main image")
+    show_image("Prepared image")
 
     logger.info("cv2.imshow is ready")
 
