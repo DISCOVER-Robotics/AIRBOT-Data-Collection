@@ -117,11 +117,16 @@ class FastAPIVisualizer(VisualizerBasis):
         """
         return html
 
-    def update(self, frame: dict[str, bytes], info: SampleInfo):
+    def update(self, data: dict[str, bytes], info: SampleInfo):
         self.info = info
-        for key, img_bytes in frame.items():
+        for key, img_bytes in data.items():
             # can not use / in the key
             key = key.replace("/", ".").removeprefix(".")
+            # may be should use a check_data method and
+            # use a warmup stage to check
+            assert isinstance(
+                img_bytes, bytes
+            ), f"frame must be bytes, but got {type(img_bytes)}"
             self.frames[key] = img_bytes
             self.events[key].set()
         return True
@@ -130,9 +135,8 @@ class FastAPIVisualizer(VisualizerBasis):
         while True:
             await self.events[stream_id].wait()
             self.events[stream_id].clear()
-            frame = self.frames.get(stream_id, None)
-            if frame:
-                yield b"".join((self.prefix, frame, self.suffix))
+            frame = self.frames[stream_id]
+            yield b"".join((self.prefix, frame, self.suffix))
 
     async def _server_task(self):
         config = Config(app=self.app, **self.config.model_dump())
