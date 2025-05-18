@@ -1,6 +1,6 @@
 import cv2
 from airbot_data_collection.common.visualiziers.basis import (
-    GUIVisualizer,
+    VisualizerBasis,
     GUIVisualizerConfig,
     SampleInfo,
 )
@@ -45,7 +45,7 @@ class TextConfig(BaseModel):
     org: Tuple[int, int] = (0, 0)
 
 
-class OpenCVisualizer(GUIVisualizer):
+class OpenCVisualizer(VisualizerBasis):
     """Visualizer based on OpenCV."""
 
     config: OpenCVisualizerConfig

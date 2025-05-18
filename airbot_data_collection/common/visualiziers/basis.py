@@ -1,4 +1,4 @@
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, Optional, Union, runtime_checkable
 from abc import abstractmethod
 from pydantic import BaseModel, NonNegativeInt
 from airbot_data_collection.basis import ConfigBasis
@@ -18,6 +18,15 @@ class GUIVisualizerConfig(BaseModel):
     ignore_info: bool = False
 
 
+class WebVisualizerConfig(BaseModel):
+    """Configuration for web visualizer."""
+
+    host: str = "127.0.0.0"
+    port: NonNegativeInt = 8000
+    log_level: Optional[Union[str, int]] = None
+    access_log: bool = False
+
+
 class SampleInfo(BaseModel):
     """Information for visualizing the data."""
 
@@ -27,10 +36,8 @@ class SampleInfo(BaseModel):
     round: NonNegativeInt = 0
 
 
-class GUIVisualizer(ConfigBasis):
+class VisualizerBasis(ConfigBasis):
     """Visualizer for visualizing the data."""
-
-    config: GUIVisualizerConfig
 
     @abstractmethod
     def update(self, data: Any, info: SampleInfo) -> None: ...

@@ -3,6 +3,8 @@ from typing import Tuple, List, Optional
 from enum import Enum
 import logging
 import time
+import asyncio
+import threading
 
 
 def get_stamp_ms() -> int:
@@ -136,6 +138,18 @@ def init_logging(level):
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.root.addHandler(ch)
+
+
+def run_event_loop() -> asyncio.AbstractEventLoop:
+    assert (
+        threading.current_thread() == threading.main_thread()
+    ), "Event loop must be run in the main thread"
+    event_loop = asyncio.get_event_loop()
+    if not event_loop.is_running():
+        event_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(event_loop)
+        threading.Thread(target=event_loop.run_forever, daemon=True).start()
+    return event_loop
 
 
 if __name__ == "__main__":
