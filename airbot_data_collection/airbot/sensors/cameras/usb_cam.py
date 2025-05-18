@@ -1,6 +1,6 @@
 from airbot_data_collection.common.robot_devices.cameras.opencv import (
     OpenCVCamera,
-    OpenCVCameraConfig,
+    CameraRGBConfig,
 )
 from airbot_data_collection.basis import Sensor
 from airbot_data_collection.utils import get_stamp_ms
@@ -11,7 +11,7 @@ class USBCamera(Sensor):
     A class to represent a USB camera using OpenCV.
     """
 
-    config: OpenCVCameraConfig
+    config: CameraRGBConfig
     interface: OpenCVCamera
 
     def on_configure(self):

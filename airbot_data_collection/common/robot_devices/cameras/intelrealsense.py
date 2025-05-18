@@ -3,18 +3,16 @@ This file contains utilities for recording frames from Intel Realsense cameras.
 """
 
 import math
-import threading
 import time
 import traceback
-from dataclasses import dataclass, replace
-from threading import Thread
+from threading import Thread, Event
 import numpy as np
 from airbot_data_collection.common.robot_devices.utils import (
     RobotDeviceAlreadyConnectedError,
     RobotDeviceNotConnectedError,
 )
 from airbot_data_collection.common.utils.utils import capture_timestamp_utc
-from typing import Optional
+from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBDConfig
 
 SERIAL_NUMBER_INDEX = 1
 
@@ -46,35 +44,10 @@ def find_camera_indices(raise_when_empty=True, mock=False) -> list[int]:
     return camera_ids
 
 
-@dataclass
-class IntelRealSenseCameraConfig:
-    """
-    Example of tested options for Intel Real Sense D405:
-
-    ```python
-    IntelRealSenseCameraConfig(30, 640, 480)
-    IntelRealSenseCameraConfig(60, 640, 480)
-    IntelRealSenseCameraConfig(90, 640, 480)
-    IntelRealSenseCameraConfig(30, 1280, 720)
-    IntelRealSenseCameraConfig(30, 640, 480, use_depth=True)
-    ```
-    """
-
-    camera_index: Optional[int] = None
-    fps: Optional[int] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
-    color_mode: str = "rgb"
-    use_depth: bool = False
+class IntelRealSenseCameraConfig(CameraRGBDConfig):
     force_hardware_reset: bool = True
-    mock: bool = False
 
-    def __post_init__(self):
-        if self.color_mode not in ["rgb", "bgr"]:
-            raise ValueError(
-                f"`color_mode` is expected to be 'rgb' or 'bgr', but {self.color_mode} is provided."
-            )
-
+    def model_post_init(self, context):
         at_least_one_is_not_none = (
             self.fps is not None or self.width is not None or self.height is not None
         )
@@ -140,10 +113,9 @@ class IntelRealSenseCamera:
         **kwargs,
     ):
         if config is None:
-            config = IntelRealSenseCameraConfig()
-
-        # Overwrite the config arguments using kwargs
-        config = replace(config, **kwargs)
+            config = CameraRGBDConfig()
+        # Overwrite config arguments using kwargs
+        config = config.model_copy(update=kwargs)
 
         self.camera_index = config.camera_index
         self.fps = config.fps
@@ -346,7 +318,7 @@ class IntelRealSenseCamera:
             )
 
         if self.thread is None:
-            self.stop_event = threading.Event()
+            self.stop_event = Event()
             self.thread = Thread(target=self.read_loop, args=())
             self.thread.daemon = True
             self.thread.start()

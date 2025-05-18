@@ -6,16 +6,16 @@ import math
 import platform
 import threading
 import time
-from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Thread
-from typing import Union, Optional
+
 import numpy as np
 from airbot_data_collection.common.robot_devices.utils import (
     RobotDeviceAlreadyConnectedError,
     RobotDeviceNotConnectedError,
 )
 from airbot_data_collection.common.utils.utils import capture_timestamp_utc
+from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBConfig
 
 # The maximum opencv device index depends on your operating system. For instance,
 # if you have 3 cameras, they should be associated to index 0, 1, and 2. This is the case
@@ -70,33 +70,6 @@ def find_camera_indices(
     return camera_ids
 
 
-@dataclass
-class OpenCVCameraConfig:
-    """
-    Example of tested options for Intel Real Sense D405:
-
-    ```python
-    OpenCVCameraConfig(30, 640, 480)
-    OpenCVCameraConfig(60, 640, 480)
-    OpenCVCameraConfig(90, 640, 480)
-    OpenCVCameraConfig(30, 1280, 720)
-    ```
-    """
-
-    camera_index: Union[int, str] = 0
-    fps: Optional[int] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
-    color_mode: str = "rgb"
-    mock: bool = False
-
-    def __post_init__(self):
-        if self.color_mode not in ["rgb", "bgr"]:
-            raise ValueError(
-                f"`color_mode` is expected to be 'rgb' or 'bgr', but {self.color_mode} is provided."
-            )
-
-
 class OpenCVCamera:
     """
     The OpenCVCamera class allows to efficiently record images from cameras. It relies on opencv2 to communicate
@@ -138,14 +111,14 @@ class OpenCVCamera:
 
     def __init__(
         self,
-        config: OpenCVCameraConfig | None = None,
+        config: CameraRGBConfig | None = None,
         **kwargs,
     ):
         if config is None:
-            config = OpenCVCameraConfig()
-
+            config = CameraRGBConfig()
         # Overwrite config arguments using kwargs
-        config = replace(config, **kwargs)
+        if kwargs:
+            config = config.model_copy(update=kwargs)
 
         self.camera_index = config.camera_index
         self.fps = config.fps

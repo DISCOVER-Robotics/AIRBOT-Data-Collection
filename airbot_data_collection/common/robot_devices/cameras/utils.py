@@ -1,9 +1,10 @@
 from pathlib import Path
 from typing import Protocol, runtime_checkable
-
 import cv2
-import einops
 import numpy as np
+from pydantic import BaseModel, Field
+from typing import Optional, Union
+from enum import Enum
 
 
 def write_shape_on_image_inplace(image):
@@ -33,27 +34,35 @@ def save_depth_image(depth, path, write_shape=False):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-    depth_image = cv2.applyColorMap(cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_JET)
+    depth_image = cv2.applyColorMap(
+        cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_JET
+    )
 
     if write_shape:
         write_shape_on_image_inplace(depth_image)
     cv2.imwrite(str(path), depth_image)
 
 
-def convert_torch_image_to_cv2(tensor, rgb_to_bgr=True):
-    assert tensor.ndim == 3
-    c, h, w = tensor.shape
-    assert c < h and c < w
-    color_image = einops.rearrange(tensor, "c h w -> h w c").numpy()
-    if rgb_to_bgr:
-        color_image = cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR)
-    return color_image
-
-
 # Defines a camera type
 @runtime_checkable
 class Camera(Protocol):
     def connect(self): ...
-    def read(self, temporary_color: str | None = None) -> np.ndarray: ...
+    def read(
+        self, temporary_color: str | None = None
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]: ...
     def async_read(self) -> np.ndarray: ...
     def disconnect(self): ...
+
+
+class CameraRGBConfig(BaseModel):
+    camera_index: Union[int, str] = 0
+    fps: Optional[int] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    color_mode: str = Field(default="rgb", pattern="^(rgb|bgr)$")
+    mock: bool = False
+    pixel_format: Optional[Union[str, Enum]] = None
+
+
+class CameraRGBDConfig(CameraRGBConfig):
+    use_depth: bool = False

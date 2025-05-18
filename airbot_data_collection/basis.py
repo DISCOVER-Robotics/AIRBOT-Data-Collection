@@ -20,10 +20,11 @@ class ConfigBasis(ABC):
         if config is None:
             config = config_type(**kwargs)
         else:
-            if isinstance(config, BaseModel):
-                config = config.model_copy(update=kwargs)
-            else:  # dataclass
-                config = replace(config, **kwargs)
+            if kwargs:
+                if isinstance(config, BaseModel):
+                    config = config.model_copy(update=kwargs)
+                else:  # dataclass
+                    config = replace(config, **kwargs)
         self.config = config
 
     @final
