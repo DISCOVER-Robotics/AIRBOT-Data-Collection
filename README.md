@@ -9,7 +9,7 @@ pip install av -i https://mirrors.huaweicloud.com/repository/pypi/simple
 pip uninstall opencv-python-headless
 git clone https://git.qiuzhi.tech/OpenGHz/airbot-data-collection.git
 cd airbot-data-collection
-pip install -e . -i https://mirrors.huaweicloud.com/repository/pypi/simple
+pip install -e ."[all]" -i https://mirrors.huaweicloud.com/repository/pypi/simple
 ```
 
 # Usage
