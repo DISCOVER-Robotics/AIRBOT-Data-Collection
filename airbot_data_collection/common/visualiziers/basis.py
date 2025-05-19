@@ -7,17 +7,30 @@ from airbot_data_collection.basis import ConfigBasis
 class GUIVisualizerConfig(BaseModel):
     """Configuration for GUI visualizer."""
 
-    width: NonNegativeInt = 640
-    height: NonNegativeInt = 480
-    title: str = ""
-    # the direction of the subplots increment
-    axis: NonNegativeInt = 0
-    # the max number of subplots in a row / column
-    # before the next row / column
-    max_num: NonNegativeInt = 3
-    ignore_info: bool = False
+    # the width and height of the GUI
+    # window when single_window or concatenate
+    # is set to True
     single_window: bool = False
     concatenate: bool = False
+    width: NonNegativeInt = 0
+    height: NonNegativeInt = 0
+    # the tile of the GUI window when
+    # the single_window or concatenate
+    # is set to True
+    title: str = ""
+    # the direction of the subplots increment
+    # when single_window or concatenate
+    # is set to True
+    axis: NonNegativeInt = 0
+    # the max number of subplots in a row / column
+    # before the next row / column, which should be
+    # adjusted according to the image size and the 
+    # screen resolution
+    # when single_window or concatenate
+    # is set to True
+    max_num: NonNegativeInt = 3
+    # do not display the sample info
+    ignore_info: bool = False
 
 
 class WebVisualizerConfig(BaseModel):

@@ -66,7 +66,7 @@ class OpenCVisualizer(VisualizerBasis):
         self,
         data: Union[np.ndarray, Iterable[np.ndarray], Dict[str, np.ndarray]],
         info: SampleInfo,
-    ) -> None:
+    ) -> bool:
         """ "Show the data on the OpenCV window."""
         # TODO: add concatenation for the data
         if isinstance(data, np.ndarray):
