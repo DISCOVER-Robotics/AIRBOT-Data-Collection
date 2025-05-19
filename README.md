@@ -6,11 +6,22 @@ conda create -n airbot_data python=3.10 && conda activate airbot_data
 pip install airbot_py-5.1.2-py3-none-any.whl -i https://mirrors.huaweicloud.com/repository/pypi/simple
 pip install airbot_data-1.2.1-py3-none-any.whl -i https://mirrors.huaweicloud.com/repository/pypi/simple
 pip install av -i https://mirrors.huaweicloud.com/repository/pypi/simple
-pip uninstall opencv-python-headless
 git clone https://git.qiuzhi.tech/OpenGHz/airbot-data-collection.git
 cd airbot-data-collection
 pip install -e ."[all]" -i https://mirrors.huaweicloud.com/repository/pypi/simple
 ```
+
+# Configuration
+
+To avoid confusing the leader arm with the follower arm, it's necessary to bind CAN names to each device in sequence. Take the control of two arms as an example. Complete the following steps in order:
+
+1. Unplug all robotic arms and other CAN devices to ensure that the ip l command shows no CAN devices.
+2. Connect the left leader arm, run sudo bind_airbot_device can_left_lead, and then disconnect it.
+3. Connect the left follower arm, run sudo bind_airbot_device can_left, and then disconnect it.
+4. Connect the right leader arm, run sudo bind_airbot_device can_right_lead, and then disconnect it.
+5. Connect the right follower arm, run sudo bind_airbot_device can_right, and then disconnect it.
+6. Connect all the arms.
+
 
 # Usage
 
@@ -24,20 +35,20 @@ Start AIRBOT FSMs first:
 One leader arm and one follower:
 
 ```bash
-airbot_fsm -i can0 -p 50050
-airbot_fsm -i can1 -p 50051
+airbot_fsm -i can_left_lead -p 50050
+airbot_fsm -i can_left -p 50051
 ```
 
 Two leader arms and two follower arms
 
 ```bash
-airbot_fsm -i can0 -p 50050
-airbot_fsm -i can1 -p 50051
-airbot_fsm -i can2 -p 50052
-airbot_fsm -i can3 -p 50053
+airbot_fsm -i can_left_lead -p 50050
+airbot_fsm -i can_left -p 50051
+airbot_fsm -i can_right_lead -p 50052
+airbot_fsm -i can_right -p 50053
 ```
 
-Then run the data collection program:
+Then run the data collection script:
 
 One leader arm, one follower arm and one usb camera case:
 
