@@ -82,4 +82,6 @@ python3 main.py --path defaults/config.yaml \
                 --sample-limit.size 1000
 ```
 
+After that, you can use the keyboard to control the data collection process. Instructions for keyboard usage can be found in the terminal printout, or you can press the `i` key to reprint them. Note that keyboard responses are global, so if you need to use the keyboard for other tasks, please close the data collection program first.
+
 Data key structure: /{group name}/{component name}/{data type name}
