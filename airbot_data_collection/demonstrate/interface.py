@@ -24,7 +24,7 @@ import time
 from threading import Lock, Thread, Event
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from collections import defaultdict
-from airbot_data_collection.utils import find_matching_files, bcolors
+from airbot_data_collection.utils import find_matching_files, bcolors, get_items_by_ext
 
 
 class GroupComponentNames(BaseModel):
@@ -116,17 +116,21 @@ class DemonstrateInterface:
             self.group_map[group.name] = self.groups[-1]
         self.control_lock = Lock()
         self.finished = False
-        sample_limit = self.config.sample_limit
-        self.sample_info = SampleInfo(round=sample_limit.start_round)
+        start_round = self.config.sample_limit.start_round
+        if start_round < 0:
+            # detect the number of files in the directory
+            ds = self.config.dataset
+            start_round = (
+                len(get_items_by_ext(ds.absolute_directory, ds.file_extension))
+                + start_round
+                + 1
+            )
+            self.config.sample_limit.start_round = start_round
+        self.sample_info = SampleInfo(round=start_round)
         if config.async_save == AsyncMode.thread:
-            self.save_executor = ThreadPoolExecutor(
-                max_workers=1,
-                thread_name_prefix="save_thread",
-            )
+            self.save_executor = ThreadPoolExecutor(1, "save_thread")
         elif config.async_save == AsyncMode.process:
-            self.save_executor = ProcessPoolExecutor(
-                max_workers=1,
-            )
+            self.save_executor = ProcessPoolExecutor(1)
         else:
             self.save_executor = None
         self.save_future = None

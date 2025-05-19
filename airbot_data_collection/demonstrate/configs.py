@@ -239,6 +239,8 @@ class DatasetConfig(BaseModel):
     root: str = "./data"  # root directory of all data
     # relative directory to the root directory where the data files are stored
     directory: str
+    # used to automatically get the start sample round
+    file_extension: str = "."
 
     @computed_field
     @property
@@ -294,7 +296,13 @@ class GroupsSendActionConfig(BaseModel):
 
 class SampleLimit(BaseModel):
     # the start round of the data files to be saved
-    start_round: NonNegativeInt = 0
+    # if < 0, the start round will be automatically
+    # determined by the the number of items in the
+    # dataset directory that matches the file_extension
+    # e.g. if the directory contains 10 files and the
+    # file_extension is ".", and the start_round is -1,
+    # then the start_round will be set to 10
+    start_round: int = 0
     # the maximum number of samples
     # if duration is 0, then the size will be used
     size: NonNegativeInt = 0

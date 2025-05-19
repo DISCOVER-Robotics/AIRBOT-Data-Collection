@@ -152,6 +152,31 @@ def run_event_loop() -> asyncio.AbstractEventLoop:
     return event_loop
 
 
+def get_items_by_ext(directory: str, extension: str) -> List[str]:
+    """Get all files or directories in a directory with a specific extension.
+    Args:
+        directory (str): The directory to search in.
+        extension (str): The file extension to filter by. If empty, return directories.
+            If extension is ".", return all files.
+    Returns:
+        List[str]: A list of file or directory names that match the extension.
+    """
+
+    entries = os.scandir(directory)
+    if extension == ".":
+        return [entry.name for entry in entries if entry.is_file()]
+    elif not extension:
+        return [entry.name for entry in entries if entry.is_dir()]
+    else:
+        if not extension.startswith("."):
+            extension = "." + extension
+        return [
+            entry.name
+            for entry in entries
+            if entry.name.endswith(extension) and entry.is_file()
+        ]
+
+
 if __name__ == "__main__":
     search_dirs = (".",)
     filenames = ("airbot_play", "opencv")
