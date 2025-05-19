@@ -94,8 +94,8 @@ if __name__ == "__main__":
 
     images = {
         "Red": create_color_image((255, 0, 0)),
-        # "Green": create_color_image((0, 255, 0)),
-        # "Blue": create_color_image((0, 0, 255)),
+        "Green": create_color_image((0, 255, 0)),
+        "Blue": create_color_image((0, 0, 255)),
         # "Yellow": create_color_image((255, 255, 0)),
         # "Cyan": create_color_image((0, 255, 255)),
         # "Magenta": create_color_image((255, 0, 255)),

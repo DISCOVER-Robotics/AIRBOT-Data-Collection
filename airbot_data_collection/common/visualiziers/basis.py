@@ -16,6 +16,8 @@ class GUIVisualizerConfig(BaseModel):
     # before the next row / column
     max_num: NonNegativeInt = 3
     ignore_info: bool = False
+    single_window: bool = False
+    concatenate: bool = False
 
 
 class WebVisualizerConfig(BaseModel):
