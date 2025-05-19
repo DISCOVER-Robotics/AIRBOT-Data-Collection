@@ -1,5 +1,4 @@
-from typing import Any, Dict, Tuple, Type, Union, TypeVar, cast, Optional
-from pydantic.fields import FieldInfo
+from typing import Tuple, Type, TypeVar, cast, Optional
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,

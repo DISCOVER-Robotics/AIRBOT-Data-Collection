@@ -2,7 +2,6 @@ from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from airbot_data_collection.basis import SystemMode, System
 from typing import List
 from pydantic import BaseModel, PositiveInt
-import time
 from typing import Union, Optional
 from airbot_data_collection.utils import get_stamp_ms
 
@@ -50,7 +49,7 @@ class AIRBOTPlay(System):
         return self.interface.connect()
 
     def capture_observation(self) -> dict:
-        """key: component kind / data type"""
+        """key: component name / data type"""
         return {
             "arm/joint_state": {
                 "t": get_stamp_ms(),

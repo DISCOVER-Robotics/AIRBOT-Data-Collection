@@ -70,3 +70,5 @@ python3 main.py --path defaults/config.yaml \
                 --sample-limit.start-round 0 \
                 --sample-limit.size 1000
 ```
+
+Data key structure: /{group name}/{component name}/{data type name}
