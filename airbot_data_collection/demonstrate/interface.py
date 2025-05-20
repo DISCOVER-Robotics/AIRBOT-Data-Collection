@@ -57,8 +57,11 @@ class ComponentsInstancer:
             else:
                 return ins
         elif isinstance(config, ComponentsConfig):
-            config.paths = find_matching_files(self.search_dirs, config.paths)
+            if config.names:
+                config.paths = find_matching_files(self.search_dirs, config.paths)
             if name_dict:
+                if not config.names:
+                    return {}
                 return {
                     name: self._hydra_instance(path, param)
                     for name, path, param in zip(
@@ -66,6 +69,8 @@ class ComponentsInstancer:
                     )
                 }
             else:
+                if not config.names:
+                    return []
                 return [
                     self._hydra_instance(path, param)
                     for path, param in zip(config.paths, config.params)

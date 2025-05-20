@@ -28,6 +28,8 @@ class AsyncMode(StrEnum):
 
 
 class ComponentConfig(BaseModel):
+    """The config of one component to be used in the demonstration."""
+
     # the name of the component
     name: str = ""
     # the path or file name of the component hydra config file
@@ -41,6 +43,10 @@ class ComponentConfig(BaseModel):
 
 
 class ComponentsConfig(BaseModel):
+    """The config of multiple components to be used in the demonstration."""
+
+    # names of the components, e.g. ("left_arm", "right_arm", "head_camera")
+    # if empty, no component will be used
     names: List[str] = []
     paths: List[str] = []
     params: List[dict] = []
