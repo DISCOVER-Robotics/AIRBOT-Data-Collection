@@ -50,7 +50,9 @@ async def run_one(device: Device, frame_format: str, args):
 async def run(args):
     _ = [
         asyncio.create_task(run_one(device, frame_format, args))
-        for device, frame_format in zip(args.devices, args.frame_formats)
+        for device, frame_format in zip(
+            args.devices, args.frame_formats or [PixelFormat.MJPEG] * len(args.devices)
+        )
     ]
     while True:
         print(frame_info_dicts, flush=True, end="\r")
