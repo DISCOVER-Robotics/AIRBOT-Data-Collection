@@ -2,6 +2,9 @@ import argparse
 import asyncio
 import logging
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
+import time
+import cv2
+import numpy as np
 
 
 MODES = {
@@ -11,7 +14,7 @@ MODES = {
 }
 
 frame_dicts = {}
-frame_nb_dicts = {}
+frame_info_dicts = {}
 
 
 async def run_one(device: Device, frame_format: str, args):
@@ -19,9 +22,19 @@ async def run_one(device: Device, frame_format: str, args):
     capture = VideoCapture(device)
     capture.set_format(*args.frame_size, frame_format)
     with capture:
+        start_time = time.monotonic()
         async for frame in capture:
+            freq = 1 / (time.monotonic() - start_time)
+            start_time = time.monotonic()
             frame_dicts[device] = frame
-            frame_nb_dicts[device] = frame.frame_nb
+            frame_info_dicts[device.index] = (
+                f"frame_nb: {frame.frame_nb}, fps: {freq:.2f}"
+            )
+            cv2.imshow(
+                f"{device.index}",
+                cv2.imdecode(np.frombuffer(bytes(frame), np.uint8), cv2.IMREAD_COLOR),
+            )
+            cv2.waitKey(1)
 
 
 async def run(args):
@@ -30,7 +43,7 @@ async def run(args):
         for device, frame_format in zip(args.devices, args.frame_formats)
     ]
     while True:
-        print(frame_nb_dicts, flush=True, end="\r")
+        print(frame_info_dicts, flush=True, end="\r")
         await asyncio.sleep(0.02)
 
 
