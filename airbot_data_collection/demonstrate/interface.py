@@ -139,7 +139,7 @@ class DemonstrateInterface:
         else:
             self.save_executor = None
         self.save_future = None
-        self.deactivated = False
+        self._deactivated = False
         self._auto_control_event = Event()
         self._role_mode_set = {}
 
@@ -171,7 +171,7 @@ class DemonstrateInterface:
     def _auto_control_loop(self):
         """Control the followers to follow the leader."""
         period = 1 / self.config.auto_control.rate[0]
-        while not self.deactivated:
+        while not self._deactivated:
             self._auto_control_event.wait()
             start = time.perf_counter()
             self._auto_control()
@@ -260,7 +260,7 @@ class DemonstrateInterface:
         # start the auto control loop
         # TODO: should choose to use a process?
         if self.config.auto_control:
-            self.deactivated = False
+            self._deactivated = False
             self.auto_control_thread = Thread(
                 target=self._auto_control_loop,
                 name="auto_control_loop",
@@ -278,7 +278,7 @@ class DemonstrateInterface:
         return False
 
     def deactivate(self) -> bool:
-        self.deactivated = True
+        self._deactivated = True
         self.auto_control_thread.join(5.0)
         if self.auto_control_thread.is_alive():
             self.get_logger().error(
@@ -434,13 +434,15 @@ class DemonstrateInterface:
         Finish the demonstration and shutdown all components.
         """
         self._post_action(DemonstrateAction.finish)
-        for group in self.groups:
-            for component in group.leader, *group.followers, *group.others:
-                component.shutdown()
-        self.get_logger().info(
-            f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info}"
-        )
-        return True
+        if self.deactivate():
+            for group in self.groups:
+                for component in group.leader, *group.followers, *group.others:
+                    component.shutdown()
+            self.get_logger().info(
+                f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info}"
+            )
+            return True
+        return False
 
     def capture_by_role(self, role: ComponentRole) -> Dict[str, Dict[str, Any]]:
         """Get the components observations by role.

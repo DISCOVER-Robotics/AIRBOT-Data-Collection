@@ -52,7 +52,7 @@ if __name__ == "__main__":
                 start_time = time.perf_counter()
                 for name, manager in managers.items():
                     if not manager.update():
-                        logger.error(f"Failed to update manager: {name}.")
+                        logger.warning(f"Failed to update manager: {name}.")
                 if fsm.get_state() is DemonstrateState.finalized:
                     logger.info("Data collection finished.")
                     break

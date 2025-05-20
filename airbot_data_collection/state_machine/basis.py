@@ -1,6 +1,6 @@
 from transitions import EventData
 from transitions.extensions import LockedMachine
-from typing import Callable, List, Optional, Union, Dict, Any
+from typing import Callable, List, Optional, Union, Dict, Any, Tuple
 from functools import partial
 from logging import getLogger
 from pydantic import BaseModel
@@ -43,7 +43,7 @@ class ToDestConfig(BaseModel):
     prepare: SMCallable = None
 
 
-ActionTransitions = Dict[State, List[ToDestConfig]]
+ActionTransitions = Dict[Union[State, Tuple[State, ...]], List[ToDestConfig]]
 SourceTransitions = Dict[Action, List[ToDestConfig]]
 
 
@@ -104,7 +104,6 @@ class StateMachineBasis:
         self._action_result: Dict[str, bool] = {}
         self._last_state = self.get_state()
         self._last_action = None
-        self._action_transitions = defaultdict(lambda: defaultdict(list))
         self._action_calls_raw: Dict[Action, Callable] = {}
         self._action_calls: Dict[str, Callable] = {}
         self.add_action_transitions(config.action_transitions)
@@ -176,16 +175,13 @@ class StateMachineBasis:
         kind: str = "success",
     ):
         not_only = not_only or []
-        trans = self._action_transitions[action_name][source]
         if only:
             exclude_fields = ["conditions", "unless"]
-            trans.append(only)
             for field in exclude_fields:
                 assert getattr(only, field) is None, f"{field} should be None"
-        trans.extend(not_only)
         args = (f"t_{action_name}", source)
         self._add_not_only_transitions(action_name, source, not_only, kind)
-        cond_mappin = {
+        cond_mapping = {
             "success": "conditions",
             "failure": "unless",
         }
@@ -193,7 +189,7 @@ class StateMachineBasis:
             self.machine.add_transition(
                 *args,
                 **only.model_dump(exclude=exclude_fields),
-                **{cond_mappin[kind]: self.is_action_success},
+                **{cond_mapping[kind]: self.is_action_success},
             )
 
     def _add_not_only_transitions(
@@ -214,13 +210,18 @@ class StateMachineBasis:
                 **to_dest.model_dump(),
             )
 
-    def is_action_source_added(self, action: str, source: State):
+    def is_action_source_added(
+        self, action: str, source: Union[State, Tuple[State]]
+    ) -> bool:
         """Check if the action source is added."""
-        if self._action_transitions.get(action, {}).get(source, None) is not None:
-            # self.get_logger().error(
-            #     f"Action {action} source {source} is already added."
-            # )
-            return True
+        if not isinstance(source, tuple):
+            source = (source,)
+        for src in source:
+            if self.machine.get_transitions(f"t_{self.get_action_name(action)}", src):
+                # self.get_logger().error(
+                #     f"Action {action} source {source} is already added."
+                # )
+                return True
         return False
 
     def get_action_name(self, action: Action) -> str:
