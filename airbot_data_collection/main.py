@@ -44,11 +44,9 @@ if __name__ == "__main__":
         interval = 1.0 / config.update_rate if config.update_rate > 0 else 0.0
 
         # start updating the managers
-        # TODO: 基于async io实现分频异步更新？
+        # TODO: based on async io to update asynchronously?
         try:
-            cnt = 0
             while True:
-                # while (cnt := cnt + 1) < 3:
                 start_time = time.perf_counter()
                 for name, manager in managers.items():
                     if not manager.update():
