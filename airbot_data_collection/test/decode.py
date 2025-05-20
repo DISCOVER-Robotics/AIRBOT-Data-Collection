@@ -5,6 +5,8 @@ import imageio.v3 as iio
 import io
 from PIL import Image
 import time
+import av
+
 
 jpeg = TurboJPEG()
 
@@ -18,6 +20,10 @@ methods = {
     "imageio": lambda bt: iio.imread(io.BytesIO(bt), extension=".jpg"),
     "PIL": lambda bt: np.array(Image.open(io.BytesIO(bt))),
     "cv2": lambda bt: cv2.imdecode(np.frombuffer(bt, np.uint8), cv2.IMREAD_COLOR),
+    "pyav": lambda bt: [
+        frame.to_ndarray(format="rgb24")
+        for frame in av.open(io.BytesIO(bt), format="jpeg_pipe").decode(video=0)
+    ][0],
     "turbojpeg": lambda bt: jpeg.decode(bt),
 }
 
