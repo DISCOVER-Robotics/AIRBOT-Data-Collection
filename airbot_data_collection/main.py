@@ -1,5 +1,4 @@
 from airbot_data_collection.demonstrate.interface import ComponentsInstancer
-from logging import getLogger
 from airbot_data_collection.config import DataCollectionArgs
 from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSM,
@@ -9,6 +8,7 @@ from airbot_data_collection.state_machine.fsm import (
 from airbot_data_collection.managers.basis import DemonstrateManager
 from airbot_data_collection.utils import init_logging
 from typing import Dict
+from logging import getLogger
 import time
 
 

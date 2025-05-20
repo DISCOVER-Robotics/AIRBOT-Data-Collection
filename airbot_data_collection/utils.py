@@ -7,6 +7,7 @@ import asyncio
 import threading
 import math
 import tkinter
+from tqdm import tqdm
 
 
 def get_stamp_ms() -> int:
@@ -228,8 +229,33 @@ def resolution_to_inches(width: int, height: int) -> Tuple[float, float]:
     return width / dpi, height / dpi
 
 
+class ProgressBar:
+    def __init__(self, total: int, desc: str):
+        self.total = total
+        self.desc = desc
+        self.progress_bar = tqdm(total=total or self.total, desc=desc or self.desc, unit="step")
+        self.progress_bar.clear()
+
+    def update(self, index: int):
+        self.progress_bar.n = index
+        self.progress_bar.set_postfix({"Percentage": f"{index / self.total * 100:.1f}%"})
+        self.progress_bar.refresh()
+
+    def reset(self, total: int = 0, desc: Optional[str] = None):
+        self.progress_bar.reset(total=total or self.total)
+        self.progress_bar.desc = desc
+        self.progress_bar.clear()
+
+    def close(self):
+        self.progress_bar.close()
+
+
 if __name__ == "__main__":
-    search_dirs = (".",)
-    filenames = ("airbot_play", "opencv")
-    found_files = find_matching_files(search_dirs, filenames)
-    print(f"Found files: {found_files}")
+
+    bar = ProgressBar(100, "Round 0")
+    for rd in range(10):
+        for i in range(5):
+            input("Press Enter to continue...")
+            bar.update(i + 1)
+        bar.reset(desc=f"Round {rd + 1}")
+    

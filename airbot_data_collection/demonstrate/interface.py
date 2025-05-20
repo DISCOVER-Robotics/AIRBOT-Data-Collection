@@ -24,7 +24,7 @@ import time
 from threading import Lock, Thread, Event
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from collections import defaultdict
-from airbot_data_collection.utils import find_matching_files, bcolors, get_items_by_ext
+from airbot_data_collection.utils import find_matching_files, bcolors, get_items_by_ext, ProgressBar
 
 
 class GroupComponentNames(BaseModel):
@@ -274,6 +274,10 @@ class DemonstrateInterface:
         # the beginning mode can be considered as data are
         # saved in the -1 round, so save_mode is performed
         if self._post_action(DemonstrateAction.save):
+            self._bar = ProgressBar(
+                self.config.sample_limit.size,
+                f"Round {self.sample_info.round}",
+            )
             return True
         return False
 
@@ -374,6 +378,7 @@ class DemonstrateInterface:
             data = self.capture()
             self.sampler.append(data)
             info.index += 1
+            self._bar.update(info.index)
             return True
 
     def _show_save_info(self, path: str, flag: bool) -> bool:
@@ -399,6 +404,7 @@ class DemonstrateInterface:
                 return False
         self.sample_info.round += 1
         self.sample_info.index = 0
+        self._bar.reset(desc=f"Round {self.sample_info.round}")
         return self._post_action(DemonstrateAction.save)
 
     def remove(self) -> bool:
@@ -415,6 +421,7 @@ class DemonstrateInterface:
             self.sampler.remove(path)
             self.sample_info.round -= 1
             self.sample_info.index = 0
+            self._bar.reset(desc=f"Round {self.sample_info.round}")
             self.get_logger().info(bcolors.OKGREEN + f"Removed {path}")
         else:
             self.get_logger().warning("Not ever saved yet")
@@ -424,6 +431,7 @@ class DemonstrateInterface:
         """Abandon the current round of sampling."""
         self.sampler.clear()
         self.sample_info.index = 0
+        self._bar.reset(desc=f"Round {self.sample_info.round}")
         self.get_logger().info(
             bcolors.OKGREEN + f"Abandoned the current round: {self.sample_info.round}"
         )
@@ -436,7 +444,7 @@ class DemonstrateInterface:
         self._post_action(DemonstrateAction.finish)
         if self.deactivate():
             for group in self.groups:
-                for component in group.leader, *group.followers, *group.others:
+                for component in [group.leader] + group.followers + group.others:
                     component.shutdown()
             self.get_logger().info(
                 f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info}"
