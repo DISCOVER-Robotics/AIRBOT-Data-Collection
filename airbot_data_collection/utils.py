@@ -5,6 +5,8 @@ import logging
 import time
 import asyncio
 import threading
+import math
+import tkinter
 
 
 def get_stamp_ms() -> int:
@@ -175,6 +177,55 @@ def get_items_by_ext(directory: str, extension: str) -> List[str]:
             for entry in entries
             if entry.name.endswith(extension) and entry.is_file()
         ]
+
+
+def optimal_grid(
+    N: int, screen_width: int, screen_height: int, image_aspect_ratio: float = 1.0
+):
+    """Determine the best grid layout for a given screen resolution
+
+    Args:
+    - N: number of images
+    - screen_width: screen width in pixels
+    - screen_height: screen height in pixels
+    - image_aspect_ratio: image aspect ratio (default 1.0 for square)
+
+    Returns:
+    - rows: number of rows
+    - cols: number of columns
+    """
+    ratio_adjustment = (screen_height / screen_width) * image_aspect_ratio
+    ideal_rows = math.sqrt(N * ratio_adjustment)
+    best_error = float("inf")
+    optimal_rows, optimal_cols = 1, N
+    for r in range(max(1, int(ideal_rows * 0.7)), int(ideal_rows * 1.3) + 1):
+        c = math.ceil(N / r)
+
+        cell_width = screen_width / c
+        cell_height = screen_height / r
+        cell_aspect_ratio = cell_width / cell_height
+
+        aspect_error = abs(cell_aspect_ratio - image_aspect_ratio) / image_aspect_ratio
+        wasted_space = (r * c - N) / N
+        total_error = aspect_error + wasted_space
+
+        if total_error < best_error:
+            best_error = total_error
+            optimal_rows, optimal_cols = r, c
+
+    return optimal_rows, optimal_cols
+
+
+def get_dpi() -> float:
+    root = tkinter.Tk()
+    dpi = root.winfo_fpixels("1i")  # 水平方向的DPI
+    root.destroy()
+    return dpi
+
+
+def resolution_to_inches(width: int, height: int) -> Tuple[float, float]:
+    dpi = get_dpi()
+    return width / dpi, height / dpi
 
 
 if __name__ == "__main__":

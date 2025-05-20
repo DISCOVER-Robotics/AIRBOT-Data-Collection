@@ -1,19 +1,20 @@
 from typing import Any, Protocol, Optional, Union, runtime_checkable
 from abc import abstractmethod
-from pydantic import BaseModel, NonNegativeInt
+from pydantic import BaseModel, NonNegativeInt, PositiveInt
 from airbot_data_collection.basis import ConfigBasis
 
 
 class GUIVisualizerConfig(BaseModel):
     """Configuration for GUI visualizer."""
 
+    single_window: bool = False
+    concatenate: bool = False
     # the width and height of the GUI
     # window when single_window or concatenate
     # is set to True
-    single_window: bool = False
-    concatenate: bool = False
-    width: NonNegativeInt = 0
-    height: NonNegativeInt = 0
+    # 0 means auto
+    width: NonNegativeInt = 1280
+    height: NonNegativeInt = 720
     # the tile of the GUI window when
     # the single_window or concatenate
     # is set to True
@@ -21,16 +22,22 @@ class GUIVisualizerConfig(BaseModel):
     # the direction of the subplots increment
     # when single_window or concatenate
     # is set to True
-    axis: NonNegativeInt = 0
+    # 0: row-wise, 1: column-wise
+    axis: NonNegativeInt = 1
     # the max number of subplots in a row / column
     # before the next row / column, which should be
-    # adjusted according to the image size and the 
+    # adjusted according to the image size and the
     # screen resolution
     # when single_window or concatenate
     # is set to True
-    max_num: NonNegativeInt = 3
+    # if zero, will automatically calculate
+    # based on the screen resolution
+    # and the image resolution
+    max_num: NonNegativeInt = 0
     # do not display the sample info
     ignore_info: bool = False
+    screen_width: PositiveInt = 1920
+    screen_height: PositiveInt = 1080
 
 
 class WebVisualizerConfig(BaseModel):

@@ -3,11 +3,12 @@ from airbot_data_collection.common.visualiziers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
 )
+from airbot_data_collection.utils import optimal_grid, resolution_to_inches, get_dpi
 import numpy as np
-from typing import Union, Iterable, Dict, Tuple
-from pydantic import BaseModel
-import logging
+from typing import Dict
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.image import AxesImage
 
 
 class PltVisualizer(VisualizerBasis):
@@ -15,19 +16,64 @@ class PltVisualizer(VisualizerBasis):
 
     def on_configure(self) -> bool:
         plt.ion()
-        self._displays = {}
+        self._displays: Dict[str, AxesImage] = {}
         return True
 
     def update(self, data: Dict[str, np.ndarray], info: SampleInfo) -> bool:
         if not self._displays:
             img_num = len(data)
-            if img_num == 1:
-                pass
-            elif img_num
-            fig, axes = plt.subplots(self.config, 2, figsize=(12, 10))
-            axes = axes.flatten()  # 将2D数组展平为1D，便于索引
-            for key, image in data.items():
-                self._displays
-
-        
+            if self.config.max_num > 0:
+                row, col = self.config.max_num, np.ceil(img_num / self.config.max_num)
+            else:
+                # TODO: should use all image ratios？
+                img_shape = list(data.values())[0].shape
+                img_ratio = img_shape[1] / img_shape[0]
+                row, col = optimal_grid(
+                    img_num,
+                    self.config.screen_width,
+                    self.config.screen_height,
+                    img_ratio,
+                )
+            if self.config.axis == 0:
+                row, col = col, row
+            self._fig, axes = plt.subplots(
+                row,
+                col,
+                figsize=resolution_to_inches(self.config.width, self.config.height),
+                dpi=get_dpi(),
+            )
+            if isinstance(axes, Axes):
+                axes = [axes]
+            else:
+                axes = axes.flatten()
+            for i, (key, image) in enumerate(data.items()):
+                axis = axes[i]
+                axis.set_title(key)
+                self._displays[key] = axis.imshow(image)
+            self._axes = axes
+            plt.tight_layout()
+        for key, image in data.items():
+            self._displays[key].set_data(image)
+        self._fig.canvas.manager.set_window_title(
+            f"Round: {info.round}, Index: {info.index}"
+        )
+        plt.pause(0.001)
         return True
+
+    def shutdown(self) -> bool:
+        plt.close()
+        self._displays = {}
+        return True
+
+
+if __name__ == "__main__":
+    import time
+
+    vis = PltVisualizer()
+    assert vis.configure()
+    while True:
+        new_img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        images = {key: new_img for key in {"image1", "image2", "image3", "image4"}}
+        start = time.monotonic()
+        vis.update(images, SampleInfo(round=0, index=0))
+        print(f"Update time cost: {time.monotonic() - start:.4f}s")
