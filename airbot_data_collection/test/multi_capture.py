@@ -1,14 +1,8 @@
-#
-# This file is part of the linuxpy project
-#
-# Copyright (c) 2023 Tiago Coutinho
-# Distributed under the GPLv3 license. See LICENSE for more info.
-
 import argparse
 import asyncio
 import logging
-from linuxpy.video.device import Capability, Device, PixelFormat
-from pprint import pformat
+from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
+
 
 MODES = {
     "auto": None,
@@ -16,28 +10,28 @@ MODES = {
     "read": Capability.READWRITE,
 }
 
-frames = {}
+frame_dicts = {}
+frame_nb_dicts = {}
 
 
-async def run_one(device, args):
-    with device:
-        async for frame in device:
-            yield frame
+async def run_one(device: Device, frame_format: str, args):
+    device.open()
+    capture = VideoCapture(device)
+    capture.set_format(*args.frame_size, frame_format)
+    with capture:
+        async for frame in capture:
+            frame_dicts[device] = frame
+            frame_nb_dicts[device] = frame.frame_nb
 
 
 async def run(args):
-    queue = asyncio.Queue()
-
-    async def producer(device):
-        async for item in run_one(device, args):
-            await queue.put((device, item))
-
-    _ = [asyncio.create_task(producer(device)) for device in args.devices]
-
+    _ = [
+        asyncio.create_task(run_one(device, frame_format, args))
+        for device, frame_format in zip(args.devices, args.frame_formats)
+    ]
     while True:
-        device, frame = await queue.get()
-        frames[device] = frame.frame_nb
-        print(pformat(frames), flush=True, end="\r")
+        print(frame_nb_dicts, flush=True, end="\r")
+        await asyncio.sleep(0.02)
 
 
 def device_text(text):
@@ -63,9 +57,9 @@ def cli():
     )
     parser.add_argument("--mode", choices=MODES, default="auto")
     parser.add_argument("--nb-buffers", type=int, default=2)
-    parser.add_argument("--frame-rate", type=float, default=10)
+    parser.add_argument("--frame-rate", type=float, default=0.0)
     parser.add_argument("--frame-size", type=frame_size, default="640x480")
-    parser.add_argument("--frame-format", type=frame_format, default="RGB24")
+    parser.add_argument("-ff", "--frame-formats", type=frame_format, nargs="+")
     parser.add_argument("devices", type=device_text, nargs="+")
     return parser
 
