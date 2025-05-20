@@ -47,7 +47,7 @@ if __name__ == "__main__":
         # TODO: based on async io to update asynchronously?
         try:
             while True:
-                start_time = time.perf_counter()
+                start_time = time.monotonic()
                 for name, manager in managers.items():
                     if not manager.update():
                         logger.warning(f"Failed to update manager: {name}.")
@@ -55,7 +55,7 @@ if __name__ == "__main__":
                     logger.info("Data collection finished.")
                     break
                 if interval > 0:
-                    cost_time = time.perf_counter() - start_time
+                    cost_time = time.monotonic() - start_time
                     sleep_time = interval - cost_time
                     if sleep_time > 0:
                         time.sleep(sleep_time)

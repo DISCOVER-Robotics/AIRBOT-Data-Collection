@@ -7,8 +7,8 @@
 import argparse
 import asyncio
 import logging
-
 from linuxpy.video.device import Capability, Device, PixelFormat
+from pprint import pformat
 
 MODES = {
     "auto": None,
@@ -16,11 +16,12 @@ MODES = {
     "read": Capability.READWRITE,
 }
 
+frames = {}
+
 
 async def run_one(device, args):
     with device:
         async for frame in device:
-            print("frame!")
             yield frame
 
 
@@ -35,7 +36,8 @@ async def run(args):
 
     while True:
         device, frame = await queue.get()
-        print(f"{device.index} {frame.frame_nb}")
+        frames[device] = frame.frame_nb
+        print(pformat(frames), flush=True, end="\r")
 
 
 def device_text(text):
@@ -56,7 +58,9 @@ def frame_format(text):
 
 def cli():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log-level", choices=["debug", "info", "warning", "error"], default="info")
+    parser.add_argument(
+        "--log-level", choices=["debug", "info", "warning", "error"], default="info"
+    )
     parser.add_argument("--mode", choices=MODES, default="auto")
     parser.add_argument("--nb-buffers", type=int, default=2)
     parser.add_argument("--frame-rate", type=float, default=10)
