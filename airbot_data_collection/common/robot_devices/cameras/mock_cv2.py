@@ -28,6 +28,7 @@ class VideoCapture:
             CAP_PROP_FPS: 30,
             CAP_PROP_FRAME_WIDTH: 640,
             CAP_PROP_FRAME_HEIGHT: 480,
+            CAP_PROP_FOURCC: 0x00000000,
         }
         self._is_opened = True
 
