@@ -33,7 +33,6 @@ def prepare_cv2_imshow(logger: logging.Logger):
 
 class OpenCVisualizerConfig(GUIVisualizerConfig):
     """Configuration for OpenCV visualizer."""
-
     window_type: int = cv2.WINDOW_NORMAL
 
 

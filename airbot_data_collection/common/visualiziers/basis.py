@@ -38,6 +38,8 @@ class GUIVisualizerConfig(BaseModel):
     ignore_info: bool = False
     screen_width: PositiveInt = 1920
     screen_height: PositiveInt = 1080
+    # convert bgr to rgb or rgb to bgr
+    swap_rgb_bgr: bool = False
 
 
 class WebVisualizerConfig(BaseModel):
