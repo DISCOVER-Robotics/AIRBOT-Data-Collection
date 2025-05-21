@@ -1,11 +1,11 @@
-from airbot_data_collection.utils import run_event_loop
+from airbot_data_collection.utils import run_event_loop, ImageCoder
 from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBConfig
 from airbot_data_collection.basis import Sensor
 import asyncio
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from typing import Optional, Union
 from threading import Event
-from numpy import ndarray
+import numpy as np
 from turbojpeg import TurboJPEG
 
 
@@ -55,7 +55,7 @@ class V4L2Camera(Sensor):
             self.jpeg = TurboJPEG()
         return True
 
-    def capture_observation(self) -> Union[bytes, ndarray]:
+    def capture_observation(self) -> Union[bytes, np.ndarray]:
         self.event.wait()
         frame_bytes = bytes(self.frame)
         if not self.config.decode:
@@ -63,6 +63,10 @@ class V4L2Camera(Sensor):
         else:
             if self.config.pixel_format is PixelFormat.MJPEG:
                 image = self.jpeg.decode(frame_bytes)
+            elif self.config.pixel_format is PixelFormat.YUYV:
+                image = ImageCoder.yuyv2bgr(
+                    frame_bytes, self.config.width, self.config.height
+                )
             else:
                 raise NotImplementedError(
                     f"Pixel format {self.config.pixel_format} not supported for decoding yet."
