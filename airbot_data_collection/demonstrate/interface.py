@@ -24,7 +24,12 @@ import time
 from threading import Lock, Thread, Event
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from collections import defaultdict
-from airbot_data_collection.utils import find_matching_files, bcolors, get_items_by_ext, ProgressBar
+from airbot_data_collection.utils import (
+    find_matching_files,
+    bcolors,
+    get_items_by_ext,
+    ProgressBar,
+)
 
 
 class GroupComponentNames(BaseModel):
@@ -156,15 +161,23 @@ class DemonstrateInterface:
         for group, name in zip(self.groups, self.group_component_names):
             names = [name.leader] + name.followers + name.others
             components = [group.leader] + group.followers + group.others
-            for component, n in zip(components, names):
+            roles = (
+                [ComponentRole.l]
+                + [ComponentRole.f] * len(group.followers)
+                + [ComponentRole.o] * len(group.others)
+            )
+            for component, n, role in zip(components, names, roles):
                 if not component.configure():
-                    self.get_logger().error(f"Failed to configure {n}")
+                    self.get_logger().error(
+                        f"Failed to configure {n} of role: {role} in group {group.name}"
+                    )
                     return False
         names = ["sampler"] + list(self.visualizers.keys())
         components = [self.sampler] + list(self.visualizers.values())
-        for name, component in zip(names, components):
+        types = ["sampler"] + ["visualizer"] * len(self.visualizers)
+        for name, component, tp in zip(names, components, types):
             if not component.configure():
-                self.get_logger().error(f"Failed to configure {name}")
+                self.get_logger().error(f"Failed to configure {tp}: {name}")
                 return False
         return True
 
@@ -308,23 +321,22 @@ class DemonstrateInterface:
         """
         Set the mode for the followers
         """
-        for group in self.groups:
-            for follower in group.followers:
+        for group, names in zip(self.groups, self.group_component_names):
+            for follower, name in zip(group.followers, names.followers):
                 if not follower.switch_mode(mode):
-                    # TODO: log follower name
                     self.get_logger().error(
-                        f"Failed to set {group.name} follower to {mode} mode"
+                        f"Failed to set {group.name} follower {name} to {mode} mode"
                     )
                     return False
         self._role_mode_set[ComponentRole.f] = mode
         return True
 
     def _get_sample_suffix(self, group_name: str, component_name: str, key: str) -> str:
-        # TODO: should allow component_name to be empty?
+        # TODO: should allow component_name to be empty or the group name to be /?
         if component_name:
-            return f"{group_name}/{component_name}/{key}"
+            return f"/{group_name}/{component_name}/{key}".removeprefix("//")
         else:
-            return f"{group_name}/{key}"
+            return f"/{group_name}/{key}".removeprefix("//")
 
     def sample(self) -> bool:
         """
@@ -349,13 +361,13 @@ class DemonstrateInterface:
                 group.name, name, key
             )
             for key, value in action.items():
-                data[f"/action/{get_suffix(all_names.leader, key)}"] = value
+                data[get_suffix(all_names.leader, key)] = value
             for component, name in zip(
                 group.followers + group.others, all_names.followers + all_names.others
             ):
                 observation = component.capture_observation()
                 for key, value in observation.items():
-                    data[f"/obervation/{get_suffix(name, key)}"] = value
+                    data[get_suffix(name, key)] = value
         self.last_capture = data
         # update the visualizers
         for name, visualizer in self.visualizers.items():

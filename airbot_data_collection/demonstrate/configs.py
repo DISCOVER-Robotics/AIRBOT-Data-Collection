@@ -92,8 +92,11 @@ class ComponentGroupsConfig(BaseModel):
         if not self.names:
             ref_length = max(len(self.paths), len(self.params))
             self.names = [f"robot{i}" for i in range(ref_length)]
-        else:
-            assert len(set(self.names)) == len(self.names), "names must be unique"
+        # TODO: should check if the names are unique across all groups or
+        # only within the same group ot only within the same group and the
+        # same role?
+        # else:
+        #     assert len(set(self.names)) == len(self.names), "names must be unique"
         name_length = len(self.names)
         if len(self.paths) == 1:
             self.paths = [self.paths[0]] * name_length
