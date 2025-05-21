@@ -5,3 +5,4 @@ width: 640
 height: 480
 color_mode: rgb
 mock: false
+pixel_format: null

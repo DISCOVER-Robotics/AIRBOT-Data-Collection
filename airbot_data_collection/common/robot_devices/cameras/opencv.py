@@ -16,6 +16,7 @@ from airbot_data_collection.common.robot_devices.utils import (
 )
 from airbot_data_collection.common.utils.utils import capture_timestamp_utc
 from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBConfig
+from logging import getLogger
 
 # The maximum opencv device index depends on your operating system. For instance,
 # if you have 3 cameras, they should be associated to index 0, 1, and 2. This is the case
@@ -126,6 +127,7 @@ class OpenCVCamera:
         self.height = config.height
         self.color_mode = config.color_mode
         self.mock = config.mock
+        self.pixel_format = config.pixel_format
 
         self.camera = None
         self.is_connected = False
@@ -134,17 +136,21 @@ class OpenCVCamera:
         self.color_image = None
         self.logs = {}
 
+    def get_logger(self):
+        return getLogger(self.__class__.__name__)
+
     def connect(self):
         if self.is_connected:
             raise RobotDeviceAlreadyConnectedError(
                 f"OpenCVCamera({self.camera_index}) is already connected."
             )
-
+        fourcc = None
         if self.mock:
             from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
                 CAP_PROP_FPS,
                 CAP_PROP_FRAME_HEIGHT,
                 CAP_PROP_FRAME_WIDTH,
+                CAP_PROP_FOURCC,
                 VideoCapture,
             )
         else:
@@ -152,10 +158,14 @@ class OpenCVCamera:
                 CAP_PROP_FPS,
                 CAP_PROP_FRAME_HEIGHT,
                 CAP_PROP_FRAME_WIDTH,
+                CAP_PROP_FOURCC,
                 VideoCapture,
+                VideoWriter_fourcc,
                 setNumThreads,
             )
 
+            if self.pixel_format is not None:
+                fourcc = VideoWriter_fourcc(*self.pixel_format)
             # Use 1 thread to avoid blocking the main thread. Especially useful during data collection
             # when other threads are used to save the images.
             setNumThreads(1)
@@ -188,10 +198,13 @@ class OpenCVCamera:
             self.camera.set(CAP_PROP_FRAME_WIDTH, self.width)
         if self.height is not None:
             self.camera.set(CAP_PROP_FRAME_HEIGHT, self.height)
+        if self.pixel_format is not None:
+            self.camera.set(CAP_PROP_FOURCC, fourcc)
 
         actual_fps = self.camera.get(CAP_PROP_FPS)
         actual_width = self.camera.get(CAP_PROP_FRAME_WIDTH)
         actual_height = self.camera.get(CAP_PROP_FRAME_HEIGHT)
+        actual_fourcc = self.camera.get(CAP_PROP_FOURCC)
 
         # Using `math.isclose` since actual fps can be a float (e.g. 29.9 instead of 30)
         if self.fps is not None and not math.isclose(
@@ -209,10 +222,18 @@ class OpenCVCamera:
             raise OSError(
                 f"Can't set {self.height=} for OpenCVCamera({self.camera_index}). Actual value is {actual_height}."
             )
+        if fourcc is not None and actual_fourcc != fourcc:
+            raise OSError(
+                f"Can't set {self.pixel_format=} for OpenCVCamera({self.camera_index}). Actual value is {actual_fourcc}."
+            )
 
         self.fps = round(actual_fps)
         self.width = round(actual_width)
         self.height = round(actual_height)
+
+        self.get_logger().info(
+            f"Camera info: {self.fps=} {self.width=} {self.height=} {self.pixel_format=}"
+        )
 
         self.is_connected = True
 

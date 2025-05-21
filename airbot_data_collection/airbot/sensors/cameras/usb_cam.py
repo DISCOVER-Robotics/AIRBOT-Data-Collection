@@ -17,9 +17,6 @@ class USBCamera(Sensor):
     def on_configure(self):
         self.interface.connect()
         if self.interface.is_connected:
-            self.get_logger().info(
-                f"Camera info: fps: {self.interface.fps} width: {self.interface.width} height: {self.interface.height}"
-            )
             return True
         return False
 
