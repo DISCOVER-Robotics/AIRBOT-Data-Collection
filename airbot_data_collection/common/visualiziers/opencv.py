@@ -5,7 +5,7 @@ from airbot_data_collection.common.visualiziers.basis import (
     SampleInfo,
 )
 import numpy as np
-from typing import Union, Iterable, Dict, Tuple
+from typing import Dict, Tuple
 from pydantic import BaseModel
 import logging
 
@@ -20,9 +20,8 @@ def prepare_cv2_imshow(logger: logging.Logger):
 
     def show_image(name):
         logger.info(f"Showing {name}")
-        for _ in range(1):
-            cv2.imshow(name, image)
-            cv2.waitKey(1)
+        cv2.imshow(name, image)
+        cv2.waitKey(1)
         logger.info(f"{name} is ready")
         cv2.destroyAllWindows()
 
@@ -31,8 +30,27 @@ def prepare_cv2_imshow(logger: logging.Logger):
     logger.info("cv2.imshow is ready")
 
 
+def decode_image(
+    data: bytes, pixel_format: str, witdh: int = 0, height: int = 0
+) -> np.ndarray:
+    """Decode the image data based on the pixel format."""
+    if pixel_format == "MJPEG":
+        return cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    elif pixel_format == "YUYV":
+        assert (
+            witdh > 0 and height > 0
+        ), "Width and height must be provided for YUYV format"
+        return cv2.cvtColor(
+            np.frombuffer(data, np.uint8).reshape((height, witdh, 2)),
+            cv2.COLOR_YUV2BGR_YUYV,
+        )
+    else:
+        raise ValueError(f"Unsupported pixel format: {pixel_format}")
+
+
 class OpenCVisualizerConfig(GUIVisualizerConfig):
     """Configuration for OpenCV visualizer."""
+
     window_type: int = cv2.WINDOW_NORMAL
 
 
@@ -61,21 +79,15 @@ class OpenCVisualizer(VisualizerBasis):
             )
         return True
 
-    def update(
-        self,
-        data: Union[np.ndarray, Iterable[np.ndarray], Dict[str, np.ndarray]],
-        info: SampleInfo,
-    ) -> bool:
-        """ "Show the data on the OpenCV window."""
+    def update(self, data: Dict[str, np.ndarray], info: SampleInfo) -> bool:
+        """Show the data on the OpenCV window."""
         # TODO: add concatenation for the data
-        if isinstance(data, np.ndarray):
-            cv2.imshow(self.config.title, data)
-        elif isinstance(data, dict):
-            for key, value in data.items():
-                cv2.imshow(f"{key}", value)
-        else:
-            for i, value in enumerate(data):
-                cv2.imshow(f"{i}", value)
+        for key, value in data.items():
+            if isinstance(value, bytes):
+                value = decode_image(value, self.config.pixel_format)
+            if self.config.swap_rgb_bgr:
+                value = value[..., ::-1]
+            cv2.imshow(f"{key}", value)
         if not self.config.ignore_info:
             image = self._put_info(self.info_image.copy(), info)
             cv2.imshow("info", image)

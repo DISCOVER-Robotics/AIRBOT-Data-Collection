@@ -5,6 +5,8 @@ import asyncio
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from typing import Optional, Union
 from threading import Event
+from numpy import ndarray
+from turbojpeg import TurboJPEG
 
 
 class V4L2CameraConfig(CameraRGBConfig):
@@ -12,6 +14,8 @@ class V4L2CameraConfig(CameraRGBConfig):
     height: int = 480
     nb_buffers: int = 2
     mode: Optional[Union[str, int]] = None
+    decode: bool = True
+    pixel_format: Union[PixelFormat, str] = PixelFormat.MJPEG
 
     def model_post_init(self, context):
         self.mode = {
@@ -19,9 +23,7 @@ class V4L2CameraConfig(CameraRGBConfig):
             "read": Capability.READWRITE,
         }.get(self.mode, self.mode)
         if isinstance(self.pixel_format, str):
-            self.pixel_format = PixelFormat[self.pixel_format]
-        elif self.pixel_format is None:
-            self.pixel_format = PixelFormat.MJPEG
+            self.pixel_format = PixelFormat[self.pixel_format.upper()]
 
 
 class V4L2Camera(Sensor):
@@ -49,11 +51,25 @@ class V4L2Camera(Sensor):
         self._read_fut = asyncio.run_coroutine_threadsafe(
             self._read_frame(), run_event_loop()
         )
+        if self.config.decode and self.config.pixel_format is PixelFormat.MJPEG:
+            self.jpeg = TurboJPEG()
         return True
 
-    def capture_observation(self) -> bytes:
+    def capture_observation(self) -> Union[bytes, ndarray]:
         self.event.wait()
-        return bytes(self.frame)
+        frame_bytes = bytes(self.frame)
+        if not self.config.decode:
+            return frame_bytes
+        else:
+            if self.config.pixel_format is PixelFormat.MJPEG:
+                image = self.jpeg.decode(frame_bytes)
+            else:
+                raise NotImplementedError(
+                    f"Pixel format {self.config.pixel_format} not supported for decoding yet."
+                )
+            if self.config.color_mode == "rgb":
+                image = image[:, :, ::-1]
+            return image
 
     def shutdown(self) -> bool:
         # TODO: why manually closing raises error?
@@ -74,27 +90,16 @@ class V4L2Camera(Sensor):
 
 
 if __name__ == "__main__":
-
-    from PIL import Image
-    import io
     import time
-    import matplotlib.pyplot as plt
-
-    def visualize_jpeg_bytes(image_bytes):
-        image = Image.open(io.BytesIO(image_bytes))
-        plt.figure(figsize=(8, 8))
-        plt.imshow(image)
-        plt.axis("off")
-        plt.title("JPEG Image Visualization")
-        plt.tight_layout()
-        plt.show()
+    import cv2
 
     camera = V4L2Camera()
     assert camera.configure()
-    for _ in range(20):
+    while True:
         start = time.monotonic()
-        image_bt = camera.capture_observation()
-        print(f"time cost: {time.monotonic() - start}s")
-        print(len(image_bt))
-        visualize_jpeg_bytes(image_bt)
+        image = camera.capture_observation()
+        print(f"time cost: {time.monotonic() - start}s", end="\r")
+        cv2.imshow("image", image)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
     assert camera.shutdown()

@@ -4,7 +4,7 @@ import logging
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 import time
 import cv2
-import numpy as np
+from airbot_data_collection.common.visualiziers.opencv import decode_image
 
 
 MODES = {
@@ -17,7 +17,7 @@ frame_dicts = {}
 frame_info_dicts = {}
 
 
-async def run_one(device: Device, frame_format: str, args):
+async def run_one(device: Device, frame_format: PixelFormat, args):
     device.open()
     capture = VideoCapture(device)
     capture.set_format(*args.frame_size, frame_format)
@@ -30,20 +30,10 @@ async def run_one(device: Device, frame_format: str, args):
             frame_info_dicts[device.index] = (
                 f"frame_nb: {frame.frame_nb}, fps: {freq:.2f}"
             )
-            if frame_format is PixelFormat.MJPEG:
-                image = cv2.imdecode(
-                    np.frombuffer(bytes(frame), np.uint8), cv2.IMREAD_COLOR
-                )
-            elif frame_format is PixelFormat.YUYV:
-                image = cv2.cvtColor(
-                    np.frombuffer(bytes(frame), np.uint8).reshape(
-                        (args.frame_size[1], args.frame_size[0], 2)
-                    ),
-                    cv2.COLOR_YUV2BGR_YUYV,
-                )
-            else:
-                raise ValueError(f"Unsupported format: {frame_format}")
-            cv2.imshow(f"{device.index}", image)
+            cv2.imshow(
+                f"{device.index}",
+                decode_image(bytes(frame), frame_format.name, *args.frame_size),
+            )
             cv2.waitKey(1)
 
 

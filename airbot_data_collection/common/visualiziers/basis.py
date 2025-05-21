@@ -40,6 +40,15 @@ class GUIVisualizerConfig(BaseModel):
     screen_height: PositiveInt = 1080
     # convert bgr to rgb or rgb to bgr
     swap_rgb_bgr: bool = False
+    # the pixel format of the image
+    # used when the data type is bytes
+    # TODO: should and how to pass the image info
+    # automatically to the visualizer from the image
+    # data or the camera component?
+    pixel_format: str = "MJPEG"  # MJPEG, YUYV
+    # TODO: and for the YUYV format, the width and height
+    # of the image should be passed to the visualizer
+    # and it is hard to configure here
 
 
 class WebVisualizerConfig(BaseModel):
