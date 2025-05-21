@@ -53,20 +53,21 @@ class ComponentsConfig(BaseModel):
     async_modes: List[AsyncMode] = []
     update_rates: List[NonNegativeInt] = []
 
-    def get_component(self, name: str) -> ComponentConfig:
-        index = self.names.index(name)
-        return ComponentConfig(
-            name=name,
-            path=self.paths[index],
-            param=self.params[index],
-            async_mode=self.async_modes[index],
-        )
+    # TODO: name may not be unique across all components
+    # def get_component(self, name: str) -> ComponentConfig:
+    #     index = self.names.index(name)
+    #     return ComponentConfig(
+    #         name=name,
+    #         path=self.paths[index],
+    #         param=self.params[index],
+    #         async_mode=self.async_modes[index],
+    #     )
 
 
 class GroupConfig(BaseModel):
     name: str
-    leader: ComponentConfig
-    followers: List[ComponentConfig]
+    leader: List[ComponentConfig] = []
+    followers: List[ComponentConfig] = []
     others: List[ComponentConfig] = []
 
 
@@ -125,88 +126,40 @@ class ComponentGroupsConfig(BaseModel):
         # 以及至少一个follower，否则引发异常，如果没有指定角色，则默认每组第一个robot为leader
         # 其余为follower，例如：groups=[0, 0, 0, 1, 1], 则rules为[l, f, f, l, f]
         if not self.indicate_from_name:
-            if group_num == 0:
-                if role_num == 0:
-                    self.groups = [f"group{i // 2}" for i in range(len(self.names))]
-                    self.roles = [
-                        ComponentRole.l if i % 2 == 0 else ComponentRole.f
-                        for i in range(len(self.names))
-                    ]
-                else:
-                    assert role_num == len(
-                        self.names
-                    ), "roles must have the same length as names"
-                    # generate groups based on roles
-                    self.groups = []
-                    leader_cnt = 0
-                    # e.g. [l, f, f, l, f, f] will be grouped info [0, 0, 0, 1, 1, 1]
-                    assert (
-                        self.roles[-1] is ComponentRole.f
-                    ), "the last role must be a follower"
-                    assert (
-                        self.roles[0] is ComponentRole.l
-                    ), "the first role must be a leader"
-                    for i, role in enumerate(self.roles):
-                        if role is ComponentRole.l or i == role_num - 1:
-                            leader_cnt += 1
-                            if leader_cnt > 1:
-                                # e.g. i=3, groups length=0, member_num should be 3
-                                member_num = i - len(self.groups)
-                                assert (
-                                    member_num > 1
-                                ), "each group must have at least one follower"
-                                self.groups.extend(
-                                    [f"group{leader_cnt - 2}"] * member_num
-                                )
-            else:
-                assert group_num == len(
-                    self.names
-                ), "groups must have the same length as names"
-                if role_num == 0:
-                    # generate roles based on groups
-                    roles = []
-                    seen = set()
-                    seen_twice = set()
-                    for item in self.groups:
-                        if item not in seen:
-                            roles.append(ComponentRole.l)
-                            seen.add(item)
-                        else:
-                            roles.append(ComponentRole.f)
-                            seen_twice.add(item)
-                    seen_once = seen - seen_twice
-                    if seen_once:
-                        raise ValueError(f"Elements appearing only once: {seen_once}")
-                    self.roles = roles
-                else:
-                    assert role_num == len(
-                        self.groups
-                    ), "roles must have the same length as groups"
-                    # check if each group has one and only one leader robot
-                    # and no less than one follower robot
-                    group_set = set(self.groups)
-                    get_all_index = lambda x: [
-                        i for i, j in enumerate(self.groups) if j == x
-                    ]
-                    for group in group_set:
-                        indexes = get_all_index(group)
-                        group_roles = [self.roles[i] for i in indexes]
-                        group_counter = Counter(group_roles)
-                        leader_cnt = 0
-                        leader_cnt += group_counter[ComponentRole.l]
-                        # TODO: support groups that only have other roles
-                        assert (
-                            leader_cnt == 1
-                        ), f"each group must have one and only one leader robot, but {group} has {leader_cnt} leaders"
-                        follower_cnt = 0
-                        follower_cnt += group_counter[ComponentRole.f]
-                        assert (
-                            follower_cnt > 0
-                        ), f"each group must have at least one follower robot, but {group} has {follower_cnt} followers"
+            assert group_num == len(
+                self.names
+            ), "groups must have the same length as names"
+            assert role_num == len(
+                self.groups
+            ), "roles must have the same length as groups"
+            # check if each group has one and only one leader robot
+            # and no less than one follower robot
+            group_set = set(self.groups)
+            get_all_index = lambda x: [i for i, j in enumerate(self.groups) if j == x]
+            for group in group_set:
+                indexes = get_all_index(group)
+                group_roles = [self.roles[i] for i in indexes]
+                group_counter = Counter(group_roles)
+                leader_cnt = 0
+                leader_cnt += group_counter[ComponentRole.l]
+                # TODO: support groups that only have other roles
+                assert leader_cnt in [
+                    0,
+                    1,
+                ], f"each group can have zero or only one leader robot, but {group} has {leader_cnt} leaders"
+                follower_cnt = 0
+                follower_cnt += group_counter[ComponentRole.f]
+                if leader_cnt > 0 and follower_cnt == 0:
+                    raise RuntimeError(
+                        f"each group must have at least one robot when there is one leader, but {group} has {follower_cnt} followers"
+                    )
         else:
             assert (
                 len(self.roles) + len(self.groups) == 0
             ), "roles and groups must be empty when indicate_from_name is True"
+            raise NotImplementedError(
+                "indicate_from_name is not implemented yet, please set groups and roles manually"
+            )
 
     @computed_field
     @property
@@ -217,6 +170,7 @@ class ComponentGroupsConfig(BaseModel):
         group_set = set(self.groups)
         grouped_config = []
         for group in group_set:
+            leaders = []
             followers = []
             others = []
             for index, name in enumerate(self.groups):
@@ -228,7 +182,7 @@ class ComponentGroupsConfig(BaseModel):
                         param=self.params[index],
                     )
                     if role is ComponentRole.l:
-                        leader = config
+                        leaders.append(config)
                     elif role is ComponentRole.f:
                         followers.append(config)
                     else:
@@ -236,7 +190,7 @@ class ComponentGroupsConfig(BaseModel):
             grouped_config.append(
                 GroupConfig(
                     name=group,
-                    leader=leader,
+                    leader=leaders,
                     followers=followers,
                     others=others,
                 )

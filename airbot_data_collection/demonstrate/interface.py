@@ -20,29 +20,29 @@ from airbot_data_collection.common.utils.utils import (
 from pydantic import BaseModel, ConfigDict
 from typing import Union, List, Dict, Any, Set, Optional
 from logging import getLogger
-import time
 from threading import Lock, Thread, Event
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from collections import defaultdict
 from airbot_data_collection.utils import (
     find_matching_files,
-    bcolors,
     get_items_by_ext,
+    bcolors,
     ProgressBar,
 )
+import time
 
 
 class GroupComponentNames(BaseModel):
-    leader: str
-    followers: List[str]
+    leader: List[str] = []
+    followers: List[str] = []
     others: List[str] = []
 
 
 class DemonstrateGroup(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str
-    leader: Union[System, Sensor]
-    followers: List[Union[System, Sensor]]
+    leader: List[Union[System, Sensor]] = []
+    followers: List[Union[System, Sensor]] = []
     others: List[Union[System, Sensor]] = []
 
 
@@ -103,7 +103,7 @@ class DemonstrateInterface:
             config.visualizers, True
         )
         for group in config.components.grouped_config:
-            leader = self.instancer.instance(group.leader)
+            leader = [self.instancer.instance(leader) for leader in group.leader]
             followers = [
                 self.instancer.instance(follower) for follower in group.followers
             ]
@@ -118,7 +118,7 @@ class DemonstrateInterface:
             )
             self.group_component_names.append(
                 GroupComponentNames(
-                    leader=group.leader.name,
+                    leader=[leader.name for leader in group.leader],
                     followers=[follower.name for follower in group.followers],
                     others=[other.name for other in group.others],
                 )
@@ -159,10 +159,10 @@ class DemonstrateInterface:
         Configure all the components.
         """
         for group, name in zip(self.groups, self.group_component_names):
-            names = [name.leader] + name.followers + name.others
-            components = [group.leader] + group.followers + group.others
+            names = name.leader + name.followers + name.others
+            components = group.leader + group.followers + group.others
             roles = (
-                [ComponentRole.l]
+                [ComponentRole.l] * len(group.leader)
                 + [ComponentRole.f] * len(group.followers)
                 + [ComponentRole.o] * len(group.others)
             )
@@ -200,9 +200,10 @@ class DemonstrateInterface:
         """Control the followers to follow the leader."""
         for group_name in self.config.auto_control.groups:
             group = self.group_map[group_name]
-            obs = group.leader.capture_observation()
-            for follower in group.followers:
-                follower.send_action(obs)
+            if group.leader:
+                obs = group.leader[0].capture_observation()
+                for follower in group.followers:
+                    follower.send_action(obs)
 
     def _post_action(self, action: DemonstrateAction) -> bool:
         """Control the leaders after some demonstrate action"""
@@ -212,21 +213,23 @@ class DemonstrateInterface:
         for group_name, action_value, mode, to_follower in zip(
             config.groups, config.action_values, config.modes, config.to_follower
         ):
-            group = self.group_map[group_name]
-            if group.leader.switch_mode():
-                if mode is SystemMode.RESETING:
-                    group.leader.send_action(action_value)
+            group_leader = self.group_map[group_name].leader
+            if group_leader:
+                leader = group_leader[0]
+                if leader.switch_mode():
+                    if mode is SystemMode.RESETING:
+                        leader.send_action(action_value)
+                    else:
+                        self.get_logger().warning(
+                            f"Action is ignored in {mode} mode for {group_name}. "
+                            "Please use reseting mode"
+                        )
+                        return False
                 else:
-                    self.get_logger().warning(
-                        f"Action is ignored in {mode} mode for {group_name}. "
-                        "Please use reseting mode"
+                    self.get_logger().error(
+                        f"Failed to switch leader mode for {group_name} to {mode}"
                     )
                     return False
-            else:
-                self.get_logger().error(
-                    f"Failed to switch leader mode for {group_name} to {mode}"
-                )
-                return False
         return True
 
     def set_auto_control(self, start: Optional[bool] = True) -> bool:
@@ -309,11 +312,13 @@ class DemonstrateInterface:
         Set the mode for the leaders
         """
         for group in self.groups:
-            if not group.leader.switch_mode(mode):
-                self.get_logger().error(
-                    f"Failed to set {group.name} leader to {mode} mode"
-                )
-                return False
+            group_leader = group.leader
+            if group_leader:
+                if not group_leader[0].switch_mode(mode):
+                    self.get_logger().error(
+                        f"Failed to set {group.name} leader to {mode} mode"
+                    )
+                    return False
         self._role_mode_set[ComponentRole.l] = mode
         return True
 
@@ -356,14 +361,12 @@ class DemonstrateInterface:
         # TODO: can be called when sampling?
         data = {}
         for group, all_names in zip(self.groups, self.group_component_names):
-            action = group.leader.capture_observation()
             get_suffix = lambda name, key: self._get_sample_suffix(
                 group.name, name, key
             )
-            for key, value in action.items():
-                data[get_suffix(all_names.leader, key)] = value
             for component, name in zip(
-                group.followers + group.others, all_names.followers + all_names.others
+                group.leader + group.followers + group.others,
+                all_names.leader + all_names.followers + all_names.others,
             ):
                 observation = component.capture_observation()
                 for key, value in observation.items():
@@ -456,7 +459,7 @@ class DemonstrateInterface:
         self._post_action(DemonstrateAction.finish)
         if self.deactivate():
             for group in self.groups:
-                for component in [group.leader] + group.followers + group.others:
+                for component in group.leader + group.followers + group.others:
                     component.shutdown()
             self.get_logger().info(
                 f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info}"
@@ -470,19 +473,17 @@ class DemonstrateInterface:
         """
         obs = defaultdict(dict)
         if role is ComponentRole.l:
-            for group, names in zip(self.groups, self.group_component_names):
-                obs[names.leader] = group.leader.capture_observation()
+            handle = "leader"
+        elif role is ComponentRole.f:
+            handle = "followers"
         else:
-            if role is ComponentRole.f:
-                handle = "followers"
-            else:
-                handle = "others"
-            component: System
-            for group, names in zip(self.groups, self.group_component_names):
-                for component, f_name in zip(
-                    getattr(names, handle), getattr(names, handle)
-                ):
-                    obs[f_name] = component.capture_observation()
+            handle = "others"
+        component: System
+        for group, names in zip(self.groups, self.group_component_names):
+            for component, f_name in zip(
+                getattr(names, handle), getattr(names, handle)
+            ):
+                obs[f_name] = component.capture_observation()
         return obs
 
     @property
