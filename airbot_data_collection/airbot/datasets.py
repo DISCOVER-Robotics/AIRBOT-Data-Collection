@@ -36,7 +36,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         return True
 
     def append(self, data: Dict[str, Dict[str, Union[ndarray, List[float]]]]):
-        if not self.topics:  # TODO: howt to configure?
+        if not self.topics:  # TODO: how to configure?
             for key, value in data.items():
                 prefix, data_type = key.rsplit("/", 1)
                 if data_type in {"joint_state", "pose"}:

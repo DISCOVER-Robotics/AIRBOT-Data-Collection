@@ -17,58 +17,10 @@ from airbot_data_collection.common.robot_devices.utils import (
 from airbot_data_collection.common.utils.utils import capture_timestamp_utc
 from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBConfig
 from logging import getLogger
-
-# The maximum opencv device index depends on your operating system. For instance,
-# if you have 3 cameras, they should be associated to index 0, 1, and 2. This is the case
-# on MacOS. However, on Ubuntu, the indices are different like 6, 16, 23.
-# When you change the USB port or reboot the computer, the operating system might
-# treat the same cameras as new devices. Thus we select a higher bound to search indices.
-MAX_OPENCV_INDEX = 60
-
-
-def find_camera_indices(
-    raise_when_empty=False, max_index_search_range=MAX_OPENCV_INDEX, mock=False
-):
-    if platform.system() == "Linux":
-        # Linux uses camera ports
-        print(
-            "Linux detected. Finding available camera indices through scanning '/dev/video*' ports"
-        )
-        possible_camera_ids = []
-        for port in Path("/dev").glob("video*"):
-            camera_idx = int(str(port).replace("/dev/video", ""))
-            possible_camera_ids.append(camera_idx)
-    else:
-        print(
-            "Mac or Windows detected. Finding available camera indices through "
-            f"scanning all indices from 0 to {MAX_OPENCV_INDEX}"
-        )
-        possible_camera_ids = range(max_index_search_range)
-
-    if mock:
-        from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
-            VideoCapture,
-        )
-    else:
-        from cv2 import VideoCapture
-
-    camera_ids = []
-    for camera_idx in possible_camera_ids:
-        camera = VideoCapture(camera_idx)
-        is_open = camera.isOpened()
-        camera.release()
-
-        if is_open:
-            print(f"Camera found at index {camera_idx}")
-            camera_ids.append(camera_idx)
-
-    if raise_when_empty and len(camera_ids) == 0:
-        raise OSError(
-            "Not a single camera was detected. Try re-plugging, or re-installing `opencv2`, "
-            "or your camera driver, or make sure your camera is compatible with opencv2."
-        )
-
-    return camera_ids
+import cv2
+from airbot_data_collection.common.robot_devices.cameras.utils import (
+    find_camera_indices,
+)
 
 
 class OpenCVCamera:
@@ -121,7 +73,7 @@ class OpenCVCamera:
         if kwargs:
             config = config.model_copy(update=kwargs)
 
-        self.camera_index = config.camera_index
+        self.camera_index = config.camera_index or find_camera_indices()[0]
         self.fps = config.fps
         self.width = config.width
         self.height = config.height
@@ -343,3 +295,39 @@ class OpenCVCamera:
     def __del__(self):
         if getattr(self, "is_connected", False):
             self.disconnect()
+
+
+def write_shape_on_image_inplace(image):
+    height, width = image.shape[:2]
+    text = f"Width: {width} Height: {height}"
+
+    # Define the font, scale, color, and thickness
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1
+    color = (255, 0, 0)  # Blue in BGR
+    thickness = 2
+
+    position = (10, height - 10)  # 10 pixels from the bottom-left corner
+    cv2.putText(image, text, position, font, font_scale, color, thickness)
+
+
+def save_color_image(image, path, write_shape=False):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if write_shape:
+        write_shape_on_image_inplace(image)
+    cv2.imwrite(str(path), image)
+
+
+def save_depth_image(depth, path, write_shape=False):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
+    depth_image = cv2.applyColorMap(
+        cv2.convertScaleAbs(depth, alpha=0.03), cv2.COLORMAP_JET
+    )
+
+    if write_shape:
+        write_shape_on_image_inplace(depth_image)
+    cv2.imwrite(str(path), depth_image)

@@ -6,7 +6,7 @@ from airbot_data_collection.basis import Sensor
 from airbot_data_collection.utils import get_stamp_ms
 
 
-class RealSense(Sensor):
+class BsonRealSense(Sensor):
     """
     A class to represent a USB camera using OpenCV.
     """
@@ -15,12 +15,13 @@ class RealSense(Sensor):
     interface: IntelRealSenseCamera
 
     def on_configure(self):
-        return self.interface.connect()
+        self.interface.connect()
+        return self.interface.is_connected
 
     def capture_observation(self):
         obs = {}
         output = self.interface.read()
-        if self.config.config.use_depth:
+        if self.config.use_depth:
             obs["camera/color_image"] = output[0]
             obs["camera/depth_map"] = output[1]
         else:
@@ -32,5 +33,6 @@ class RealSense(Sensor):
             }
         return obs
 
-    def shutdown(self):
-        return self.interface.disconnect()
+    def shutdown(self) -> bool:
+        self.interface.disconnect()
+        return not self.interface.is_connected

@@ -117,7 +117,7 @@ class IntelRealSenseCamera:
         # Overwrite config arguments using kwargs
         config = config.model_copy(update=kwargs)
 
-        self.camera_index = config.camera_index
+        self.camera_index = config.camera_index or find_camera_indices()[0]
         self.fps = config.fps
         self.width = config.width
         self.height = config.height
@@ -361,3 +361,7 @@ class IntelRealSenseCamera:
     def __del__(self):
         if getattr(self, "is_connected", False):
             self.disconnect()
+
+
+if __name__ == "__main__":
+    print(find_camera_indices())

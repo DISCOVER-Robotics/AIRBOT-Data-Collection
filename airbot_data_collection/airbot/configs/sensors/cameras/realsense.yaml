@@ -1,9 +1,9 @@
-_target_: airbot_data_collection.common.robot_devices.cameras.intelrealsense.IntelRealSenseCamera
+_target_: airbot_data_collection.airbot.sensors.cameras.realsense.BsonRealSense
 camera_index: null
 fps: 30
 width: 640
 height: 480
 use_depth: false
 force_hardware_reset: true
-color_mode: rgb
+color_mode: bgr
 mock: false

@@ -1,5 +1,8 @@
 from airbot_data_collection.utils import run_event_loop, ImageCoder
-from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBConfig
+from airbot_data_collection.common.robot_devices.cameras.utils import (
+    CameraRGBConfig,
+    find_camera_indices,
+)
 from airbot_data_collection.basis import Sensor
 import asyncio
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
@@ -35,6 +38,8 @@ class V4L2Camera(Sensor):
 
     def on_configure(self) -> bool:
         config = self.config
+        if config.camera_index is None:
+            config.camera_index = find_camera_indices()[0]
         if isinstance(config.camera_index, int):
             self.device = Device.from_id(config.camera_index)
         else:
