@@ -1,6 +1,36 @@
-from airbot_data.io import load_bson
+from bson import BSON
 import argparse
 from pprint import pprint
+from typing import Any
+import av
+from io import BytesIO
+
+
+def decode_h264(h264_bytes: bytes) -> Any:
+    inbuf = BytesIO(h264_bytes)
+    container = av.open(inbuf)
+    ret = [
+        {
+            "t": int(frame.pts * frame.time_base * 1e3),
+            "data": frame.to_ndarray(format="bgr24"),
+        }
+        for frame in container.decode(video=0)
+    ]
+    assert len(ret) > 0, "No frames found in h264"
+    return ret
+
+
+def save_bson(bson_file: str, data: dict):
+    with open(bson_file, "wb") as f:
+        f.write(BSON.encode(data))
+    print(f"Saved BSON data to {bson_file}")
+
+
+def load_bson(bson_file: str) -> dict:
+    with open(bson_file, "rb") as f:
+        data = BSON.decode(f.read())
+    print(f"Loaded BSON data from {bson_file}")
+    return data
 
 
 def main():
@@ -22,8 +52,9 @@ def main():
     )
     args = parser.parse_args()
 
-    data = load_bson(args.bson_file)
+    all_images = {}
 
+    data = load_bson(args.bson_file)
     print(data.keys())
     print(data["data"].keys())
     pprint(data["metadata"]["topics"])
@@ -32,8 +63,15 @@ def main():
         print(f"Index: {i}")
         for topic in data["data"].keys():
             if "image" in topic:
-                image = data["data"][topic][i]["data"]
-                image_t = data["data"][topic][i]["t"]
+                if topic not in all_images:
+                    img_data = data["data"][topic]
+                    if isinstance(img_data, bytes):
+                        all_images[topic] = decode_h264(img_data)
+                    else:
+                        all_images[topic] = img_data
+                images = all_images[topic]
+                image = images[i]["data"]
+                image_t = images[i]["t"]
                 print(topic, image.shape, image.dtype, image_t)
             else:
                 print(topic, data["data"][topic][i])

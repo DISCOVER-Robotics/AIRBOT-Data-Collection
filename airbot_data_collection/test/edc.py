@@ -14,9 +14,7 @@ def decode_jpeg_pyav(jpeg_bytes: bytes) -> np.ndarray:
 def read_all_frames_pyav(video_path):
     container = av.open(video_path)
     frames = []
-    # 遍历视频流中的每一帧
     for frame in container.decode(video=0):
-        # 将帧转换为 numpy 数组 (RGB 格式)
         frames.append(frame.to_ndarray(format="rgb24"))
     container.close()
     return frames
