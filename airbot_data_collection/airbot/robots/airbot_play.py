@@ -46,7 +46,10 @@ class AIRBOTPlay(System):
         self.get_logger().info(
             f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
         )
-        return self.interface.connect()
+        if self.interface.connect():
+            self.interface.set_speed_profile(self.config.speed_profile)
+            return True
+        return False
 
     def capture_observation(self) -> dict:
         """key: component name / data type"""
