@@ -21,6 +21,7 @@ dependencies = [
     "bidict",
     "pynput",
     "tqdm",
+    "mcap",
 ]
 
 [project.optional-dependencies]
