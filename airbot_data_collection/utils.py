@@ -165,7 +165,8 @@ def get_items_by_ext(directory: str, extension: str) -> List[str]:
     Returns:
         List[str]: A list of file or directory names that match the extension.
     """
-
+    if not os.path.exists(directory):
+        return []
     entries = os.scandir(directory)
     if extension == ".":
         return [entry.name for entry in entries if entry.is_file()]
