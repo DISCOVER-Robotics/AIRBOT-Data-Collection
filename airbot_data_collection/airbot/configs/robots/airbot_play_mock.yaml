@@ -2,4 +2,4 @@ _target_: airbot_data_collection.airbot.robots.airbot_play_mock.AIRBOTPlayMock
 
 url: localhost
 port: 50050
-speed_profile: DEFAULT  # DEFAULT, SLOW, FAST
+speed_profile: FAST  # DEFAULT, SLOW, FAST

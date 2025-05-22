@@ -9,7 +9,7 @@ from airbot_data_collection.utils import get_stamp_ms
 class AIRBOTPlayConfig(BaseModel):
     url: str = "localhost"
     port: PositiveInt = 50050
-    speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.DEFAULT
+    speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.FAST
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
