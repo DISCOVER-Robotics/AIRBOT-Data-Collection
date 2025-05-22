@@ -9,7 +9,7 @@ pip install airbot_data-1.2.1-py3-none-any.whl -i https://mirrors.huaweicloud.co
 pip install av -i https://mirrors.huaweicloud.com/repository/pypi/simple
 git clone https://git.qiuzhi.tech/OpenGHz/airbot-data-collection.git
 cd airbot-data-collection
-pip install -e ."[all]" -i https://mirrors.huaweicloud.com/repository/pypi/simple
+pip install -e ."[all]" -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 # Configuration

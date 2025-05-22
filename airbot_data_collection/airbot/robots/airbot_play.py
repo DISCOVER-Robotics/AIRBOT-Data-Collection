@@ -52,7 +52,7 @@ class AIRBOTPlay(System):
         return False
 
     def capture_observation(self) -> dict:
-        """key: component name / data type"""
+        """key: component kind | name / data type"""
         return {
             "arm/joint_state": {
                 "t": get_stamp_ms(),
