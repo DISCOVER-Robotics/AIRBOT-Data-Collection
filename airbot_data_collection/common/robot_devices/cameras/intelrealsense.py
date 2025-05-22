@@ -2,17 +2,20 @@
 This file contains utilities for recording frames from Intel Realsense cameras.
 """
 
+from __future__ import annotations
+
 import math
 import time
 import traceback
-from threading import Thread, Event
+from threading import Event, Thread
+
 import numpy as np
+
+from airbot_data_collection.common.robot_devices.cameras.utils import \
+    CameraRGBDConfig
 from airbot_data_collection.common.robot_devices.utils import (
-    RobotDeviceAlreadyConnectedError,
-    RobotDeviceNotConnectedError,
-)
+    RobotDeviceAlreadyConnectedError, RobotDeviceNotConnectedError)
 from airbot_data_collection.common.utils.utils import capture_timestamp_utc
-from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBDConfig
 
 SERIAL_NUMBER_INDEX = 1
 
@@ -24,9 +27,7 @@ def find_camera_indices(raise_when_empty=True, mock=False) -> list[int]:
     """
     if mock:
         from airbot_data_collection.common.robot_devices.cameras.mock_pyrealsense2 import (
-            RSCameraInfo,
-            RSContext,
-        )
+            RSCameraInfo, RSContext)
     else:
         from pyrealsense2 import camera_info as RSCameraInfo  # noqa: N812
         from pyrealsense2 import context as RSContext  # noqa: N812
@@ -142,11 +143,7 @@ class IntelRealSenseCamera:
 
         if self.mock:
             from airbot_data_collection.common.robot_devices.cameras.mock_pyrealsense2 import (
-                RSConfig,
-                RSFormat,
-                RSPipeline,
-                RSStream,
-            )
+                RSConfig, RSFormat, RSPipeline, RSStream)
         else:
             from pyrealsense2 import config as RSConfig  # noqa: N812
             from pyrealsense2 import format as RSFormat  # noqa: N812
@@ -264,9 +261,7 @@ class IntelRealSenseCamera:
         if requested_color_mode == "bgr":
             if self.mock:
                 from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
-                    COLOR_RGB2BGR,
-                    cvtColor,
-                )
+                    COLOR_RGB2BGR, cvtColor)
             else:
                 from cv2 import COLOR_RGB2BGR, cvtColor
 

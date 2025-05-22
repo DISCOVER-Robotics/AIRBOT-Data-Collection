@@ -1,20 +1,23 @@
-from typing import Optional, Any, final, Protocol, runtime_checkable, Dict
-from enum import Enum, auto
-from abc import ABC, abstractmethod
-from pydantic import BaseModel
+from __future__ import annotations
+
 import inspect
-from dataclasses import replace, asdict
+from abc import ABC, abstractmethod
+from dataclasses import asdict, replace
+from enum import Enum, auto
 from logging import getLogger
+from typing import Any, Dict, Optional, Protocol, final, runtime_checkable
+
+from pydantic import BaseModel
 
 
 class SystemMode(Enum):
     PASSIVE = auto()  # gravity compensation
-    RESETING = auto()  # mode for reseting
+    RESETTING = auto()  # mode for resetting
     SAMPLING = auto()  # mode for sampling
 
 
 class ConfigBasis(ABC):
-    def __init__(self, config: Optional[BaseModel] = None, **kwargs) -> None:
+    def __init__(self, config: BaseModel | None = None, **kwargs) -> None:
         config_type = self.__annotations__.get("config", None)
         assert config_type, "config must be annotated at top level class"
         if config is None:
@@ -57,7 +60,7 @@ class ConfigBasis(ABC):
 class Sensor(ConfigBasis):
 
     @abstractmethod
-    def capture_observation(self) -> Dict[str, Any]: ...
+    def capture_observation(self) -> dict[str, Any]: ...
     @abstractmethod
     def shutdown(self) -> None: ...
 

@@ -1,10 +1,15 @@
-from pydantic import BaseModel, computed_field, NonNegativeInt, NonNegativeFloat
-from typing import Any, List, Set, Optional, Union, Dict
-from enum import auto
-from collections import Counter
-from airbot_data_collection.basis import SystemMode
+from __future__ import annotations
+
 import os
 from ast import literal_eval
+from collections import Counter
+from enum import auto
+from typing import Any, Dict, List, Optional, Set, Union
+
+from pydantic import (BaseModel, NonNegativeFloat, NonNegativeInt,
+                      computed_field)
+
+from airbot_data_collection.basis import SystemMode
 from airbot_data_collection.utils import StrEnum
 
 
@@ -47,11 +52,11 @@ class ComponentsConfig(BaseModel):
 
     # names of the components, e.g. ("left_arm", "right_arm", "head_camera")
     # if empty, no component will be used
-    names: List[str] = []
-    paths: List[str] = []
-    params: List[dict] = []
-    async_modes: List[AsyncMode] = []
-    update_rates: List[NonNegativeInt] = []
+    names: list[str] = []
+    paths: list[str] = []
+    params: list[dict] = []
+    async_modes: list[AsyncMode] = []
+    update_rates: list[NonNegativeInt] = []
 
     # TODO: name may not be unique across all components
     # def get_component(self, name: str) -> ComponentConfig:
@@ -66,23 +71,23 @@ class ComponentsConfig(BaseModel):
 
 class GroupConfig(BaseModel):
     name: str
-    leader: List[ComponentConfig] = []
-    followers: List[ComponentConfig] = []
-    others: List[ComponentConfig] = []
+    leader: list[ComponentConfig] = []
+    followers: list[ComponentConfig] = []
+    others: list[ComponentConfig] = []
 
 
 class ComponentGroupsConfig(BaseModel):
     # names of the robots, e.g. ("left_arm", "right_arm", "head_camera")
-    names: List[str] = []
+    names: list[str] = []
     # paths to the robot hydra config yaml files
-    paths: List[str]
+    paths: list[str]
     # params to override the robot config in the yaml file
-    params: List[Union[str, dict]] = []
+    params: list[str | dict] = []
     # the groups to which the robot belongs,
     # each group must have one and only one leader robot
     # and no less than one follower robot
-    groups: List[str] = []
-    roles: List[ComponentRole] = []
+    groups: list[str] = []
+    roles: list[ComponentRole] = []
     # indicate the group name from the prefix of the robot name
     # and indicate the role from the suffix of the robot name
     # e.g. "left_arm_leader" will be grouped into "left_arm" and
@@ -94,7 +99,7 @@ class ComponentGroupsConfig(BaseModel):
             ref_length = max(len(self.paths), len(self.params))
             self.names = [f"robot{i}" for i in range(ref_length)]
         # TODO: should check if the names are unique across all groups or
-        # only within the same group ot only within the same group and the
+        # only within the same group at only within the same group and the
         # same role?
         # else:
         #     assert len(set(self.names)) == len(self.names), "names must be unique"
@@ -163,7 +168,7 @@ class ComponentGroupsConfig(BaseModel):
 
     @computed_field
     @property
-    def grouped_config(self) -> List[GroupConfig]:
+    def grouped_config(self) -> list[GroupConfig]:
         """
         Returns a set of grouped configs.
         """
@@ -239,10 +244,10 @@ class AutoControlConfig(BaseModel):
     # None means all group names are used
     # if empty, the control should be implicitly implemented when
     # switching to the active / passive mode
-    groups: Optional[List[str]] = None
+    groups: list[str] | None = None
     # the rate of the auto control loop for each group
     # 0 means as fast as possible
-    rate: List[NonNegativeInt] = []
+    rate: list[NonNegativeInt] = []
 
 
 class GroupsSendActionConfig(BaseModel):
@@ -251,10 +256,10 @@ class GroupsSendActionConfig(BaseModel):
     to the leaders unless the to_follower is set to True.
     """
 
-    groups: List[str] = []
-    action_values: List[Any] = []
-    modes: List[SystemMode] = []
-    to_follower: List[bool] = []
+    groups: list[str] = []
+    action_values: list[Any] = []
+    modes: list[SystemMode] = []
+    to_follower: list[bool] = []
 
 
 class SampleLimit(BaseModel):
@@ -294,17 +299,17 @@ class DemonstrateConfig(BaseModel):
     # what the leaders / followers to act when
     # performing an actions for each group
     # if None, no action values will be sent
-    send_actions: Dict[DemonstrateAction, GroupsSendActionConfig] = {}
+    send_actions: dict[DemonstrateAction, GroupsSendActionConfig] = {}
     # the sampler to be used to collect and save the data
     # if None, a mock sampler will be used
-    sampler: Optional[ComponentConfig] = None
+    sampler: ComponentConfig | None = None
     # the sampled data will be passed to the visualizers at each update
     visualizers: ComponentsConfig = ComponentsConfig()
     # TODO: should use a dict to set the async mode for
     # other actions, such as remove, abandon, etc?
     async_save: AsyncMode = AsyncMode.none
     # the directories where the config files are stored
-    search_dirs: Set[str] = {"."}
+    search_dirs: set[str] = {"."}
 
     def model_post_init(self, context):
         if self.auto_control.groups is None:
@@ -323,7 +328,7 @@ class DemonstrateConfig(BaseModel):
 if __name__ == "__main__":
     from pprint import pprint
 
-    configs: List[ComponentGroupsConfig] = []
+    configs: list[ComponentGroupsConfig] = []
 
     configs.append(
         ComponentGroupsConfig(

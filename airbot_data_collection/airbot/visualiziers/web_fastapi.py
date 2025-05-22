@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 from airbot_data_collection.common.visualiziers.web_fastapi import (
-    FastAPIVisualizer,
-    WebVisualizerConfig,
-)
+    FastAPIVisualizer, WebVisualizerConfig)
 
 
 class AIRBOTBsonFastAPIVisualizer(FastAPIVisualizer):

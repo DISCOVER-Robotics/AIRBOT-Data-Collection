@@ -1,9 +1,13 @@
-from airbot_data_collection.test.show_bson import load_bson, decode_h264
+from __future__ import annotations
+
 import argparse
-from mcap.writer import Writer, CompressionType, IndexType
-from mcap.well_known import SchemaEncoding, MessageEncoding, Profile
 import json
+
+from mcap.well_known import MessageEncoding, Profile, SchemaEncoding
+from mcap.writer import CompressionType, IndexType, Writer
 from turbojpeg import TurboJPEG
+
+from airbot_data_collection.test.show_bson import decode_h264, load_bson
 
 
 def main():

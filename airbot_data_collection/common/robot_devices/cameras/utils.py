@@ -1,9 +1,12 @@
-from typing import Protocol, Optional, Union, List, Tuple, runtime_checkable
+from __future__ import annotations
+
+import platform
+from enum import Enum
+from pathlib import Path
+from typing import List, Optional, Protocol, Tuple, Union, runtime_checkable
+
 import numpy as np
 from pydantic import BaseModel, Field
-from enum import Enum
-import platform
-from pathlib import Path
 
 
 @runtime_checkable
@@ -11,19 +14,19 @@ class Camera(Protocol):
     def connect(self): ...
     def read(
         self, temporary_color: str | None = None
-    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]: ...
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]: ...
     def async_read(self) -> np.ndarray: ...
     def disconnect(self): ...
 
 
 class CameraRGBConfig(BaseModel):
-    camera_index: Optional[Union[int, str]] = None
-    fps: Optional[int] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
+    camera_index: int | str | None = None
+    fps: int | None = None
+    width: int | None = None
+    height: int | None = None
     color_mode: str = Field(default="rgb", pattern="^(rgb|bgr)$")
     mock: bool = False
-    pixel_format: Optional[Union[str, Enum]] = None
+    pixel_format: str | Enum | None = None
 
 
 class CameraRGBDConfig(CameraRGBConfig):
@@ -35,7 +38,7 @@ def find_camera_indices(
     max_index_search_range: int = 10,
     only_even: bool = True,
     sorting: bool = True,
-) -> List[int]:
+) -> list[int]:
     """Finds the available camera indices on the system.
     # The maximum opencv device index depends on your operating system. For instance,
     # if you have 3 cameras, they should be associated to index 0, 1, and 2. This is the case

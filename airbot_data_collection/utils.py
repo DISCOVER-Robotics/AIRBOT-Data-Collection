@@ -1,14 +1,17 @@
-import os
-from typing import Tuple, List, Optional
-from enum import Enum
-import logging
-import time
+from __future__ import annotations
+
 import asyncio
-import threading
+import logging
 import math
+import os
+import threading
+import time
 import tkinter
-from tqdm import tqdm
+from enum import Enum
+from typing import List, Optional, Tuple
+
 import numpy as np
+from tqdm import tqdm
 
 
 def get_stamp_ms() -> int:
@@ -28,15 +31,15 @@ class bcolors:
 
 
 def find_matching_files(
-    search_dirs: Tuple[str, ...],
-    filenames: Tuple[str, ...],
-    end_with: Tuple[str, ...] = (".yaml", ".yml"),
+    search_dirs: tuple[str, ...],
+    filenames: tuple[str, ...],
+    end_with: tuple[str, ...] = (".yaml", ".yml"),
     strict: bool = False,
     ignore_path: bool = False,
     ignore_empty: bool = True,
-) -> List[Optional[str]]:
+) -> list[str | None]:
     # 对于每个 filename，单独搜索
-    result: List[Optional[str]] = []
+    result: list[str | None] = []
     search_dirs = [os.path.abspath(dir) for dir in search_dirs]
     for name in filenames:
         if ignore_empty and not name:
@@ -83,15 +86,15 @@ class StrEnum(str, ReprEnum):
     def __new__(cls, *values):
         "values must already be of type `str`"
         if len(values) > 3:
-            raise TypeError("too many arguments for str(): %r" % (values,))
+            raise TypeError(f"too many arguments for str(): {values!r}")
         if len(values) == 1:
             # it must be a string
             if not isinstance(values[0], str):
-                raise TypeError("%r is not a string" % (values[0],))
+                raise TypeError(f"{values[0]!r} is not a string")
         if len(values) >= 2:
             # check that encoding argument is a string
             if not isinstance(values[1], str):
-                raise TypeError("encoding must be a string, not %r" % (values[1],))
+                raise TypeError(f"encoding must be a string, not {values[1]!r}")
         if len(values) == 3:
             # check that errors argument is a string
             if not isinstance(values[2], str):
@@ -156,7 +159,7 @@ def run_event_loop() -> asyncio.AbstractEventLoop:
     return event_loop
 
 
-def get_items_by_ext(directory: str, extension: str) -> List[str]:
+def get_items_by_ext(directory: str, extension: str) -> list[str]:
     """Get all files or directories in a directory with a specific extension.
     Args:
         directory (str): The directory to search in.
@@ -226,7 +229,7 @@ def get_dpi() -> float:
     return dpi
 
 
-def resolution_to_inches(width: int, height: int) -> Tuple[float, float]:
+def resolution_to_inches(width: int, height: int) -> tuple[float, float]:
     dpi = get_dpi()
     return width / dpi, height / dpi
 
@@ -247,7 +250,7 @@ class ProgressBar:
         )
         self.progress_bar.refresh()
 
-    def reset(self, total: int = 0, desc: Optional[str] = None):
+    def reset(self, total: int = 0, desc: str | None = None):
         self.progress_bar.reset(total=total or self.total)
         self.progress_bar.desc = desc
         self.progress_bar.clear()

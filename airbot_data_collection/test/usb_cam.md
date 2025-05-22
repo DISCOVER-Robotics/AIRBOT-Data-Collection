@@ -77,7 +77,7 @@ dmesg | grep video
 bash
 复制
 编辑
-for dev in /dev/video*; do 
+for dev in /dev/video*; do
   echo "$dev -> $(readlink -f /sys/class/video4linux/$(basename $dev))"
 done
 输出示例：
@@ -136,7 +136,7 @@ quirks=0x80	传递特殊行为“修复标志”，用于启用摄像头的“�
 bash
 复制
 编辑
-modinfo uvcvideo | grep -A 10 "parm:"
+modinfo uvcvideo | grep -A 10 "param:"
 或者查看当前模块参数：
 
 bash

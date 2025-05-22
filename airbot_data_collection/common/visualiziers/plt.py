@@ -1,14 +1,16 @@
-from airbot_data_collection.common.visualiziers.basis import (
-    VisualizerBasis,
-    GUIVisualizerConfig,
-    SampleInfo,
-)
-from airbot_data_collection.utils import optimal_grid, resolution_to_inches, get_dpi
-import numpy as np
+from __future__ import annotations
+
 from typing import Dict
+
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.image import AxesImage
+
+from airbot_data_collection.common.visualiziers.basis import (
+    GUIVisualizerConfig, SampleInfo, VisualizerBasis)
+from airbot_data_collection.utils import (get_dpi, optimal_grid,
+                                          resolution_to_inches)
 
 
 class PltVisualizer(VisualizerBasis):
@@ -16,10 +18,10 @@ class PltVisualizer(VisualizerBasis):
 
     def on_configure(self) -> bool:
         plt.ion()
-        self._displays: Dict[str, AxesImage] = {}
+        self._displays: dict[str, AxesImage] = {}
         return True
 
-    def update(self, data: Dict[str, np.ndarray], info: SampleInfo) -> bool:
+    def update(self, data: dict[str, np.ndarray], info: SampleInfo) -> bool:
         if not self._displays:
             img_num = len(data)
             if self.config.max_num > 0:

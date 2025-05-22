@@ -1,8 +1,11 @@
+from __future__ import annotations
+
+import os
 from abc import abstractmethod
 from collections import defaultdict
 from typing import Any, Dict, Protocol, runtime_checkable
+
 from airbot_data_collection.basis import ConfigBasis
-import os
 
 
 @runtime_checkable
@@ -28,12 +31,12 @@ class DictDataSampler(ConfigBasis):
         self._data = defaultdict(list)
         return True
 
-    def append(self, data: Dict[str, list]) -> None:
+    def append(self, data: dict[str, list]) -> None:
         """Append one sample point to the data collector."""
         for key, value in data.items():
             self._data[key].append(value)
 
-    def extend(self, data: Dict[str, list]) -> None:
+    def extend(self, data: dict[str, list]) -> None:
         """Append multiple sample points to the data collector."""
         for key, value in data.items():
             self._data[key].extend(value)

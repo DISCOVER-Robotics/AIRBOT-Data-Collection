@@ -1,6 +1,9 @@
-import cv2
+from __future__ import annotations
+
 import argparse
 import time
+
+import cv2
 
 
 def open_camera(device, width, height, fps, format):

@@ -1,15 +1,16 @@
+from __future__ import annotations
+
+import asyncio
+from collections import defaultdict
+from typing import Dict
+
 import fastapi
 import fastapi.responses
-import asyncio
-from airbot_data_collection.common.visualiziers.basis import (
-    VisualizerBasis,
-    WebVisualizerConfig,
-    SampleInfo,
-)
-from airbot_data_collection.utils import run_event_loop
 from uvicorn import Config, Server
-from typing import Dict
-from collections import defaultdict
+
+from airbot_data_collection.common.visualiziers.basis import (
+    SampleInfo, VisualizerBasis, WebVisualizerConfig)
+from airbot_data_collection.utils import run_event_loop
 
 
 class FastAPIVisualizer(VisualizerBasis):
@@ -17,9 +18,9 @@ class FastAPIVisualizer(VisualizerBasis):
 
     def on_configure(self) -> bool:
         self.app = fastapi.FastAPI()
-        self.frames: Dict[str, bytes] = {}
+        self.frames: dict[str, bytes] = {}
         self.info: SampleInfo = None
-        self.events: Dict[str, asyncio.Event] = defaultdict(asyncio.Event)
+        self.events: dict[str, asyncio.Event] = defaultdict(asyncio.Event)
         self._setup_routes()
         self.prefix = b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
         self.suffix = b"\r\n"
@@ -87,7 +88,7 @@ class FastAPIVisualizer(VisualizerBasis):
                     try {
                         const res = await fetch('/info');
                         const data = await res.json();
-                        document.getElementById('info-box').innerText = 
+                        document.getElementById('info-box').innerText =
                             `Index: ${data.index}, Round: ${data.round}`;
                     } catch (e) {
                         console.error("Failed to fetch info", e);
@@ -151,7 +152,9 @@ if __name__ == "__main__":
 
     import io
     import time
+
     from PIL import Image
+
     from airbot_data_collection.common.visualiziers.basis import SampleInfo
 
     def generate_image_bytes(size=(320, 240), color=(100, 100, 200)) -> bytes:

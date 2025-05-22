@@ -1,13 +1,15 @@
-from transitions import EventData
-from transitions.extensions import LockedMachine
-from typing import Callable, List, Optional, Union, Dict, Any, Tuple
+from __future__ import annotations
+
+import logging
+from collections import defaultdict
+from enum import Enum
 from functools import partial
 from logging import getLogger
-from pydantic import BaseModel
-from enum import Enum
-from collections import defaultdict
-import logging
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+from pydantic import BaseModel
+from transitions import EventData
+from transitions.extensions import LockedMachine
 
 State = Optional[Union[str, Enum, dict]]
 Action = Union[str, Enum]
@@ -48,20 +50,20 @@ SourceTransitions = Dict[Action, List[ToDestConfig]]
 
 
 class StateMachineConfig(BaseModel):
-    states: List[State] = []
+    states: list[State] = []
     initial: State = None
     # The action transitions will be added first, then the source transitions.
-    action_transitions: Dict[Action, ActionTransitions] = {}
+    action_transitions: dict[Action, ActionTransitions] = {}
     # The source transitions will be added after the action transitions.
     # Usually, this is used for the error source state.
-    source_transitions: Dict[State, SourceTransitions] = {}
+    source_transitions: dict[State, SourceTransitions] = {}
     # when True, any calls to trigger methods
     # that are not valid for the present state (e.g., calling an
     # a_to_b() trigger when the current state is c) will be silently
     # ignored rather than raising an invalid transition exception.
     ignore_invalid_triggers: bool = True
     # If a name is set, it will be used as a prefix for logger output
-    name: Optional[str] = None
+    name: str | None = None
     # # When True, processes transitions sequentially. A trigger
     # # executed in a state callback function will be queued and executed later.
     # # Due to the nature of the queued processing, all transitions will
@@ -101,11 +103,11 @@ class StateMachineBasis:
                 exclude={"action_transitions", "source_transitions", "log_level"}
             ),
         )
-        self._action_result: Dict[str, bool] = {}
+        self._action_result: dict[str, bool] = {}
         self._last_state = self.get_state()
         self._last_action = None
-        self._action_calls_raw: Dict[Action, Callable] = {}
-        self._action_calls: Dict[str, Callable] = {}
+        self._action_calls_raw: dict[Action, Callable] = {}
+        self._action_calls: dict[str, Callable] = {}
         self.add_action_transitions(config.action_transitions)
         self.add_source_transitions(config.source_transitions or {})
 
@@ -113,7 +115,7 @@ class StateMachineBasis:
         return getLogger("transitions").getChild(self.__class__.__name__)
 
     def add_action_transitions(
-        self, action_transitions: Dict[Action, ActionTransitions]
+        self, action_transitions: dict[Action, ActionTransitions]
     ):
         """Add all transitions of an action.
         The order of the ToDestConfig is important.
@@ -140,7 +142,7 @@ class StateMachineBasis:
                 )
 
     def add_source_transitions(
-        self, source_transitions: Dict[State, SourceTransitions]
+        self, source_transitions: dict[State, SourceTransitions]
     ):
         action_transitions = defaultdict(dict)
         for source, transitions in source_transitions.items():
@@ -154,8 +156,8 @@ class StateMachineBasis:
         source: State,
         success: ToDestConfig,
         failure: ToDestConfig,
-        not_only_success: Optional[List[ToDestConfig]] = None,
-        not_only_failure: Optional[List[ToDestConfig]] = None,
+        not_only_success: list[ToDestConfig] | None = None,
+        not_only_failure: list[ToDestConfig] | None = None,
     ):
         action_name = self.get_action_name(action)
         assert not self.is_action_source_added(action_name, source)
@@ -171,7 +173,7 @@ class StateMachineBasis:
         action_name: str,
         source: State,
         only: ToDestConfig,
-        not_only: Optional[List[ToDestConfig]] = None,
+        not_only: list[ToDestConfig] | None = None,
         kind: str = "success",
     ):
         not_only = not_only or []
@@ -193,7 +195,7 @@ class StateMachineBasis:
             )
 
     def _add_not_only_transitions(
-        self, action: str, source: State, to_dests: List[ToDestConfig], kind: str
+        self, action: str, source: State, to_dests: list[ToDestConfig], kind: str
     ):
         if kind == "success":
             cond = "conditions"
@@ -211,7 +213,7 @@ class StateMachineBasis:
             )
 
     def is_action_source_added(
-        self, action: str, source: Union[State, Tuple[State]]
+        self, action: str, source: State | tuple[State]
     ) -> bool:
         """Check if the action source is added."""
         if not isinstance(source, tuple):
@@ -248,7 +250,7 @@ class StateMachineBasis:
         """Prepare the action."""
         action = self._get_action_from_event(event_data)
         self.get_logger().info(
-            f"Excuting action: {action} in state: {self.get_state()}"
+            f"Executing action: {action} in state: {self.get_state()}"
         )
         self._action_result[action] = self._call_action(action)
         self._last_action = action
@@ -287,12 +289,12 @@ class StateMachineBasis:
     #     self.get_logger().debug(f"{event_data}")
 
     @property
-    def action_calls(self) -> Dict[Action, Callable]:
+    def action_calls(self) -> dict[Action, Callable]:
         """Get the action calls."""
         return self._action_calls_raw
 
     @action_calls.setter
-    def action_calls(self, action_calls: Dict[Action, Callable]):
+    def action_calls(self, action_calls: dict[Action, Callable]):
         """Set the action calls."""
         self._action_calls_raw = action_calls
         for action, func in action_calls.items():

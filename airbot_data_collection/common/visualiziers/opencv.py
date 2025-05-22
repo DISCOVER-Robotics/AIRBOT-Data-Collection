@@ -1,13 +1,14 @@
-import cv2
-from airbot_data_collection.common.visualiziers.basis import (
-    VisualizerBasis,
-    GUIVisualizerConfig,
-    SampleInfo,
-)
-import numpy as np
-from typing import Dict, Tuple
-from pydantic import BaseModel
+from __future__ import annotations
+
 import logging
+from typing import Dict, Tuple
+
+import cv2
+import numpy as np
+from pydantic import BaseModel
+
+from airbot_data_collection.common.visualiziers.basis import (
+    GUIVisualizerConfig, SampleInfo, VisualizerBasis)
 
 
 def prepare_cv2_imshow(logger: logging.Logger):
@@ -31,17 +32,17 @@ def prepare_cv2_imshow(logger: logging.Logger):
 
 
 def decode_image(
-    data: bytes, pixel_format: str, witdh: int = 0, height: int = 0
+    data: bytes, pixel_format: str, width: int = 0, height: int = 0
 ) -> np.ndarray:
     """Decode the image data based on the pixel format."""
     if pixel_format == "MJPEG":
         return cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     elif pixel_format == "YUYV":
         assert (
-            witdh > 0 and height > 0
+            width > 0 and height > 0
         ), "Width and height must be provided for YUYV format"
         return cv2.cvtColor(
-            np.frombuffer(data, np.uint8).reshape((height, witdh, 2)),
+            np.frombuffer(data, np.uint8).reshape((height, width, 2)),
             cv2.COLOR_YUV2BGR_YUYV,
         )
     else:
@@ -61,8 +62,8 @@ class TextConfig(BaseModel):
     fontFace: int = cv2.FONT_HERSHEY_SIMPLEX
     fontScale: int = 1
     thickness: int = 1
-    color: Tuple[int, int, int] = (0, 0, 0)
-    org: Tuple[int, int] = (0, 0)
+    color: tuple[int, int, int] = (0, 0, 0)
+    org: tuple[int, int] = (0, 0)
 
 
 class OpenCVisualizer(VisualizerBasis):
@@ -79,7 +80,7 @@ class OpenCVisualizer(VisualizerBasis):
             )
         return True
 
-    def update(self, data: Dict[str, np.ndarray], info: SampleInfo) -> bool:
+    def update(self, data: dict[str, np.ndarray], info: SampleInfo) -> bool:
         """Show the data on the OpenCV window."""
         # TODO: add concatenation for the data
         for key, value in data.items():

@@ -1,12 +1,13 @@
+from __future__ import annotations
+
+from tkinter import Canvas, Tk, Toplevel
+from typing import Dict, Union
+
 import numpy as np
 from PIL import Image, ImageTk
-from tkinter import Tk, Canvas, Toplevel
+
 from airbot_data_collection.common.visualiziers.basis import (
-    VisualizerBasis,
-    GUIVisualizerConfig,
-    SampleInfo,
-)
-from typing import Dict, Union
+    GUIVisualizerConfig, SampleInfo, VisualizerBasis)
 
 
 class TkinterVisualizer(VisualizerBasis):
@@ -21,10 +22,10 @@ class TkinterVisualizer(VisualizerBasis):
         self.canvas = Canvas(self.root, width=self.config.width, height=40, bg="gray")
         self.canvas.pack()
         self.text_ids = {}
-        self.windows: Dict[str, Dict[str, Union[Canvas, Toplevel]]] = {}
+        self.windows: dict[str, dict[str, Canvas | Toplevel]] = {}
         return True
 
-    def update(self, data: Dict[str, np.ndarray], info: SampleInfo):
+    def update(self, data: dict[str, np.ndarray], info: SampleInfo):
         for title, img in data.items():
             image_pil = Image.fromarray(img.astype(np.uint8), mode="RGB")
             img_width, img_height = image_pil.size

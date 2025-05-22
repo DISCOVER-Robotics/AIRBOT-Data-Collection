@@ -1,15 +1,18 @@
+from __future__ import annotations
+
+from typing import List, Optional, Union
+
 from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
-from airbot_data_collection.basis import SystemMode, System
-from typing import List
 from pydantic import BaseModel, PositiveInt
-from typing import Union, Optional
+
+from airbot_data_collection.basis import System, SystemMode
 from airbot_data_collection.utils import get_stamp_ms
 
 
 class AIRBOTPlayConfig(BaseModel):
     url: str = "localhost"
     port: PositiveInt = 50050
-    speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.FAST
+    speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
@@ -21,7 +24,7 @@ class AIRBOTPlay(System):
     config: AIRBOTPlayConfig
     interface: AIRBOTArm
 
-    def send_action(self, action: Union[List[float], dict]) -> None:
+    def send_action(self, action: list[float] | dict) -> None:
         if isinstance(action, dict):
             # TODO: should make this a abs method?
             action = self.observation_to_action(action)
@@ -36,7 +39,7 @@ class AIRBOTPlay(System):
     def on_switch_mode(self, mode: SystemMode) -> bool:
         if mode is SystemMode.PASSIVE:
             return self.interface.switch_mode(RobotMode.GRAVITY_COMP)
-        elif mode is SystemMode.RESETING:
+        elif mode is SystemMode.RESETTING:
             self.interface.switch_mode(RobotMode.PLANNING_POS)
         elif mode is SystemMode.SAMPLING:
             self.interface.switch_mode(RobotMode.SERVO_JOINT_POS)
@@ -75,7 +78,7 @@ class AIRBOTPlay(System):
     def shutdown(self) -> bool:
         return self.interface.disconnect()
 
-    def observation_to_action(self, obs: dict) -> List[float]:
+    def observation_to_action(self, obs: dict) -> list[float]:
         """Convert the observation to final action"""
         action = []
         for kind in ["arm", "eef"]:

@@ -1,6 +1,9 @@
+from __future__ import annotations
+
+import io
+
 import av
 import numpy as np
-import io
 
 
 def decode_jpeg_pyav(jpeg_bytes: bytes) -> np.ndarray:

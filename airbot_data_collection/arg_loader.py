@@ -1,24 +1,23 @@
-from typing import Tuple, Type, TypeVar, cast, Optional
-from pydantic_settings import (
-    BaseSettings,
-    PydanticBaseSettingsSource,
-    InitSettingsSource,
-)
+from __future__ import annotations
+
 from pathlib import Path
-from pydantic import BaseModel
+from typing import Optional, Tuple, Type, TypeVar, cast
+
 from argdantic.sources.base import FileBaseSettingsSource
 from argdantic.sources.dynamic import DynamicFileSource
-
+from pydantic import BaseModel
+from pydantic_settings import (BaseSettings, InitSettingsSource,
+                               PydanticBaseSettingsSource)
 
 T = TypeVar("T", bound=BaseModel)
 
 
 def from_file(
-    loader: Type[FileBaseSettingsSource],
-    use_field: Optional[str] = None,
+    loader: type[FileBaseSettingsSource],
+    use_field: str | None = None,
     required: bool = True,
 ):
-    def decorator(cls: Type[T]) -> Type[T]:
+    def decorator(cls: type[T]) -> type[T]:
         if not issubclass(cls, BaseModel):
             raise TypeError("@from_file can only be applied to Pydantic models")
         if use_field is not None:
@@ -30,19 +29,19 @@ def from_file(
                     f"Field {use_field} must be a string or Path to be used as file source"
                 )
 
-        class DynamicSourceSettings(cls, BaseSettings):  # type: ignore
+        class DynamicSourceSettings(cls, BaseSettings):
             __arg_source_field__ = use_field
             __arg_source_required__ = required
 
             @classmethod
             def settings_customise_sources(
                 cls,
-                settings_cls: Type[BaseSettings],
+                settings_cls: type[BaseSettings],
                 init_settings: PydanticBaseSettingsSource,
                 env_settings: PydanticBaseSettingsSource,
                 dotenv_settings: PydanticBaseSettingsSource,
                 file_secret_settings: PydanticBaseSettingsSource,
-            ) -> Tuple[PydanticBaseSettingsSource, ...]:
+            ) -> tuple[PydanticBaseSettingsSource, ...]:
                 source = DynamicFileSource(
                     settings_cls,
                     loader,
@@ -52,7 +51,7 @@ def from_file(
                 )
                 return (source,)
 
-        # Tell the type checker that we are returning the 
+        # Tell the type checker that we are returning the
         # original class (but we are actually returning the inherited class)
         return cast(Type[T], DynamicSourceSettings)
 

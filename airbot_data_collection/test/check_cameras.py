@@ -1,7 +1,9 @@
-import os
-import subprocess
+from __future__ import annotations
+
 import glob
+import os
 import re
+import subprocess
 
 
 def list_video_devices():

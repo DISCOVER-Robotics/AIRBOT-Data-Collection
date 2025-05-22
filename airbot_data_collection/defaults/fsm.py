@@ -1,10 +1,10 @@
-from airbot_data_collection.state_machine.fsm import (
-    StateMachineConfig,
-    DemonstrateState as State,
-    DemonstrateAction as Action,
-)
-from airbot_data_collection.state_machine.basis import ToDestConfig
+from __future__ import annotations
 
+from airbot_data_collection.state_machine.basis import ToDestConfig
+from airbot_data_collection.state_machine.fsm import \
+    DemonstrateAction as Action
+from airbot_data_collection.state_machine.fsm import DemonstrateState as State
+from airbot_data_collection.state_machine.fsm import StateMachineConfig
 
 STATE_MACHINE_CONFIG = StateMachineConfig(
     states=State,

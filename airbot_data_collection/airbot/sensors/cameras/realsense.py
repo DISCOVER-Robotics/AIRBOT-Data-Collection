@@ -1,8 +1,8 @@
-from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
-    IntelRealSenseCamera,
-    IntelRealSenseCameraConfig,
-)
+from __future__ import annotations
+
 from airbot_data_collection.basis import Sensor
+from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
+    IntelRealSenseCamera, IntelRealSenseCameraConfig)
 from airbot_data_collection.utils import get_stamp_ms
 
 

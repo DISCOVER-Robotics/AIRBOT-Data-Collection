@@ -1,12 +1,14 @@
-from turbojpeg import TurboJPEG
-import numpy as np
+from __future__ import annotations
+
+import io
+import time
+
+import av
 import cv2
 import imageio.v3 as iio
-import io
+import numpy as np
 from PIL import Image
-import time
-import av
-
+from turbojpeg import TurboJPEG
 
 jpeg = TurboJPEG()
 

@@ -1,11 +1,15 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Dict, List, Union
+
+from airbot_data.io import save_bson
+from numpy import ndarray
+from pydantic import BaseModel
+
 from airbot_data_collection.common.samplers.basis import DictDataSampler
 from airbot_data_collection.utils import get_stamp_ms
-from typing import Dict, List, Union
-from numpy import ndarray
-from airbot_data.io import save_bson
-import os
-from pydantic import BaseModel
-from pathlib import Path
 
 
 class AIRBOTDataSamplerConfig(BaseModel):
@@ -35,7 +39,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         self.config.data_schema["data"] = self._data
         return True
 
-    def append(self, data: Dict[str, Dict[str, Union[ndarray, List[float]]]]):
+    def append(self, data: dict[str, dict[str, ndarray | list[float]]]):
         if not self.topics:  # TODO: how to configure?
             for key, value in data.items():
                 prefix, data_type = key.rsplit("/", 1)

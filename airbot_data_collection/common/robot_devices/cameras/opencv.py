@@ -2,25 +2,24 @@
 This file contains utilities for recording frames from cameras. For more info look at `OpenCVCamera` docstring.
 """
 
+from __future__ import annotations
+
 import math
 import platform
 import threading
 import time
+from logging import getLogger
 from pathlib import Path
 from threading import Thread
 
-import numpy as np
-from airbot_data_collection.common.robot_devices.utils import (
-    RobotDeviceAlreadyConnectedError,
-    RobotDeviceNotConnectedError,
-)
-from airbot_data_collection.common.utils.utils import capture_timestamp_utc
-from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBConfig
-from logging import getLogger
 import cv2
+import numpy as np
+
 from airbot_data_collection.common.robot_devices.cameras.utils import (
-    find_camera_indices,
-)
+    CameraRGBConfig, find_camera_indices)
+from airbot_data_collection.common.robot_devices.utils import (
+    RobotDeviceAlreadyConnectedError, RobotDeviceNotConnectedError)
+from airbot_data_collection.common.utils.utils import capture_timestamp_utc
 
 
 class OpenCVCamera:
@@ -99,22 +98,12 @@ class OpenCVCamera:
         fourcc = None
         if self.mock:
             from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
-                CAP_PROP_FPS,
-                CAP_PROP_FRAME_HEIGHT,
-                CAP_PROP_FRAME_WIDTH,
-                CAP_PROP_FOURCC,
-                VideoCapture,
-            )
+                CAP_PROP_FOURCC, CAP_PROP_FPS, CAP_PROP_FRAME_HEIGHT,
+                CAP_PROP_FRAME_WIDTH, VideoCapture)
         else:
-            from cv2 import (
-                CAP_PROP_FPS,
-                CAP_PROP_FRAME_HEIGHT,
-                CAP_PROP_FRAME_WIDTH,
-                CAP_PROP_FOURCC,
-                VideoCapture,
-                VideoWriter_fourcc,
-                setNumThreads,
-            )
+            from cv2 import (CAP_PROP_FOURCC, CAP_PROP_FPS,
+                             CAP_PROP_FRAME_HEIGHT, CAP_PROP_FRAME_WIDTH,
+                             VideoCapture, VideoWriter_fourcc, setNumThreads)
 
             if self.pixel_format is not None:
                 fourcc = VideoWriter_fourcc(*self.pixel_format)
@@ -223,9 +212,7 @@ class OpenCVCamera:
         if requested_color_mode == "rgb":
             if self.mock:
                 from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
-                    COLOR_BGR2RGB,
-                    cvtColor,
-                )
+                    COLOR_BGR2RGB, cvtColor)
             else:
                 from cv2 import COLOR_BGR2RGB, cvtColor
 

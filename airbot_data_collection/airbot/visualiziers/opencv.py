@@ -1,7 +1,7 @@
+from __future__ import annotations
+
 from airbot_data_collection.common.visualiziers.opencv import (
-    OpenCVisualizer,
-    OpenCVisualizerConfig,
-)
+    OpenCVisualizer, OpenCVisualizerConfig)
 
 
 class AIRBOTBsonOpenCVisualizer(OpenCVisualizer):

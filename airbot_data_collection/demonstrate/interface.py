@@ -1,58 +1,51 @@
-from airbot_data_collection.demonstrate.configs import (
-    DemonstrateConfig,
-    AsyncMode,
-    DemonstrateAction,
-    ComponentRole,
-    ComponentConfig,
-    ComponentsConfig,
-)
-from airbot_data_collection.basis import SystemMode, System, Sensor
-from airbot_data_collection.common import (
-    DataSampler,
-    MockDataSampler,
-    SampleInfo,
-    Visualizer,
-)
-from airbot_data_collection.common.utils.utils import (
-    hydra_instance_from_config_path,
-    hydra_instance_from_dict,
-)
-from pydantic import BaseModel, ConfigDict
-from typing import Union, List, Dict, Any, Set, Optional
-from logging import getLogger
-from threading import Lock, Thread, Event
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from collections import defaultdict
-from airbot_data_collection.utils import (
-    find_matching_files,
-    get_items_by_ext,
-    bcolors,
-    ProgressBar,
-)
+from __future__ import annotations
+
 import time
+from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from logging import getLogger
+from threading import Event, Lock, Thread
+from typing import Any, Dict, List, Optional, Set, Union
+
+from pydantic import BaseModel, ConfigDict
+
+from airbot_data_collection.basis import Sensor, System, SystemMode
+from airbot_data_collection.common import (DataSampler, MockDataSampler,
+                                           SampleInfo, Visualizer)
+from airbot_data_collection.common.utils.utils import (
+    hydra_instance_from_config_path, hydra_instance_from_dict)
+from airbot_data_collection.demonstrate.configs import (AsyncMode,
+                                                        ComponentConfig,
+                                                        ComponentRole,
+                                                        ComponentsConfig,
+                                                        DemonstrateAction,
+                                                        DemonstrateConfig)
+from airbot_data_collection.utils import (ProgressBar, bcolors,
+                                          find_matching_files,
+                                          get_items_by_ext)
 
 
 class GroupComponentNames(BaseModel):
-    leader: List[str] = []
-    followers: List[str] = []
-    others: List[str] = []
+    leader: list[str] = []
+    followers: list[str] = []
+    others: list[str] = []
 
 
 class DemonstrateGroup(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str
-    leader: List[Union[System, Sensor]] = []
-    followers: List[Union[System, Sensor]] = []
-    others: List[Union[System, Sensor]] = []
+    leader: list[System | Sensor] = []
+    followers: list[System | Sensor] = []
+    others: list[System | Sensor] = []
 
 
 class ComponentsInstancer:
 
-    def __init__(self, search_dirs: Set[str]):
+    def __init__(self, search_dirs: set[str]):
         self.search_dirs = search_dirs
 
     def instance(
-        self, config: Union[ComponentConfig, ComponentsConfig], name_dict: bool = False
+        self, config: ComponentConfig | ComponentsConfig, name_dict: bool = False
     ) -> Any:
         if isinstance(config, ComponentConfig):
             config.path = find_matching_files(self.search_dirs, (config.path,))[0]
@@ -92,14 +85,14 @@ class DemonstrateInterface:
     def __init__(self, config: DemonstrateConfig):
         self.config = config
         self.instancer = ComponentsInstancer(config.search_dirs)
-        self.groups: List[DemonstrateGroup] = []
-        self.group_component_names: List[GroupComponentNames] = []
-        self.group_map: Dict[str, DemonstrateGroup] = {}
+        self.groups: list[DemonstrateGroup] = []
+        self.group_component_names: list[GroupComponentNames] = []
+        self.group_map: dict[str, DemonstrateGroup] = {}
         if config.sampler is not None:
             self.sampler: DataSampler = self.instancer.instance(config.sampler)
         else:
             self.sampler = MockDataSampler()
-        self.visualizers: Dict[str, Visualizer] = self.instancer.instance(
+        self.visualizers: dict[str, Visualizer] = self.instancer.instance(
             config.visualizers, True
         )
         for group in config.components.grouped_config:
@@ -217,12 +210,12 @@ class DemonstrateInterface:
             if group_leader:
                 leader = group_leader[0]
                 if leader.switch_mode():
-                    if mode is SystemMode.RESETING:
+                    if mode is SystemMode.RESETTING:
                         leader.send_action(action_value)
                     else:
                         self.get_logger().warning(
                             f"Action is ignored in {mode} mode for {group_name}. "
-                            "Please use reseting mode"
+                            "Please use resetting mode"
                         )
                         return False
                 else:
@@ -232,7 +225,7 @@ class DemonstrateInterface:
                     return False
         return True
 
-    def set_auto_control(self, start: Optional[bool] = True) -> bool:
+    def set_auto_control(self, start: bool | None = True) -> bool:
         """Start/Stop the auto control loop."""
         if not self.config.auto_control:
             self.get_logger().error("Auto control is not enabled")
@@ -240,8 +233,8 @@ class DemonstrateInterface:
         if start is None:
             start = not self._auto_control_event.is_set()
         if start:
-            # set the followers to reseting mode to move smoothly
-            if self._set_followers_mode(SystemMode.RESETING):
+            # set the followers to resetting mode to move smoothly
+            if self._set_followers_mode(SystemMode.RESETTING):
                 # TODO: control until the joint positions are near the leader
                 self._auto_control()
                 if self._set_followers_mode(SystemMode.SAMPLING):
@@ -253,19 +246,19 @@ class DemonstrateInterface:
         self.get_logger().error("Failed to start auto control")
         return False
 
-    def set_role_mode(self, role: ComponentRole, mode: Optional[SystemMode]) -> bool:
+    def set_role_mode(self, role: ComponentRole, mode: SystemMode | None) -> bool:
         """Set the mode of all the components of a role."""
         self.get_logger().info(f"Setting {role} mode to {mode}")
         if mode is None:
             if self._role_mode_set[role] is SystemMode.PASSIVE:
-                mode = SystemMode.RESETING
+                mode = SystemMode.RESETTING
             else:
                 mode = SystemMode.PASSIVE
         if role is ComponentRole.l:
             return self._set_leaders_mode(mode)
         elif role is ComponentRole.f:
             # for safety movement, the mode should be reset now
-            assert isinstance(mode, SystemMode.RESETING)
+            assert isinstance(mode, SystemMode.RESETTING)
             return self._set_followers_mode(mode)
         else:
             raise ValueError(
@@ -357,7 +350,7 @@ class DemonstrateInterface:
             return True
         return False
 
-    def capture(self) -> Dict[str, Any]:
+    def capture(self) -> dict[str, Any]:
         # TODO: can be called when sampling?
         data = {}
         for group, all_names in zip(self.groups, self.group_component_names):
@@ -467,7 +460,7 @@ class DemonstrateInterface:
             return True
         return False
 
-    def capture_by_role(self, role: ComponentRole) -> Dict[str, Dict[str, Any]]:
+    def capture_by_role(self, role: ComponentRole) -> dict[str, dict[str, Any]]:
         """Get the components observations by role.
         TODO: should use the same data structure as the capture function？
         """

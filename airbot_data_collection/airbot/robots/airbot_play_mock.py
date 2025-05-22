@@ -1,7 +1,7 @@
-from airbot_data_collection.airbot.robots.airbot_play import (
-    AIRBOTPlay,
-    AIRBOTPlayConfig,
-)
+from __future__ import annotations
+
+from airbot_data_collection.airbot.robots.airbot_play import (AIRBOTPlay,
+                                                              AIRBOTPlayConfig)
 
 
 class AIRBOTArmMock:

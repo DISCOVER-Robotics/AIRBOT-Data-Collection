@@ -1,12 +1,13 @@
-from typing import Protocol, final, Optional, runtime_checkable
-from airbot_data_collection.state_machine.fsm import (
-    DemonstrateFSM,
-    State,
-    DemonstrateAction,
-)
-from airbot_data_collection.basis import ConfigBasis
+from __future__ import annotations
+
 from abc import abstractmethod
+from typing import Optional, Protocol, final, runtime_checkable
+
 from pydantic import BaseModel
+
+from airbot_data_collection.basis import ConfigBasis
+from airbot_data_collection.state_machine.fsm import (DemonstrateAction,
+                                                      DemonstrateFSM, State)
 
 
 @runtime_checkable
@@ -46,11 +47,11 @@ class SelfManagerConfig(BaseModel):
 
     # what to do when the maximum number of samples is reached
     # or the time duration is reached if not both are 0
-    # usually save, abondon or None
-    on_reach: Optional[DemonstrateAction] = DemonstrateAction.save
+    # usually save, abandon or None
+    on_reach: DemonstrateAction | None = DemonstrateAction.save
     # what to do when the maximum round of samples is reached
     # usually finish or None
-    on_reach_round: Optional[DemonstrateAction] = DemonstrateAction.finish
+    on_reach_round: DemonstrateAction | None = DemonstrateAction.finish
 
 
 class SelfManager(DemonstrateManagerBasis):

@@ -1,9 +1,12 @@
-from bson import BSON
+from __future__ import annotations
+
 import argparse
+from io import BytesIO
 from pprint import pprint
 from typing import Any
+
 import av
-from io import BytesIO
+from bson import BSON
 
 
 def decode_h264(h264_bytes: bytes) -> Any:

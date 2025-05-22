@@ -1,24 +1,26 @@
-from airbot_data_collection.utils import run_event_loop, ImageCoder
-from airbot_data_collection.common.robot_devices.cameras.utils import (
-    CameraRGBConfig,
-    find_camera_indices,
-)
-from airbot_data_collection.basis import Sensor
+from __future__ import annotations
+
 import asyncio
-from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
-from typing import Optional, Union
 from threading import Event
+from typing import Optional, Union
+
 import numpy as np
+from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
+
+from airbot_data_collection.basis import Sensor
+from airbot_data_collection.common.robot_devices.cameras.utils import (
+    CameraRGBConfig, find_camera_indices)
+from airbot_data_collection.utils import ImageCoder, run_event_loop
 
 
 class V4L2CameraConfig(CameraRGBConfig):
     width: int = 640
     height: int = 480
     nb_buffers: int = 2
-    mode: Optional[Union[str, int]] = None
+    mode: str | int | None = None
     decode: bool = True
-    pixel_format: Union[PixelFormat, str] = PixelFormat.MJPEG
+    pixel_format: PixelFormat | str = PixelFormat.MJPEG
 
     def model_post_init(self, context):
         self.mode = {
@@ -60,7 +62,7 @@ class V4L2Camera(Sensor):
             self.jpeg = TurboJPEG()
         return True
 
-    def capture_observation(self) -> Union[bytes, np.ndarray]:
+    def capture_observation(self) -> bytes | np.ndarray:
         self.event.wait()
         frame_bytes = bytes(self.frame)
         if not self.config.decode:
@@ -100,6 +102,7 @@ class V4L2Camera(Sensor):
 
 if __name__ == "__main__":
     import time
+
     import cv2
 
     camera = V4L2Camera()

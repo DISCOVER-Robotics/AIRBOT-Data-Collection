@@ -1,17 +1,23 @@
-from airbot_data_collection.managers.basis import DemonstrateManagerBasis
-from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.utils import bcolors
-from airbot_data_collection.demonstrate.configs import ComponentRole, SystemMode
-from pynput import keyboard
-from pprint import pformat
-from pydantic import BaseModel
-from typing import Dict
-from bidict import bidict
+from __future__ import annotations
+
 from enum import Enum
+from pprint import pformat
+from typing import Dict
+
+from bidict import bidict
+from pydantic import BaseModel
+from pynput import keyboard
+
+from airbot_data_collection.demonstrate.configs import (ComponentRole,
+                                                        SystemMode)
+from airbot_data_collection.managers.basis import DemonstrateManagerBasis
+from airbot_data_collection.state_machine.fsm import \
+    DemonstrateAction as Action
+from airbot_data_collection.utils import bcolors
 
 
 class KeyboardCallbackConfig(BaseModel):
-    action_key: Dict[Action, str] = {
+    action_key: dict[Action, str] = {
         Action.sample: keyboard.Key.space.name,
         Action.save: "s",
         Action.abandon: "q",
@@ -19,14 +25,14 @@ class KeyboardCallbackConfig(BaseModel):
         Action.capture: "p",
         Action.finish: "z",
     }
-    instruction: Dict[str, str] = {
+    instruction: dict[str, str] = {
         "b": "Back to sample the last round (override the last saved file)",
         "i": "Show this instruction again",
         "g": "Switch passive (gravity composation) / resetting mode of the leaders",
         "f": "Start / stop following",
     }
     # TODO: auto add mapped keys to the instruction
-    key_mapping: Dict[str, str] = {
+    key_mapping: dict[str, str] = {
         keyboard.Key.esc.name: "z",
     }
 
@@ -120,7 +126,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
 
     def on_shutdown(self) -> bool:
         self.listener.stop()
-        # TOOD: why can not be stopped?
+        # TODO: why can not be stopped?
         # self.listener.join(2)
         # return not self.listener.is_alive()
         return True
@@ -135,7 +141,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
                 key_char = key.char
                 assert (
                     key_char is not None
-                ), "Uknown key pressed. There may be a situation where the number keys on the numeric keypad cannot be recognized properly."
+                ), "Unknown key pressed. There may be a situation where the number keys on the numeric keypad cannot be recognized properly."
             except AttributeError:
                 key_char = str(key)
             return key_char

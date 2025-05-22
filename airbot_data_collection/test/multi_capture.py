@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import argparse
 import asyncio
 import logging
-from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 import time
-import cv2
-from airbot_data_collection.common.visualiziers.opencv import decode_image
 
+import cv2
+from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
+
+from airbot_data_collection.common.visualiziers.opencv import decode_image
 
 MODES = {
     "auto": None,

@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import sys
+
+import cv2
 from mcap.reader import make_reader
 from turbojpeg import TurboJPEG
-import cv2
-
 
 jpeg = TurboJPEG()
 with open(sys.argv[1], "rb") as f:

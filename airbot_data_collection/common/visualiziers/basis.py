@@ -1,6 +1,10 @@
-from typing import Any, Protocol, Optional, Union, runtime_checkable
+from __future__ import annotations
+
 from abc import abstractmethod
+from typing import Any, Optional, Protocol, Union, runtime_checkable
+
 from pydantic import BaseModel, NonNegativeInt, PositiveInt
+
 from airbot_data_collection.basis import ConfigBasis
 
 
@@ -56,7 +60,7 @@ class WebVisualizerConfig(BaseModel):
 
     host: str = "127.0.0.0"
     port: NonNegativeInt = 8000
-    log_level: Optional[Union[str, int]] = None
+    log_level: str | int | None = None
     access_log: bool = False
 
 

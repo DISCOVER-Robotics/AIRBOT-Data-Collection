@@ -1,25 +1,27 @@
-from airbot_data_collection.demonstrate.interface import ComponentsInstancer
-from airbot_data_collection.config import DataCollectionArgs
-from airbot_data_collection.state_machine.fsm import (
-    DemonstrateFSM,
-    DemonstrateState,
-    DemonstrateFSMConfig,
-)
-from airbot_data_collection.managers.basis import DemonstrateManager
-from airbot_data_collection.utils import init_logging
-from typing import Dict
-from logging import getLogger
-import time
+from __future__ import annotations
 
+import time
+from logging import getLogger
+from typing import Dict
+
+from airbot_data_collection.config import DataCollectionArgs
+from airbot_data_collection.demonstrate.interface import ComponentsInstancer
+from airbot_data_collection.managers.basis import DemonstrateManager
+from airbot_data_collection.state_machine.fsm import (DemonstrateFSM,
+                                                      DemonstrateFSMConfig,
+                                                      DemonstrateState)
+from airbot_data_collection.utils import init_logging
 
 if __name__ == "__main__":
     import logging
+
     from argdantic import ArgParser
 
     init_logging(logging.INFO)
     logger = getLogger("airbot_data_collection")
 
-    from airbot_data_collection.common.visualiziers.opencv import prepare_cv2_imshow
+    from airbot_data_collection.common.visualiziers.opencv import \
+        prepare_cv2_imshow
 
     prepare_cv2_imshow(logger)
 
@@ -34,7 +36,7 @@ if __name__ == "__main__":
             DemonstrateFSMConfig(state_machine=config.fsm, interface=config)
         )
         instancer = ComponentsInstancer(config.search_dirs)
-        managers: Dict[str, DemonstrateManager] = instancer.instance(
+        managers: dict[str, DemonstrateManager] = instancer.instance(
             config.managers, True
         )
         for name, manager in managers.items():
