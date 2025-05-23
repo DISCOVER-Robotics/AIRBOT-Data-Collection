@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from enum import Enum
 from pprint import pformat
 from typing import Dict

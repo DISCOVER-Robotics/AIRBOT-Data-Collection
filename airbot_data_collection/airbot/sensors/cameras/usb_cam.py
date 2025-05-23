@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from airbot_data_collection.basis import Sensor
 from airbot_data_collection.common.robot_devices.cameras.opencv import (
     CameraRGBConfig, OpenCVCamera)

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import time
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor

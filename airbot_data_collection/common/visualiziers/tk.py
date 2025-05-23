@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from tkinter import Canvas, Tk, Toplevel
 from typing import Dict, Union
 

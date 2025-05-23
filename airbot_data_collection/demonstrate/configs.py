@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 from ast import literal_eval
 from collections import Counter

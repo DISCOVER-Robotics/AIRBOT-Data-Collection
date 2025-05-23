@@ -2,7 +2,7 @@
 This file contains utilities for recording frames from cameras. For more info look at `OpenCVCamera` docstring.
 """
 
-from __future__ import annotations
+
 
 import math
 import platform

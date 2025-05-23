@@ -2,7 +2,7 @@
 This file contains utilities for recording frames from Intel Realsense cameras.
 """
 
-from __future__ import annotations
+
 
 import math
 import time

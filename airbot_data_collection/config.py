@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from argdantic.sources import YamlFileLoader
 from pydantic import BaseModel
 

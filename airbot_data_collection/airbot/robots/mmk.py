@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pydantic import BaseModel, PositiveInt
 
 from airbot_data_collection.basis import System, SystemMode

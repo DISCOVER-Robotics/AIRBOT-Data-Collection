@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 from threading import Event
 from typing import Optional, Union
