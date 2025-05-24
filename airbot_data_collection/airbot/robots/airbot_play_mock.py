@@ -45,3 +45,6 @@ class AIRBOTPlayMock(AIRBOTPlay):
 
     def shutdown(self):
         return True
+
+    def get_info(self):
+        return {}

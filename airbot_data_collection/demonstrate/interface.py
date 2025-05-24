@@ -8,19 +8,30 @@ from typing import Any, Dict, List, Optional, Set, Union
 from pydantic import BaseModel, ConfigDict
 
 from airbot_data_collection.basis import Sensor, System, SystemMode
-from airbot_data_collection.common import (DataSampler, MockDataSampler,
-                                           SampleInfo, Visualizer)
+from airbot_data_collection.common import (
+    DataSampler,
+    MockDataSampler,
+    SampleInfo,
+    Visualizer,
+)
 from airbot_data_collection.common.utils.utils import (
-    hydra_instance_from_config_path, hydra_instance_from_dict)
-from airbot_data_collection.demonstrate.configs import (AsyncMode,
-                                                        ComponentConfig,
-                                                        ComponentRole,
-                                                        ComponentsConfig,
-                                                        DemonstrateAction,
-                                                        DemonstrateConfig)
-from airbot_data_collection.utils import (ProgressBar, bcolors,
-                                          find_matching_files,
-                                          get_items_by_ext)
+    hydra_instance_from_config_path,
+    hydra_instance_from_dict,
+)
+from airbot_data_collection.demonstrate.configs import (
+    AsyncMode,
+    ComponentConfig,
+    ComponentRole,
+    ComponentsConfig,
+    DemonstrateAction,
+    DemonstrateConfig,
+)
+from airbot_data_collection.utils import (
+    ProgressBar,
+    bcolors,
+    find_matching_files,
+    get_items_by_ext,
+)
 
 
 class GroupComponentNames(BaseModel):
@@ -468,24 +479,15 @@ class DemonstrateInterface:
             return True
         return False
 
-    def capture_by_role(self, role: ComponentRole) -> dict[str, dict[str, Any]]:
-        """Get the components observations by role.
-        TODO: should use the same data structure as the capture function？
+    def _set_component_info(self):
         """
-        obs = defaultdict(dict)
-        if role is ComponentRole.l:
-            handle = "leader"
-        elif role is ComponentRole.f:
-            handle = "followers"
-        else:
-            handle = "others"
-        component: System
-        for group, names in zip(self.groups, self.group_component_names):
-            for component, f_name in zip(
-                getattr(names, handle), getattr(names, handle)
-            ):
-                obs[f_name] = component.capture_observation()
-        return obs
+        Set the component info for the sampler.
+        """
+        info = {}
+        for group in self.groups:
+            for component in group.leader + group.followers + group.others:
+                info.update(component.get_info())
+        self.sampler.set_info(info)
 
     @property
     def is_reached(self) -> bool:

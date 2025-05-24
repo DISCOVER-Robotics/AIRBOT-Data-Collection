@@ -1,10 +1,10 @@
 import platform
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Protocol, Tuple, Union, runtime_checkable
+from typing import Protocol, runtime_checkable, List
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 
 
 @runtime_checkable
@@ -29,6 +29,48 @@ class CameraRGBConfig(BaseModel):
 
 class CameraRGBDConfig(CameraRGBConfig):
     use_depth: bool = False
+
+
+class RegionOfInterest(BaseModel):
+    x_offset: NonNegativeInt = 0
+    y_offset: NonNegativeInt = 0
+    height: NonNegativeInt = 0
+    width: NonNegativeInt = 0
+    do_rectify: bool = False
+
+
+class CameraInfo(BaseModel):
+    width: NonNegativeInt
+    height: NonNegativeInt
+    distortion_model: str = ""
+    d: List[float] = []
+    k: List[float] = []
+    r: List[float] = []
+    p: List[float] = []
+    binning_x: NonNegativeInt = 0
+    binning_y: NonNegativeInt = 0
+    roi: RegionOfInterest = RegionOfInterest()
+
+    def model_post_init(self, context):
+        assert len(self.k) in {0, 9}, "Camera matrix K must be 3x3"
+        assert len(self.r) in {0, 9}, "Camera matrix R must be 3x3"
+        assert len(self.p) in {0, 12}, "Camera matrix P must be 3x4"
+
+
+class CameraControl(BaseModel):
+    brightness: NonNegativeInt
+    contrast: NonNegativeInt
+    saturation: NonNegativeInt
+    hue: NonNegativeInt
+    white_balance_automatic: bool
+    gamma: PositiveInt
+    power_line_frequency: int = 1
+    white_balance_temperature: PositiveInt
+    sharpness: NonNegativeInt
+    backlight_compensation: NonNegativeInt
+    auto_exposure: int = 3
+    exposure_time_absolute: NonNegativeInt
+    exposure_dynamic_framerate: bool
 
 
 def find_camera_indices(

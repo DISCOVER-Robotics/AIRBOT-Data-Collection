@@ -1,6 +1,5 @@
 import asyncio
 from threading import Event
-from typing import Optional, Union
 
 import numpy as np
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
@@ -8,7 +7,11 @@ from turbojpeg import TurboJPEG
 
 from airbot_data_collection.basis import Sensor
 from airbot_data_collection.common.robot_devices.cameras.utils import (
-    CameraRGBConfig, find_camera_indices)
+    CameraRGBConfig,
+    find_camera_indices,
+    CameraInfo,
+    CameraControl,
+)
 from airbot_data_collection.utils import ImageCoder, run_event_loop
 
 
@@ -58,6 +61,7 @@ class V4L2Camera(Sensor):
         )
         if self.config.decode and self.config.pixel_format is PixelFormat.MJPEG:
             self.jpeg = TurboJPEG()
+        self._init_info()
         return True
 
     def capture_observation(self) -> bytes | np.ndarray:
@@ -88,6 +92,37 @@ class V4L2Camera(Sensor):
         # # self.device.close()
         # return self.device.closed
         return True
+
+    def _init_info(self):
+        cam_format = self._capture.get_format()
+        info = CameraInfo(
+            width=cam_format.width,
+            height=cam_format.height,
+        ).model_dump()
+        self.device.controls._init_if_needed()
+        id_to_name = {}
+        for ctrl in self.device.info.controls:
+            id_to_name[ctrl.id] = ctrl.name.decode()
+        ctrl_info = {}
+        for key, ctrl in self.device.controls.items():
+            ctrl_info[key] = ctrl.value
+        info.update(
+            {"fps": self._capture.get_fps(), "pixel_format": cam_format.pixel_format}
+        )
+        info.update(ctrl_info)
+        dev_info = self.device.info
+        info.update(
+            {
+                "driver": dev_info.driver,
+                "card": dev_info.card,
+                "bus_info": dev_info.bus_info,
+                "version": dev_info.version,
+            }
+        )
+        self._info = info
+
+    def get_info(self):
+        return self._info
 
     async def _read_frame(self):
         with self._capture as stream:
