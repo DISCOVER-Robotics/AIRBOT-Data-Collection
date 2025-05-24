@@ -12,6 +12,7 @@ from mmk2_types.grpc_msgs import JointState, Time
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from pydantic import BaseModel, PositiveInt
 from typing import Optional, List, Union, Dict, Tuple
+import numpy as np
 
 
 class AIRBOTMMKConfig(BaseModel):
@@ -36,7 +37,7 @@ class AIRBOTMMK(System):
     config: AIRBOTMMKConfig
 
     def on_configure(self) -> bool:
-        self.interface = AirbotMMK2(**self.config.model_dump())
+        self.interface = AirbotMMK2(ip=self.config.ip)
         self._action_topics = {
             comp: TopicNames.tracking.format(component=comp.value)
             for comp in MMK2ComponentsGroup.ARMS
@@ -50,9 +51,11 @@ class AIRBOTMMK(System):
                 for comp in MMK2ComponentsGroup.HEAD_SPINE
             }
         )
+        print(f"[DEBUG] Action topics ALL: {self._action_topics}")
         self.interface.listen_to(self._action_topics.values())
         self.interface.enable_resources(self.config.cameras)
         self._joint_names = JointNames().__dict__
+        print(f"[DEBUG] _joint_names: {self._joint_names}")
         self._check_joints(self.interface.get_robot_state().joint_state.name)
         return True
 
@@ -67,7 +70,8 @@ class AIRBOTMMK(System):
         robot_state = self.interface.get_robot_state()
         all_joints = robot_state.joint_state
         stamp = robot_state.joint_state.header.stamp
-        t = stamp.sec + stamp.nanosec * 1e-9
+        t = int((stamp.sec + stamp.nanosec * 1e-9)* 1000)
+        # t = stamp.sec + stamp.nanosec * 1e-9
         for comp in self.config.components:
             comp_name = comp.value
             self._set_js_bson(data, comp, t, all_joints)
@@ -79,13 +83,13 @@ class AIRBOTMMK(System):
                     base_pose.y,
                     base_pose.theta,
                 ]
-                # data[f"action/{comp_name}/pose"] = data_pose
+                # data[f"observation/{comp_name}/pose"] = data_pose
                 data_vel = [
                     base_vel.x,
                     base_vel.y,
                     base_vel.omega,
                 ]
-                data[f"action/{comp_name}/joint_state"] = {
+                data[f"observation/{comp_name}/joint_state"] = {
                     "t": t,
                     "data": {
                         "pos": data_pose,
@@ -93,13 +97,16 @@ class AIRBOTMMK(System):
                         "eff": [0.0] * len(data_pose),
                     },
                 }
-            if self.config.demonstrate:
+        if self.config.demonstrate:
+            for comp in [MMK2Components.LEFT_ARM, MMK2Components.RIGHT_ARM, MMK2Components.HEAD, MMK2Components.SPINE]:
+                # print(f"[DEBUG] Processing component: {comp}, topic: {self._action_topics.get(comp)}")
                 if comp in MMK2ComponentsGroup.ARMS:
                     arm_jn = self._joint_names[comp.value]
                     comp_eef = comp.value + "_eef"
                     eef_jn = self._joint_names[comp_eef]
                     js = self.interface.get_listened(self._action_topics[comp])
                     jq = self.interface.get_joint_values_by_names(js, arm_jn + eef_jn)
+                
                     data[f"action/{comp.value}/joint_state"] = {
                         "t": t,
                         "data": {
@@ -116,27 +123,27 @@ class AIRBOTMMK(System):
                             "eff": [0.0],
                         },
                     }
-                elif comp in MMK2ComponentsGroup.HEAD_SPINE:
-                    jq = list(
-                        self.interface.get_listened(self._action_topics[comp]).data
-                    )
-                    data[f"action/{comp.value}/joint_state"] = {
-                        "t": t,
-                        "data": {
-                            "pos": jq,
-                            "vel": [0.0] * len(jq),
-                            "eff": [0.0] * len(jq),
-                        },
-                    }
-                else:
-                    raise ValueError(
-                        f"Component {comp} not supported for demonstration"
-                    )
-        return data
+                
+                if comp in MMK2ComponentsGroup.HEAD_SPINE:
+                    # print(f"[DEBUG] HEAD_SPINE component: {comp}, topic: {self._action_topics.get(comp)}")
+                    listened_data = self.interface.get_listened(self._action_topics[comp])
+                    if listened_data and listened_data.data:  # 检查是否有数据
+                        jq = list(listened_data.data)
+                        data[f"action/{comp.value}/joint_state"] = {
+                            "t": t,
+                            "data": {
+                                "pos": jq,
+                                "vel": [0.0] * len(jq),
+                                "eff": [0.0] * len(jq),
+                            },
+                        }
+                    else:
+                        # print(f"[WARNING] No data received for component: {comp}")
+                        return data
 
     def _set_js_bson(
         self, data: dict, comp: MMK2Components, t: float, js: JointState
-    ) -> Dict[str,]:
+    ):
         comp_data = {"t": t, "data": {}}
         for field in ["position", "velocity", "effort"]:
             value = self.interface.get_joint_values_by_names(
@@ -148,7 +155,8 @@ class AIRBOTMMK(System):
     def _capture_images(self) -> Tuple[Dict[str, bytes], Dict[str, Time]]:
         images = {}
         img_stamps: Dict[MMK2Components, Time] = {}
-        comp_images = self.interface.get_image(self.config.cameras)
+        # print(f"[DEBUG] Capturing images from cameras: {self.config.cameras}")
+        comp_images = self.interface.get_image({cam: [ImageTypes.COLOR] for cam in self.config.cameras})
         for comp, image in comp_images.items():
             # TODO: now only support for color image
             images[comp.value] = image.data[ImageTypes.COLOR]
@@ -161,9 +169,15 @@ class AIRBOTMMK(System):
         obs_act_dict = self._get_low_dim()
         images, img_stamps = self._capture_images()
         for name in images:
+            if not isinstance(images[name], np.ndarray):
+                raise TypeError(f"Image data for {name} is not a valid np.ndarray")
             stamp = img_stamps[name]
+            t = int((stamp.sec + stamp.nanosec * 1e-9) * 1000)
+            # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
+            # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
+            # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
             obs_act_dict[f"{name}/color_image"] = {
-                "t": stamp.sec * 1e-3 + stamp.nanosec * 1e-6,
+                "t": t,
                 "data": images[name],
             }
         return obs_act_dict
