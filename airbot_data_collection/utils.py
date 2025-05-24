@@ -6,8 +6,6 @@ import threading
 import time
 import tkinter
 from enum import Enum
-from typing import List, Optional, Tuple
-
 import numpy as np
 from tqdm import tqdm
 
