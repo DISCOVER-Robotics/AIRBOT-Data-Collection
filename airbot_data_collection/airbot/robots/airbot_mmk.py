@@ -106,7 +106,6 @@ class AIRBOTMMK(System):
                     eef_jn = self._joint_names[comp_eef]
                     js = self.interface.get_listened(self._action_topics[comp])
                     jq = self.interface.get_joint_values_by_names(js, arm_jn + eef_jn)
-                
                     data[f"action/{comp.value}/joint_state"] = {
                         "t": t,
                         "data": {

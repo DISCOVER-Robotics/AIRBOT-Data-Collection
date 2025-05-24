@@ -1,4 +1,4 @@
-python3 main.py --path defaults/config_joy.yaml \
+python3 main.py --path defaults/config.yaml \
                 --components.names mmk \
                 --components.paths airbot_mmk \
                 --components.params '{}' \

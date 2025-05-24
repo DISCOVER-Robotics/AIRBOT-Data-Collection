@@ -1,12 +1,13 @@
 from enum import Enum
 from pprint import pformat
 from typing import Dict
+import time
 
 from bidict import bidict
 from pydantic import BaseModel
 # from pynput import keyboard
 
-
+import logging
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
@@ -23,19 +24,22 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Dict, Union
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 class JoyAxis(Enum):
     # LEFT_X = 0
     # LEFT_Y = 1
     # RIGHT_X = 2
     # RIGHT_Y = 3
-    DPAD_X = 6
-    DPAD_Y = 7
+    DPAD_X = 7
+    # DPAD_Y = 7
     # TRIGGERS = 6  # L2 + R2 合并轴
 
 class JoyButton(Enum):
     A = 0
     # B = 1
-    # X = 2
+    X = 2
     Y = 3
     LB = 4
     RB = 5
@@ -49,13 +53,11 @@ class JoyCallbackConfig(BaseModel):
     action_button: Dict[Action, JoyButton] = {
         Action.sample: JoyButton.Y,
         Action.save: JoyButton.A,
-        Action.abandon: JoyAxis.DPAD_X,
-        Action.finish: JoyButton.RB,
         Action.remove: JoyButton.LB,
-        # Action.capture: JoyButton.RB,
+        Action.finish: JoyButton.RB,
     }
 
-    instruction: Dict[str, str] = {}
+    instruction_button: Dict[str, str] = {}
 
     def model_post_init(self, context):
         action_info = {
@@ -67,37 +69,34 @@ class JoyCallbackConfig(BaseModel):
             Action.capture: "Capture current component observations",
         }
         for action, btn in self.action_button.items():
-            self.instruction[f"button_{btn.value}"] = action_info[action]
+            self.instruction_button[f"button_{btn.value}"] = action_info[action]
 
+    action_axis: Dict[Action, JoyAxis] = {
+        Action.abandon: JoyAxis.DPAD_X,
+    }
+    instruction_axis: Dict[str, str] = {}
+    def model_post_init(self, context):
+        action_info = {
+            Action.abandon: "Abandon current sampling without saving",
+        }
+        for action, axis in self.action_axis.items():
+            self.instruction_axis[f"axis_{axis.value}"] = action_info[action]
 
 class JoyCallbackManager(DemonstrateManagerBasis):
     config: JoyCallbackConfig
 
     def __init__(self):
-
-
+        super().__init__()
         self.node = None
         self.ros_initialized = False
         self._init_ros2()
-
-        super().__init__()
-                # 初始化 ROS 2 Node
-        # Node.__init__(self, "joy_callback_manager")
-
-        # 初始化 Basis 类（用于状态机等）
-        DemonstrateManagerBasis.__init__(self)
-        
-        # 订阅 /joy 主题
-        # self.subscription = self.create_subscription(
-        #     Joy,
-        #     '/joy',
-        #     self.joy_callback,
-        #     10
-        # )
         
         # 建立按钮到动作的双向映射
         self.button_to_action = bidict({
             btn.value: action for action, btn in self.config.action_button.items()
+        })
+        self.axis_to_action = bidict({
+            axis.value: action for action, axis in self.config.action_axis.items()
         })
 
     def _init_ros2(self):
@@ -127,6 +126,18 @@ class JoyCallbackManager(DemonstrateManagerBasis):
             # 重新抛出异常，让调用者处理
             raise
 
+    def _ros_spin(self):
+        """在单独的线程中运行ROS2回调"""
+        try:
+            while rclpy.ok() and hasattr(self, 'node') and self.node:
+                try:
+                    rclpy.spin_once(self.node, timeout_sec=0.1)
+                except Exception as e:
+                    logger.error(f"ROS2回调执行错误: {e}")
+                time.sleep(0.01)
+        except Exception as e:
+            logger.error(f"ROS2回调线程错误: {e}")
+
     def on_configure(self):
         self.print_round()
         self.show_instruction()
@@ -138,7 +149,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
     def show_instruction(self) -> None:
         """显示用户操作说明"""
         self.get_logger().info(
-            bcolors.OKCYAN + f"\n{pformat(self.config.instruction)}" + bcolors.ENDC
+            bcolors.OKCYAN + f"\n{pformat(self.config.instruction_button)}" + bcolors.ENDC
         )
 
     def print_round(self):
@@ -151,7 +162,16 @@ class JoyCallbackManager(DemonstrateManagerBasis):
         for button_idx in self.button_to_action:
             if msg.buttons[button_idx] == 1:  # 按下为 1
                 action = self.button_to_action[button_idx]
+                print(f"Button {button_idx} pressed, triggering action: {action.name}")
                 self.handle_joy_action(action)
+
+        for axis_idx in self.axis_to_action:
+            if msg.axes[axis_idx] == 1:
+                action = self.axis_to_action[axis_idx]
+                print(f"Axis {axis_idx} pressed, triggering action: {action.name}")
+                self.handle_joy_action(action)
+            
+
 
     def handle_joy_action(self, action: Action):
         """
