@@ -2,3 +2,7 @@ __pycache__/
 data/
 *.egg-info/
 build/
+.vscode/
+airbot_data_collection/test/tok_example_mcap/airbot_type
+*.bfbs
+*.mcap
