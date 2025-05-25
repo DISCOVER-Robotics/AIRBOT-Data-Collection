@@ -8,6 +8,8 @@ import tkinter
 from enum import Enum
 import numpy as np
 from tqdm import tqdm
+import platform
+from typing import Dict, Any
 
 
 def get_stamp_ms() -> int:
@@ -323,6 +325,10 @@ class ImageCoder:
         bgr[:, :, 1] = np.clip(g, 0, 255).astype(np.uint8)  # G
         bgr[:, :, 2] = np.clip(r, 0, 255).astype(np.uint8)  # R
         return bgr
+
+
+def get_platform_info() -> Dict[str, Any]:
+    return platform.uname()._asdict()
 
 
 if __name__ == "__main__":

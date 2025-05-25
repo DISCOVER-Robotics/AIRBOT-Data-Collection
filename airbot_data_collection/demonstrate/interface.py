@@ -1,9 +1,8 @@
 import time
-from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from logging import getLogger
 from threading import Event, Lock, Thread
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -31,6 +30,7 @@ from airbot_data_collection.utils import (
     bcolors,
     find_matching_files,
     get_items_by_ext,
+    get_platform_info,
 )
 
 
@@ -181,6 +181,7 @@ class DemonstrateInterface:
             if not component.configure():
                 self.get_logger().error(f"Failed to configure {tp}: {name}")
                 return False
+        self._set_info()
         return True
 
     def _auto_control_loop(self):
@@ -479,7 +480,7 @@ class DemonstrateInterface:
             return True
         return False
 
-    def _set_component_info(self):
+    def _set_info(self):
         """
         Set the component info for the sampler.
         """
@@ -487,6 +488,7 @@ class DemonstrateInterface:
         for group in self.groups:
             for component in group.leader + group.followers + group.others:
                 info.update(component.get_info())
+        info.update(get_platform_info())
         self.sampler.set_info(info)
 
     @property

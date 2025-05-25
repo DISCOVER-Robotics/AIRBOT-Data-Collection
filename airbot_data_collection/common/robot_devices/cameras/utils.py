@@ -22,7 +22,7 @@ class CameraRGBConfig(BaseModel):
     fps: int | None = None
     width: int | None = None
     height: int | None = None
-    color_mode: str = Field(default="rgb", pattern="^(rgb|bgr)$")
+    color_mode: str = Field(default="bgr", pattern="^(rgb|bgr)$")
     mock: bool = False
     pixel_format: str | Enum | None = None
 

@@ -12,6 +12,7 @@ from airbot_data_collection.common.robot_devices.cameras.utils import (
     CameraInfo,
     CameraControl,
 )
+from airbot_data_collection.common.visualiziers.basis import VisualizerBasis
 from airbot_data_collection.utils import ImageCoder, run_event_loop
 
 
@@ -60,8 +61,9 @@ class V4L2Camera(Sensor):
             self._read_frame(), run_event_loop()
         )
         if self.config.decode and self.config.pixel_format is PixelFormat.MJPEG:
-            self.jpeg = TurboJPEG()
+            self._jpeg = TurboJPEG()
         self._init_info()
+        self._visualizer = None
         return True
 
     def capture_observation(self) -> bytes | np.ndarray:
@@ -71,7 +73,7 @@ class V4L2Camera(Sensor):
             return frame_bytes
         else:
             if self.config.pixel_format is PixelFormat.MJPEG:
-                image = self.jpeg.decode(frame_bytes)
+                image = self._jpeg.decode(frame_bytes)
             elif self.config.pixel_format is PixelFormat.YUYV:
                 image = ImageCoder.yuyv2bgr(
                     frame_bytes, self.config.width, self.config.height
@@ -105,7 +107,7 @@ class V4L2Camera(Sensor):
             id_to_name[ctrl.id] = ctrl.name.decode()
         ctrl_info = {}
         for key, ctrl in self.device.controls.items():
-            ctrl_info[key] = ctrl.value
+            ctrl_info[id_to_name[key]] = ctrl.value
         info.update(
             {"fps": self._capture.get_fps(), "pixel_format": cam_format.pixel_format}
         )
@@ -123,6 +125,11 @@ class V4L2Camera(Sensor):
 
     def get_info(self):
         return self._info
+
+    def set_visualizer(self, visualizer: VisualizerBasis, prefix: str = ""):
+        self._visualizer = visualizer
+        self._vis_prefix = f"{prefix} :" if prefix else ""
+        self._vis_key = f"{self._vis_prefix} {str(self.device.filename)} : {self.device.info.bus_info}"
 
     async def _read_frame(self):
         with self._capture as stream:
