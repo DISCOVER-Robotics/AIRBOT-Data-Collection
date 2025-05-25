@@ -5,6 +5,8 @@ from typing import Protocol, runtime_checkable, List
 
 import numpy as np
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
+import subprocess
+import re
 
 
 @runtime_checkable
@@ -116,3 +118,21 @@ def find_camera_indices(
         )
 
     return camera_ids
+
+
+def get_video_device_bus_info():
+    device_bus_info = {}
+    list_output = subprocess.check_output(["v4l2-ctl", "--list-devices"], text=True)
+    device_pattern = re.compile(r"^\t(/dev/video\d+)$", re.MULTILINE)
+    devices = device_pattern.findall(list_output)
+    for device in devices:
+        try:
+            device_output = subprocess.check_output(
+                ["v4l2-ctl", "--device", device, "--all"], text=True
+            )
+            bus_match = re.search(r"Bus info\s+:\s+(\S+)", device_output)
+            if bus_match:
+                device_bus_info[device] = bus_match.group(1)
+        except subprocess.CalledProcessError:
+            continue
+    return device_bus_info
