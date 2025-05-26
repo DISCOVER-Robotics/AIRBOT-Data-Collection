@@ -65,44 +65,8 @@ class AIRBOTMMK(System):
         self._check_joints(self.interface.get_robot_state().joint_state.name)
         return True
 
-    def reset(self, sleep_time=0):
-        if self.config.default_action is not None:
-            goal = self._action_to_goal(self.config.default_action)
-            logger.info(f"Reset to default action: {self.config.default_action}")
-            # logger.info(f"Reset to default goal: {goal}")
-            # TODO: hard code for spine&head control
-            self._move_by_traj(goal)
-        else:
-            logger.warning("No default action is set.")
-        time.sleep(sleep_time)
-        self.enter_servo_mode()
-
     def send_action(self, action):
-        goal = self._action_to_goal(action)
-        # goal = {
-        #     MMK2Components.LEFT_ARM: JointState(position=action[:7]),
-        #     MMK2Components.RIGHT_ARM: JointState(position=action[7:]),
-        # }
-        self.interface.set_goal(
-            goal,
-            MoveServoParams(header=self.interface.get_header()),
-        )
-
-    def _action_to_goal(self, action) -> Dict[MMK2Components, JointState]:
-        self._action_check(action)
-        goal = {}
-        j_cnt = 0
-        for comp in self.components:
-            end = j_cnt + len(self.joint_names[comp])
-            goal[comp] = JointState(position=action[j_cnt:end])
-            j_cnt = end
-        return goal
-
-    def enter_traj_mode(self):
-        self.traj_mode = True
-
-    def enter_servo_mode(self):
-        self.traj_mode = False
+        pass
 
     def on_switch_mode(self, mode):
         return True
@@ -231,10 +195,16 @@ class AIRBOTMMK(System):
         if missing:
             raise KeyError(f"Missing required joints: {missing}")
 
+    def observation_to_action(self, obs: dict) -> list[float]:
+        """Convert the observation to final action"""
+        action = []
+        for kind in ["arm", "eef"]:
+            action.extend(obs[f"{kind}/joint_state"]["data"]["pos"])
+        return action
+
     def shutdown(self) -> bool:
         self.interface.close()
         return True
-
 
 if __name__ == "__main__":
     mmk = AIRBOTMMK(
