@@ -294,6 +294,8 @@ class DemonstrateConfig(BaseModel):
     dataset: DatasetConfig
     sample_limit: SampleLimit = SampleLimit()
     auto_control: AutoControlConfig = AutoControlConfig()
+    # 是否启用播放模式 (从 bson 文件播放数据而不是实时控制)
+    playback_mode: bool = False
     # what the leaders / followers to act when
     # performing an actions for each group
     # if None, no action values will be sent

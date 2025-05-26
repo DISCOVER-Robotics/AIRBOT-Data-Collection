@@ -78,15 +78,48 @@ class AIRBOTMMK(System):
         self.enter_servo_mode()
 
     def send_action(self, action):
+        # 检查是否是来自 bson 播放器的字典格式数据
+        if isinstance(action, dict):
+            # 从 bson 格式的观察数据中提取关节位置
+            action = self._observation_to_action(action)
+        
         goal = self._action_to_goal(action)
-        # goal = {
-        #     MMK2Components.LEFT_ARM: JointState(position=action[:7]),
-        #     MMK2Components.RIGHT_ARM: JointState(position=action[7:]),
-        # }
         self.interface.set_goal(
             goal,
             MoveServoParams(header=self.interface.get_header()),
         )
+
+    def _observation_to_action(self, obs: dict) -> list[float]:
+        """将 bson 观察数据转换为动作列表"""
+        action = []
+        
+        # 按照组件顺序提取关节位置
+        for comp in self.components:
+            comp_name = comp.value
+            
+            # 尝试从观察数据中获取关节状态
+            joint_key = f"{comp_name}/joint_state"
+            if joint_key in obs:
+                joint_data = obs[joint_key]
+                if isinstance(joint_data, dict) and "data" in joint_data:
+                    pos_data = joint_data["data"].get("pos", [])
+                    action.extend(pos_data)
+                else:
+                    self.get_logger().warning(f"无效的关节数据格式: {joint_key}")
+            else:
+                # 如果找不到对应组件的数据，尝试寻找 action 命名空间
+                action_key = f"action/{comp_name}/joint_state"
+                if action_key in obs:
+                    joint_data = obs[action_key]
+                    if isinstance(joint_data, dict) and "data" in joint_data:
+                        pos_data = joint_data["data"].get("pos", [])
+                        action.extend(pos_data)
+                    else:
+                        self.get_logger().warning(f"无效的关节数据格式: {action_key}")
+                else:
+                    self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据")
+        
+        return action
 
     def _action_to_goal(self, action) -> Dict[MMK2Components, JointState]:
         self._action_check(action)

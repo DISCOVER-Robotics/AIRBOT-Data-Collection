@@ -1,0 +1,23 @@
+sampler:
+  name: airbot_bson_sampler
+  path: ""
+  param:
+    _target_: airbot_data_collection.airbot.datasets.AIRBOTBsonDataSampler
+
+visualizers:
+  names: [opencv]
+  paths: ["", ""]
+  params:
+    - _target_: airbot_data_collection.airbot.visualiziers.opencv.AIRBOTBsonOpenCVisualizer
+      width: 640
+      height: 480
+
+managers:
+  names: [self_manager, keyboard]
+  paths: ["", ""]
+  params:
+    - _target_: airbot_data_collection.managers.basis.SelfManager
+    - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+
+# 启用播放模式
+playback_mode: true 

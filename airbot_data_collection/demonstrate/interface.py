@@ -191,10 +191,20 @@ class DemonstrateInterface:
         """Control the followers to follow the leader."""
         for group_name in self.config.auto_control.groups:
             group = self.group_map[group_name]
-            if group.leader:
-                obs = group.leader[0].capture_observation()
-                for follower in group.followers:
-                    follower.send_action(obs)
+            if self.config.playback_mode:
+                # 播放模式：从播放器(leader)获取数据
+                if group.leader:
+                    obs = group.leader[0].capture_observation()
+                    # 如果播放器有数据，则发送给从臂
+                    if obs:
+                        for follower in group.followers:
+                            follower.send_action(obs)
+            else:
+                # 实时模式：从真实的主臂获取数据
+                if group.leader:
+                    obs = group.leader[0].capture_observation()
+                    for follower in group.followers:
+                        follower.send_action(obs)
 
     def _post_action(self, action: DemonstrateAction) -> bool:
         """Control the leaders after some demonstrate action"""
