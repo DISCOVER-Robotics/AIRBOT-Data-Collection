@@ -1,0 +1,6 @@
+camera:
+  usb-0000:00:14.0-1: follow
+  usb-0000:00:14.0-2: env
+arm:
+  - can0: lead
+    can1: follow

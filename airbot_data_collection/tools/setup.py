@@ -1,3 +1,5 @@
+"""sudo $(which python3) setup.py -cfg setup_rules_single.yaml"""
+
 from airbot_data_collection.common.robot_devices.cameras.v4l2 import (
     V4L2Camera,
     V4L2CameraConfig,
@@ -13,28 +15,38 @@ from airbot_data_collection.utils import init_logging, execute_shell_script
 import logging
 import yaml
 import time
+import argparse
+
+
+parser = argparse.ArgumentParser(description="Setup script for data collection.")
+parser.add_argument(
+    "-cfg",
+    "--config",
+    type=str,
+    help="Path to the setup configuration file.",
+)
+args = parser.parse_args()
 
 
 init_logging(logging.INFO)
 logger = logging.getLogger("data_collection_setup")
 
-path = "./setup_rules.yaml"
-
-with open(path) as file:
+with open(args.config) as file:
     config = yaml.safe_load(file)
 
 bus_name_mapping: dict = config["camera"]
-arm_bus_mapping: dict = config["arm"]
+arm_bus_mapping: list[dict] = config["arm"]
 
-execute_shell_script(
-    "./bind_can_udev.sh",
-    args=[
-        "--raw",
-        *list(arm_bus_mapping.keys()),
-        "--new",
-        *list(arm_bus_mapping.values()),
-    ],
-)
+for mapping in arm_bus_mapping:
+    execute_shell_script(
+        "./bind_can_udev.sh",
+        args=[
+            "--raw",
+            *list(mapping.keys()),
+            "--new",
+            *list(mapping.values()),
+        ],
+    )
 
 
 camera_indices = find_camera_indices()
