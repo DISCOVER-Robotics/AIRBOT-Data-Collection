@@ -5,5 +5,5 @@ width: 640
 height: 480
 color_mode: bgr
 mock: false
-decode: true
+decode: false
 pixel_format: MJPEG

@@ -4,5 +4,6 @@ data/
 build/
 .vscode/
 airbot_data_collection/test/tok_example_mcap/airbot_type
+airbot_data_collection/airbot_type
 *.bfbs
 *.mcap

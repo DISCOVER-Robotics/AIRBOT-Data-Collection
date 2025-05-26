@@ -1,8 +1,8 @@
 sampler:
-  name: airbot_bson_sampler
+  name: airbot_mcap_sampler
   path: ""
   param:
-    _target_: airbot_data_collection.airbot.datasets.AIRBOTBsonDataSampler
+    _target_: airbot_data_collection.airbot.datasets.AIRBOTMcapDataSampler
 
 visualizers:
   names: [opencv]
