@@ -9,14 +9,33 @@ from airbot_data_collection.common.visualiziers.opencv import (
 from airbot_data_collection.common.robot_devices.cameras.utils import (
     find_camera_indices,
 )
-from airbot_data_collection.utils import init_logging
+from airbot_data_collection.utils import init_logging, execute_shell_script
 import logging
+import yaml
+import time
 
 
 init_logging(logging.INFO)
 logger = logging.getLogger("data_collection_setup")
 
-bus_name_mapping = {"usb-0000:00:14.0-5": "lead"}
+path = "./setup_rules.yaml"
+
+with open(path) as file:
+    config = yaml.safe_load(file)
+
+bus_name_mapping: dict = config["camera"]
+arm_bus_mapping: dict = config["arm"]
+
+execute_shell_script(
+    "./bind_can_udev.sh",
+    args=[
+        "--raw",
+        *list(arm_bus_mapping.keys()),
+        "--new",
+        *list(arm_bus_mapping.values()),
+    ],
+)
+
 
 camera_indices = find_camera_indices()
 
@@ -34,7 +53,7 @@ for index in camera_indices:
         if visualizer.configure():
             bus = camera.device.info.bus_info
             logger.info(f"Camera {index} bus info: {bus}")
-            camera.set_visualizer(visualizer, prefix=bus_name_mapping[bus])
+            camera.set_visualizer(visualizer, prefix=bus_name_mapping.get(bus, "None"))
             cameras.append(camera)
             visualizers.append(visualizer)
             opened_indices.append(index)
@@ -44,8 +63,6 @@ if opened_indices:
 else:
     logger.error("No camera opened. Please check the camera indices.")
     exit(1)
-
-import time
 
 while True:
     for camera, visualizer in zip(cameras, visualizers):

@@ -10,6 +10,7 @@ import numpy as np
 from tqdm import tqdm
 import platform
 from typing import Dict, Any
+import subprocess
 
 
 def get_stamp_ms() -> int:
@@ -329,6 +330,68 @@ class ImageCoder:
 
 def get_platform_info() -> Dict[str, Any]:
     return platform.uname()._asdict()
+
+
+def execute_shell_script(script_path, args=None, env=None, timeout=None, check=True):
+    """
+    执行shell脚本并返回执行结果
+
+    参数:
+        script_path (str): 脚本文件路径
+        args (list): 传递给脚本的参数列表
+        env (dict): 自定义环境变量
+        timeout (int): 脚本执行超时时间(秒)
+        check (bool): 是否在返回非零退出状态时抛出异常
+
+    返回:
+        subprocess.CompletedProcess: 包含执行结果的对象
+    """
+    # 确保脚本存在且可执行
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"脚本文件不存在: {script_path}")
+
+    if not os.access(script_path, os.X_OK):
+        # 尝试添加可执行权限
+        try:
+            os.chmod(script_path, os.stat(script_path).st_mode | 0o111)
+            print(f"已为脚本添加可执行权限: {script_path}")
+        except OSError as e:
+            raise PermissionError(f"脚本不可执行且无法添加权限: {e}")
+
+    # 构建命令
+    cmd = [os.path.abspath(script_path)]
+    if args:
+        cmd.extend(args)
+
+    # 合并环境变量
+    new_env = os.environ.copy()
+    if env:
+        new_env.update(env)
+
+    print(f"执行命令: {' '.join(cmd)}")
+
+    try:
+        # 执行脚本
+        result = subprocess.run(
+            cmd,
+            env=new_env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=check,
+        )
+        return result
+    except subprocess.TimeoutExpired as e:
+        print(f"脚本执行超时: {e}")
+        # 返回部分结果
+        return subprocess.CompletedProcess(
+            args=e.cmd, returncode=-1, stdout=e.stdout, stderr=e.stderr
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"脚本执行失败，返回代码: {e.returncode}")
+        print(f"标准输出:\n{e.stdout}")
+        print(f"错误输出:\n{e.stderr}")
+        raise
 
 
 if __name__ == "__main__":
