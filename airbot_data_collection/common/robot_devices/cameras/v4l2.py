@@ -9,6 +9,7 @@ from airbot_data_collection.basis import Sensor
 from airbot_data_collection.common.robot_devices.cameras.utils import (
     CameraRGBConfig,
     find_camera_indices,
+    get_camera_index_by_bus_info,
     CameraInfo,
     CameraControl,
 )
@@ -47,6 +48,10 @@ class V4L2Camera(Sensor):
         if isinstance(config.camera_index, int):
             self.device = Device.from_id(config.camera_index)
         else:
+            if "usb" in config.camera_index:
+                config.camera_index = get_camera_index_by_bus_info(config.camera_index)[
+                    0
+                ]
             self.device = Device(config.camera_index)
         self.device.open()
         if self.device.closed:
@@ -127,6 +132,11 @@ class V4L2Camera(Sensor):
         return self._info
 
     def set_visualizer(self, visualizer: VisualizerBasis, prefix: str = ""):
+        """TODO: should use this method?
+        Set the visualizer for this camera for self control.
+        :param visualizer: VisualizerBasis instance to visualize the camera data.
+        :param prefix: Prefix for the visualizer key.
+        """
         self._visualizer = visualizer
         self._vis_prefix = f"{prefix} :" if prefix else ""
         self._vis_key = f"{self._vis_prefix} {str(self.device.filename)} : {self.device.info.bus_info}"

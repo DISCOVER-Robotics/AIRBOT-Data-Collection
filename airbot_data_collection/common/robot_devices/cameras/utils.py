@@ -136,3 +136,37 @@ def get_video_device_bus_info():
         except subprocess.CalledProcessError:
             continue
     return device_bus_info
+
+
+def get_camera_index_by_bus_info(
+    bus_info: str, only_even: bool = True, sorting: bool = True
+) -> List[str]:
+    """
+    Get the camera index by its bus info.
+    :param bus_info: The bus info of the camera.
+    :return: The camera index or None if not found.
+    """
+    device_bus_info = get_video_device_bus_info()
+    devices = []
+    for dev, bus in device_bus_info.items():
+        if bus == bus_info:
+            devices.append(dev)
+    if only_even:
+        devices = [
+            device
+            for device in devices
+            if int(device.replace("/dev/video", "")) % 2 == 0
+        ]
+    if sorting:
+        devices = sorted(devices)
+    return devices
+
+
+if __name__ == "__main__":
+    # Example usage
+    print("Available camera indices:", find_camera_indices())
+    print("Video device bus info:", get_video_device_bus_info())
+    print(
+        "Camera index by bus info:",
+        get_camera_index_by_bus_info("usb-0000:00:14.0-5"),
+    )
