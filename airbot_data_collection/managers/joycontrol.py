@@ -107,8 +107,8 @@ class JoyCallbackManager(DemonstrateManagerBasis):
             self.ros_initialized = True
             self.node = Node('mmk2_robot_subscriber')
             
-            # 订阅左臂leader的关节状态
-            self.left_arm_sub = self.node.create_subscription(
+            # 订阅joy消息
+            self.joy_sub = self.node.create_subscription(
                 Joy,
                 '/joy',
                 self.joy_callback,
