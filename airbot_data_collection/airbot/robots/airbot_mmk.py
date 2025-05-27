@@ -94,7 +94,7 @@ class AIRBOTMMK(System):
         action = []
         
         # 按照组件顺序提取关节位置
-        for comp in self.components:
+        for comp in self.config.components:
             comp_name = comp.value
             
             # 尝试从观察数据中获取关节状态
@@ -125,11 +125,23 @@ class AIRBOTMMK(System):
         self._action_check(action)
         goal = {}
         j_cnt = 0
-        for comp in self.components:
-            end = j_cnt + len(self.joint_names[comp])
+        for comp in self.config.components:
+            end = j_cnt + len(self._joint_names[comp.value])
             goal[comp] = JointState(position=action[j_cnt:end])
             j_cnt = end
         return goal
+
+    def _action_check(self, action):
+        """检查动作向量的维度是否正确"""
+        expected_dim = sum(len(self._joint_names[comp.value]) for comp in self.config.components)
+        if len(action) != expected_dim:
+            raise ValueError(f"Action dimension mismatch: expected {expected_dim}, got {len(action)}")
+
+    def _move_by_traj(self, goal: Dict[MMK2Components, JointState]):
+        """通过轨迹规划移动到目标位置"""
+        # TODO: 实现轨迹规划移动逻辑
+        # 这里暂时使用简单的位置设置
+        self.interface.set_goal(goal, MoveServoParams(header=self.interface.get_header()))
 
     def enter_traj_mode(self):
         self.traj_mode = True
