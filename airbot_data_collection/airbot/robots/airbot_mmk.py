@@ -8,7 +8,7 @@ from mmk2_types.types import (
     ControllerTypes,
     JointNames,
 )
-from mmk2_types.grpc_msgs import JointState, Time, MoveServoParams
+from mmk2_types.grpc_msgs import JointState,Time, MoveServoParams,ForwardPositionParams,TrajectoryParams
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from pydantic import BaseModel, PositiveInt
 from typing import Optional, List, Union, Dict, Tuple
@@ -84,10 +84,11 @@ class AIRBOTMMK(System):
             action = self._observation_to_action(action)
         
         goal = self._action_to_goal(action)
-        self.interface.set_goal(
-            goal,
-            MoveServoParams(header=self.interface.get_header()),
-        )
+        if self.traj_mode:
+            self._move_by_traj(goal)
+        else:
+            # self.robot.set_goal(goal, MoveServoParams())
+            self.robot.set_goal(goal, ForwardPositionParams())
 
     def _observation_to_action(self, obs: dict) -> list[float]:
         """将 bson 观察数据转换为动作列表"""
@@ -137,11 +138,17 @@ class AIRBOTMMK(System):
         if len(action) != expected_dim:
             raise ValueError(f"Action dimension mismatch: expected {expected_dim}, got {len(action)}")
 
-    def _move_by_traj(self, goal: Dict[MMK2Components, JointState]):
-        """通过轨迹规划移动到目标位置"""
-        # TODO: 实现轨迹规划移动逻辑
-        # 这里暂时使用简单的位置设置
-        self.interface.set_goal(goal, MoveServoParams(header=self.interface.get_header()))
+    def _move_by_traj(self, goal: dict):
+        if self.config.demonstrate:
+            # TODO: since the arms and eefs are controlled by the teleop bag
+            for comp in MMK2ComponentsGroup.ARMS_EEFS:
+                goal.pop(comp)
+        if goal:
+            self.robot.set_goal(goal, TrajectoryParams())
+            self.robot.set_goal(goal, ForwardPositionParams())
+
+        return goal
+    
 
     def enter_traj_mode(self):
         self.traj_mode = True

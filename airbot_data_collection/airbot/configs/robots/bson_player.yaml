@@ -1,8 +1,8 @@
 _target_: airbot_data_collection.airbot.robots.bson_player.BsonPlayer
 
-bson_file_path: "example_task/0.bson"  # BSON 文件路径
+bson_file_path: "data/example_task/0.bson"  # BSON 文件路径
 playback_rate: 1.0  # 播放速率倍数
 loop: false  # 是否循环播放
 filter_topics: []  # 过滤话题列表，空列表表示播放所有话题
 start_index: 0  # 开始播放索引
-end_index: null  # 结束播放索引，null 表示播放到文件末尾 
+end_index: null  # 结束播放索引，null 表示播放到文件末尾
