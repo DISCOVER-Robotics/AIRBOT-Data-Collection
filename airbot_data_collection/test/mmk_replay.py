@@ -191,6 +191,7 @@ def main():
     parser = argparse.ArgumentParser(description="MMK2 动作回放工具")
     parser.add_argument("file_path", help="BSON 数据文件路径")
     parser.add_argument("--ip", default="172.25.11.188", help="机器人IP地址 (默认: 172.25.11.188)")
+    parser.add_argument("--freq", type=float, default=20.0, help="回放频率 Hz (默认: 20.0)")
     args = parser.parse_args()
     
     file_path = args.file_path
@@ -202,7 +203,7 @@ def main():
     mmk2.enter_servo_mode()
     all_actions = parse_actions_from_data(data, mmk2.components, mmk2.joint_names)
     
-    freq = 10 # 和数据采集时的频率一致
+    freq = args.freq  # 使用外部传入的频率参数
     for action in all_actions:
         start = time.time()
         mmk2.send_action(action)
