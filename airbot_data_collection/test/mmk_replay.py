@@ -4,11 +4,11 @@ from typing import Optional, Dict, List
 import time
 import logging
 import numpy as np
+from bson import BSON
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from airbot_data_collection.test.show_bson import load_bson
 from airbot_py.airbot_mmk2 import AirbotMMK2
 
 from mmk2_types.types import (
@@ -27,6 +27,12 @@ from mmk2_types.grpc_msgs import (
     ForwardPositionParams,
     JointState,
 )
+
+def load_bson(bson_file: str) -> dict:
+    with open(bson_file, "rb") as f:
+        data = BSON.decode(f.read())
+    print(f"Loaded BSON data from {bson_file}")
+    return data
 
 @dataclass
 class AIRBOTMMK2Config(object):
@@ -128,7 +134,6 @@ class MMK2REPLAY(object):
             self.robot.set_goal(goal, TrajectoryParams())
         else:
             self.robot.set_goal(goal, MoveServoParams())
-            # self.robot.set_goal(goal, ForwardPositionParams())
 
     def _set_mode(self, mode):
         self._state_mode = mode
@@ -154,58 +159,54 @@ class MMK2REPLAY(object):
     def enter_servo_mode(self):
         self.traj_mode = False
 
-def interpolate_with_fixed_points(actions, num_insert):
-    """
-    在每两个点之间插入固定数量的点
-    actions: List[List[float]] or np.ndarray, shape=(N, D)
-    num_insert: int, 每两个点之间插入的点数
-    返回: np.ndarray, shape=(N-1)*(num_insert+1)+1, D
-    """
-    actions = np.array(actions)
-    N, D = actions.shape
-    result = []
-    for i in range(N - 1):
-        start = actions[i]
-        end = actions[i + 1]
-        for j in range(num_insert + 1):
-            alpha = j / (num_insert + 1)
-            point = (1 - alpha) * start + alpha * end
-            result.append(point)
-    result.append(actions[-1])
-    return np.array(result)
+# 自动解析动作数据
+def parse_actions_from_data(data, components, joint_names):
+    """自动从BSON数据中解析动作序列"""
+    all_actions = []
+    
+    # 获取数据长度（以第一个组件为准）
+    first_component = list(components.keys())[0]
+    component_topic = f"/mmk/mmk/{first_component.value}/joint_state"
+    data_length = len(data["data"][component_topic])
+    
+    print(f"数据长度: {data_length}")
+    
+    for i in range(data_length):
+        action = []
+        # 按照components的顺序自动提取各组件的位置数据
+        for component in components:
+            component_topic = f"/mmk/mmk/{component.value}/joint_state"
+            if component_topic in data["data"]:
+                pos_data = data["data"][component_topic][i]["data"]["pos"]
+                action.extend(pos_data)
+            else:
+                logger.warning(f"未找到组件 {component.value} 的数据")
+        
+        all_actions.append(action)
+    
+    return all_actions
 
 
 def main():
-    file_path = "/home/dingk/666/data-collection/airbot_data_collection/data/example_task/0.bson"
+    parser = argparse.ArgumentParser(description="MMK2 动作回放工具")
+    parser.add_argument("file_path", help="BSON 数据文件路径")
+    parser.add_argument("--ip", default="172.25.11.188", help="机器人IP地址 (默认: 172.25.11.188)")
+    args = parser.parse_args()
+    
+    file_path = args.file_path
     data = load_bson(file_path)
     # print(data.keys())
     # print(data["data"].keys())
 
-    mmk2 = MMK2REPLAY()
+    mmk2 = MMK2REPLAY(ip=args.ip)
     mmk2.enter_servo_mode()
-    # mmk2.enter_traj_mode()
-    all_actions = []
-    # 转换数据格式
-    print(len(data["data"]["/mmk/mmk/spine/joint_state"]))
-    for i in range(len(data["data"]["/mmk/mmk/spine/joint_state"])):
-        # 获取各关节位置数据
-        left_pos = data["data"]["/mmk/mmk/left_arm/joint_state"][i]["data"]['pos']
-        left_arm_eef_pos = data["data"]["/mmk/mmk/left_arm_eef/joint_state"][i]["data"]['pos']
-        right_pos = data["data"]["/mmk/mmk/right_arm/joint_state"][i]["data"]['pos']
-        right_arm_eef_pos = data["data"]["/mmk/mmk/right_arm_eef/joint_state"][i]["data"]['pos']
-        head_pos = data["data"]["/mmk/mmk/head/joint_state"][i]["data"]['pos']
-        spine_pos = data["data"]["/mmk/mmk/spine/joint_state"][i]["data"]['pos']
-        # action=[left_pos,left_arm_eef_pos,right_pos,right_arm_eef_pos,head_pos,spine_pos]
-        action=left_pos+left_arm_eef_pos+right_pos+right_arm_eef_pos
-        all_actions.append(action)
+    all_actions = parse_actions_from_data(data, mmk2.components, mmk2.joint_names)
     
-    # freq = 10 # 和数据采集时的频率一致
-    # for action in all_actions:
-    #     start = time.time()
-    #     print(action)
-    #     mmk2.send_action(action)
-    #     # print(max(0, 1 / freq - (time.time() - start)))
-    #     time.sleep(max(0, 1 / freq - (time.time() - start)))
+    freq = 10 # 和数据采集时的频率一致
+    for action in all_actions:
+        start = time.time()
+        mmk2.send_action(action)
+        time.sleep(max(0, 1 / freq - (time.time() - start)))
 
 if __name__ == "__main__":
     main()
