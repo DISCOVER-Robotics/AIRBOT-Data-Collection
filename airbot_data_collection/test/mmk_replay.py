@@ -191,7 +191,7 @@ def main():
     parser = argparse.ArgumentParser(description="MMK2 动作回放工具")
     parser.add_argument("file_path", help="BSON 数据文件路径")
     parser.add_argument("--ip", default="172.25.11.188", help="机器人IP地址 (默认: 172.25.11.188)")
-    parser.add_argument("--freq", type=float, default=20.0, help="回放频率 Hz (默认: 20.0)")
+    parser.add_argument("--freq", type=float, default=10.0, help="回放频率 Hz (默认: 10.0)")
     args = parser.parse_args()
     
     file_path = args.file_path
