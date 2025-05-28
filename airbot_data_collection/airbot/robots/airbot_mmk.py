@@ -38,7 +38,6 @@ class AIRBOTMMKConfig(BaseModel):
             if isinstance(cam, str):
                 self.cameras[MMK2Components[cam.upper()]] = self.cameras.pop(cam)
 
-
 class AIRBOTMMK(System):
     config: AIRBOTMMKConfig
 
@@ -67,6 +66,9 @@ class AIRBOTMMK(System):
         print(f"[DEBUG] _joint_names: {self._joint_names}")
         self._check_joints(self.interface.get_robot_state().joint_state.name)
         return True
+
+    def get_info(self):
+        return {}
 
     def reset(self, sleep_time=0):
         if self.config.default_action is not None:
@@ -272,7 +274,7 @@ class AIRBOTMMK(System):
             # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
             # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
-            # print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
+            print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
             obs_act_dict[f"{name}/color_image"] = {
                 "t": t,
                 "data": images[name],
@@ -295,22 +297,32 @@ class AIRBOTMMK(System):
 if __name__ == "__main__":
     mmk = AIRBOTMMK(
         AIRBOTMMKConfig(
-            ip="172.25.11.188",
+            ip="192.168.11.200",
             components=MMK2ComponentsGroup.ARMS_EEFS + MMK2ComponentsGroup.HEAD_SPINE,
             cameras={
-                MMK2Components.LEFT_CAMERA: {
+                MMK2Components.HEAD_CAMERA: {
+                    "camera_type": "REALSENSE",
                     "rgb_camera.color_profile": "640,480,30",
                     "enable_depth": "false",
+                },
+                MMK2Components.LEFT_CAMERA: {
+                    "camera_type": "USB",
+                    "video_device": "/dev/left_camera",
+                    "image_width": "640",
+                    "image_height": "480",
+                    "framerate": "25",
                 },
                 MMK2Components.RIGHT_CAMERA: {
-                    "rgb_camera.color_profile": "640,480,30",
-                    "enable_depth": "false",
-                },
-                MMK2Components.HEAD_CAMERA: {
-                    "rgb_camera.color_profile": "640,480,30",
-                    "enable_depth": "false",
+                    "camera_type": "USB",
+                    "video_device": "/dev/right_camera",
+                    "image_width": "640",
+                    "image_height": "480",
+                    "framerate": "25",
                 },
             },
         )
     )
     assert mmk.configure()
+    for i in range(100000):
+        mmk.capture_observation()
+    mmk.shutdown()
