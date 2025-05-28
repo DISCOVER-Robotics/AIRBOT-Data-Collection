@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from pydantic import BaseModel
 
-from airbot_data_collection.common.visualiziers.basis import (
+from airbot_data_collection.common.visualizers.basis import (
     GUIVisualizerConfig, SampleInfo, VisualizerBasis)
 
 

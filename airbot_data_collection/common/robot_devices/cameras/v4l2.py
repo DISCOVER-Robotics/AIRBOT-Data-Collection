@@ -13,7 +13,7 @@ from airbot_data_collection.common.robot_devices.cameras.utils import (
     CameraInfo,
     CameraControl,
 )
-from airbot_data_collection.common.visualiziers.basis import VisualizerBasis
+from airbot_data_collection.common.visualizers.basis import VisualizerBasis
 from airbot_data_collection.utils import ImageCoder, run_event_loop
 
 
