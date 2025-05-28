@@ -1,4 +1,4 @@
 # airbot package initialization
 from . import robots
 
-__all__ = ['robots'] 
+__all__ = ['robots']

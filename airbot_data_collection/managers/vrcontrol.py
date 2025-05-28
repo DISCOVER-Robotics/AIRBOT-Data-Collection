@@ -46,8 +46,8 @@ class VRCallbackManager(DemonstrateManagerBasis):
 
             # 创建两个服务
             self.rec_service = self.node.create_service(
-                SetBool,  
-                'rec_srv', 
+                SetBool,
+                'rec_srv',
                 self._handle_rec_service  # 开始录制回调
             )
             self.stop_rec_service = self.node.create_service(
@@ -99,7 +99,7 @@ class VRCallbackManager(DemonstrateManagerBasis):
         if request.data:
             print("Received start recording request.")
             print(Action.sample.name)
-            self.handle_joy_action(Action.sample)  # 复用原来的动作处理逻辑 
+            self.handle_joy_action(Action.sample)  # 复用原来的动作处理逻辑
             self.node.get_logger().info("Received start recording request.")
             response.success = True
             response.message = f"1"
@@ -110,7 +110,7 @@ class VRCallbackManager(DemonstrateManagerBasis):
 
     def _handle_stop_service(self, request:SetBool.Request, response:SetBool.Response):
         if request.data:
-            self.handle_joy_action(Action.save)  # 复用原来的动作处理逻辑 
+            self.handle_joy_action(Action.save)  # 复用原来的动作处理逻辑
             self.node.get_logger().info("Received stop recording request.")
             response.success = True
             response.message = f"1"
