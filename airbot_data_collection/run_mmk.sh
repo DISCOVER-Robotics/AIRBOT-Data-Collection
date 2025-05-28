@@ -6,7 +6,7 @@ python3 main.py --path defaults/config.yaml \
                 --components.groups mmk \
                 --dataset.directory example_task \
                 --auto-control.rate 100 \
-                --update-rate 20 \
+                --update-rate 100 \
                 --sample-limit.start-round 0 \
                 --sample-limit.size 1000
 
