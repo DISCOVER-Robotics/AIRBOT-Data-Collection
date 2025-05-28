@@ -61,7 +61,7 @@ visualizers:
   names:
   - opencv
   params:
-  - _target_: airbot_data_collection.airbot.visualiziers.opencv.AIRBOTBsonOpenCVisualizer
+  - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTBsonOpenCVisualizer
   paths:
   - ''
   - ''

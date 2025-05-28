@@ -72,7 +72,7 @@ can_buses = list_to_nested_tuples(can_itfs)
 can_num = len(can_itfs)
 can_group_num = len(can_buses)
 assert can_num in BUS_NAME_MAPPINGS, f"Not enough can: {can_itfs}"
-hw_sn = SystemInfo.get_product()["serial_number"]
+hw_sn = SystemInfo.get_product(True)["serial_number"]
 logger.info(f"CAN interfaces: {can_buses}")
 logger.info(f"Hardware serial number: {hw_sn}")
 bus_name_mapping = BUS_NAME_MAPPINGS[can_num][hw_sn]

@@ -30,8 +30,8 @@ from airbot_data_collection.utils import (
     bcolors,
     find_matching_files,
     get_items_by_ext,
-    get_platform_info,
 )
+from airbot_data_collection.tools.system_info import SystemInfo
 
 
 class GroupComponentNames(BaseModel):
@@ -488,7 +488,7 @@ class DemonstrateInterface:
         for group in self.groups:
             for component in group.leader + group.followers + group.others:
                 info.update(component.get_info())
-        info.update(get_platform_info())
+        info.update(SystemInfo.all_info())
         self.sampler.set_info(info)
 
     @property

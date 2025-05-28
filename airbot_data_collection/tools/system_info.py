@@ -5,8 +5,21 @@ from typing import Dict, Any
 
 class SystemInfo:
 
+    @classmethod
+    def get_product(cls, with_sudo: bool = False) -> Dict[str, Any]:
+        if with_sudo:
+            return cls._get_product_dmidecode()
+        else:
+            return {
+                "product_name": subprocess.check_output(
+                    "cat /sys/devices/virtual/dmi/id/product_name",
+                    shell=True,
+                    text=True,
+                ).strip(),
+            }
+
     @staticmethod
-    def get_product():
+    def _get_product_dmidecode():
         try:
             result = subprocess.check_output(
                 "sudo dmidecode -t system", shell=True, text=True
@@ -59,7 +72,7 @@ class SystemInfo:
         return result.strip()
 
     @classmethod
-    def all_info(cls):
+    def all_info(cls, with_sudo: bool = False) -> Dict[str, Any]:
         return {
             "Product": cls.get_product(),
             "CPU": cls.get_cpu(),
