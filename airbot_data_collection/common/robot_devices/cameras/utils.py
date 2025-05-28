@@ -1,10 +1,12 @@
 import platform
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, Protocol, Tuple, Union, runtime_checkable
+from typing import Protocol, runtime_checkable, List
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
+import subprocess
+import re
 
 
 @runtime_checkable
@@ -22,13 +24,55 @@ class CameraRGBConfig(BaseModel):
     fps: int | None = None
     width: int | None = None
     height: int | None = None
-    color_mode: str = Field(default="rgb", pattern="^(rgb|bgr)$")
+    color_mode: str = Field(default="bgr", pattern="^(rgb|bgr)$")
     mock: bool = False
     pixel_format: str | Enum | None = None
 
 
 class CameraRGBDConfig(CameraRGBConfig):
     use_depth: bool = False
+
+
+class RegionOfInterest(BaseModel):
+    x_offset: NonNegativeInt = 0
+    y_offset: NonNegativeInt = 0
+    height: NonNegativeInt = 0
+    width: NonNegativeInt = 0
+    do_rectify: bool = False
+
+
+class CameraInfo(BaseModel):
+    width: NonNegativeInt
+    height: NonNegativeInt
+    distortion_model: str = ""
+    d: List[float] = []
+    k: List[float] = []
+    r: List[float] = []
+    p: List[float] = []
+    binning_x: NonNegativeInt = 0
+    binning_y: NonNegativeInt = 0
+    roi: RegionOfInterest = RegionOfInterest()
+
+    def model_post_init(self, context):
+        assert len(self.k) in {0, 9}, "Camera matrix K must be 3x3"
+        assert len(self.r) in {0, 9}, "Camera matrix R must be 3x3"
+        assert len(self.p) in {0, 12}, "Camera matrix P must be 3x4"
+
+
+class CameraControl(BaseModel):
+    brightness: NonNegativeInt
+    contrast: NonNegativeInt
+    saturation: NonNegativeInt
+    hue: NonNegativeInt
+    white_balance_automatic: bool
+    gamma: PositiveInt
+    power_line_frequency: int = 1
+    white_balance_temperature: PositiveInt
+    sharpness: NonNegativeInt
+    backlight_compensation: NonNegativeInt
+    auto_exposure: int = 3
+    exposure_time_absolute: NonNegativeInt
+    exposure_dynamic_framerate: bool
 
 
 def find_camera_indices(
@@ -74,3 +118,55 @@ def find_camera_indices(
         )
 
     return camera_ids
+
+
+def get_video_device_bus_info():
+    device_bus_info = {}
+    list_output = subprocess.check_output(["v4l2-ctl", "--list-devices"], text=True)
+    device_pattern = re.compile(r"^\t(/dev/video\d+)$", re.MULTILINE)
+    devices = device_pattern.findall(list_output)
+    for device in devices:
+        try:
+            device_output = subprocess.check_output(
+                ["v4l2-ctl", "--device", device, "--all"], text=True
+            )
+            bus_match = re.search(r"Bus info\s+:\s+(\S+)", device_output)
+            if bus_match:
+                device_bus_info[device] = bus_match.group(1)
+        except subprocess.CalledProcessError:
+            continue
+    return device_bus_info
+
+
+def get_camera_index_by_bus_info(
+    bus_info: str, only_even: bool = True, sorting: bool = True
+) -> List[str]:
+    """
+    Get the camera index by its bus info.
+    :param bus_info: The bus info of the camera.
+    :return: The camera index or None if not found.
+    """
+    device_bus_info = get_video_device_bus_info()
+    devices = []
+    for dev, bus in device_bus_info.items():
+        if bus == bus_info:
+            devices.append(dev)
+    if only_even:
+        devices = [
+            device
+            for device in devices
+            if int(device.replace("/dev/video", "")) % 2 == 0
+        ]
+    if sorting:
+        devices = sorted(devices)
+    return devices
+
+
+if __name__ == "__main__":
+    # Example usage
+    print("Available camera indices:", find_camera_indices())
+    print("Video device bus info:", get_video_device_bus_info())
+    print(
+        "Camera index by bus info:",
+        get_camera_index_by_bus_info("usb-0000:00:14.0-5"),
+    )

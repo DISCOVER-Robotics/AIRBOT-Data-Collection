@@ -44,6 +44,7 @@ class AIRBOTMMK(System):
 
     def on_configure(self) -> bool:
         self.interface = AirbotMMK2(ip=self.config.ip)
+        self.traj_mode = False  # 添加traj_mode属性
         self._action_topics = {
             comp: TopicNames.tracking.format(component=comp.value)
             for comp in MMK2ComponentsGroup.ARMS
@@ -70,10 +71,7 @@ class AIRBOTMMK(System):
     def reset(self, sleep_time=0):
         if self.config.default_action is not None:
             goal = self._action_to_goal(self.config.default_action)
-            logger.info(f"Reset to default action: {self.config.default_action}")
-            # logger.info(f"Reset to default goal: {goal}")
-            # TODO: hard code for spine&head control
-            self._move_by_traj(goal)
+            self.interface.set_goal(goal, TrajectoryParams())
         else:
             logger.warning("No default action is set.")
         time.sleep(sleep_time)
@@ -84,43 +82,57 @@ class AIRBOTMMK(System):
         if isinstance(action, dict):
             # 从 bson 格式的观察数据中提取关节位置
             action = self._observation_to_action(action)
-        
+
         goal = self._action_to_goal(action)
         if self.traj_mode:
-            self._move_by_traj(goal)
+            self.interface.set_goal(goal, TrajectoryParams())
         else:
-            # self.robot.set_goal(goal, MoveServoParams())
-            self.robot.set_goal(goal, ForwardPositionParams())
+            self.interface.set_goal(goal, MoveServoParams())
 
     def _observation_to_action(self, obs: dict) -> list[float]:
         """将 bson 观察数据转换为动作列表"""
         action = []
         
-        # 按照组件顺序提取关节位置
+        # 按照组件顺序提取关节位置，兼容不同的数据格式
         for comp in self.config.components:
             comp_name = comp.value
             
-            # 尝试从观察数据中获取关节状态
-            joint_key = f"{comp_name}/joint_state"
-            if joint_key in obs:
-                joint_data = obs[joint_key]
-                if isinstance(joint_data, dict) and "data" in joint_data:
-                    pos_data = joint_data["data"].get("pos", [])
-                    action.extend(pos_data)
-                else:
-                    self.get_logger().warning(f"无效的关节数据格式: {joint_key}")
-            else:
-                # 如果找不到对应组件的数据，尝试寻找 action 命名空间
-                action_key = f"action/{comp_name}/joint_state"
-                if action_key in obs:
-                    joint_data = obs[action_key]
-                    if isinstance(joint_data, dict) and "data" in joint_data:
-                        pos_data = joint_data["data"].get("pos", [])
+            # 尝试多种可能的数据格式和命名空间
+            possible_keys = [
+                f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
+                f"{comp_name}/joint_state",           # 简化格式
+                f"action/{comp_name}/joint_state",    # action 命名空间
+                f"observation/{comp_name}/joint_state"  # observation 命名空间
+            ]
+            
+            found_data = False
+            for joint_key in possible_keys:
+                if joint_key in obs:
+                    joint_data = obs[joint_key]
+                    
+                    # 处理不同的数据结构
+                    pos_data = None
+                    if isinstance(joint_data, dict):
+                        if "data" in joint_data and isinstance(joint_data["data"], dict):
+                            pos_data = joint_data["data"].get("pos", [])
+                        elif "pos" in joint_data:
+                            pos_data = joint_data["pos"]
+                        elif "position" in joint_data:
+                            pos_data = joint_data["position"]
+                    elif isinstance(joint_data, list):
+                        pos_data = joint_data
+                    
+                    if pos_data:
                         action.extend(pos_data)
-                    else:
-                        self.get_logger().warning(f"无效的关节数据格式: {action_key}")
-                else:
-                    self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据")
+                        found_data = True
+                        break
+            
+            if not found_data:
+                self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据，尝试的键: {possible_keys}")
+        
+        if not action:
+            self.get_logger().error("无法从观察数据中提取任何关节位置信息")
+            return []
         
         return action
 
@@ -139,17 +151,6 @@ class AIRBOTMMK(System):
         expected_dim = sum(len(self._joint_names[comp.value]) for comp in self.config.components)
         if len(action) != expected_dim:
             raise ValueError(f"Action dimension mismatch: expected {expected_dim}, got {len(action)}")
-
-    def _move_by_traj(self, goal: dict):
-        if self.config.demonstrate:
-            # TODO: since the arms and eefs are controlled by the teleop bag
-            for comp in MMK2ComponentsGroup.ARMS_EEFS:
-                goal.pop(comp)
-        if goal:
-            self.robot.set_goal(goal, TrajectoryParams())
-            self.robot.set_goal(goal, ForwardPositionParams())
-
-        return goal
     
     def enter_traj_mode(self):
         self.traj_mode = True
@@ -217,7 +218,7 @@ class AIRBOTMMK(System):
                             "eff": [0.0],
                         },
                     }
-                
+
                 if comp in MMK2ComponentsGroup.HEAD_SPINE:
                     # print(f"[DEBUG] HEAD_SPINE component: {comp}, topic: {self._action_topics.get(comp)}")
                     listened_data = self.interface.get_listened(self._action_topics[comp])

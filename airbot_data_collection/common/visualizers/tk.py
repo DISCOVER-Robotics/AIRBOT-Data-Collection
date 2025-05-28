@@ -4,7 +4,7 @@ from typing import Dict, Union
 import numpy as np
 from PIL import Image, ImageTk
 
-from airbot_data_collection.common.visualiziers.basis import (
+from airbot_data_collection.common.visualizers.basis import (
     GUIVisualizerConfig, SampleInfo, VisualizerBasis)
 
 

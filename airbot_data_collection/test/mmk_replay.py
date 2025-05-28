@@ -35,7 +35,7 @@ def load_bson(bson_file: str) -> dict:
     return data
 
 @dataclass
-class AIRBOTMMK2Config(object):
+class AIRBOTMMK2Config:
     name: str = "mmk2"
     domain_id: int = -1
     ip: str = "172.25.11.188"
@@ -74,7 +74,7 @@ class AIRBOTMMK2Config(object):
     )
     demonstrate: bool = False
 
-class MMK2REPLAY(object):
+class MMK2REPLAY:
     def __init__(self, config: Optional[AIRBOTMMK2Config] = None, **kwargs) -> None:
         if config is None:
             config = AIRBOTMMK2Config()
@@ -99,7 +99,7 @@ class MMK2REPLAY(object):
             names = all_joint_names.__dict__[comp_str]
             self.joint_names[comp] = names
             self.joint_num += len(names)
-        print(f"Joint names: {self.joint_names}")    
+        print(f"Joint names: {self.joint_names}")
         logger.info(f"Components: {self.components}")
         logger.info(f"Joint numbers: {self.joint_num}")
         self.robot.enable_resources(
@@ -118,7 +118,7 @@ class MMK2REPLAY(object):
         self.get_state_mode = lambda: self._state_mode
         self.exit = lambda: None
         self.reset()
-    
+
     def reset(self, sleep_time=0):
         if self.config.default_action is not None:
             goal = self._action_to_goal(self.config.default_action)
@@ -163,14 +163,14 @@ class MMK2REPLAY(object):
 def parse_actions_from_data(data, components, joint_names):
     """自动从BSON数据中解析动作序列"""
     all_actions = []
-    
+
     # 获取数据长度（以第一个组件为准）
     first_component = list(components.keys())[0]
     component_topic = f"/mmk/mmk/{first_component.value}/joint_state"
     data_length = len(data["data"][component_topic])
-    
+
     print(f"数据长度: {data_length}")
-    
+
     for i in range(data_length):
         action = []
         # 按照components的顺序自动提取各组件的位置数据
@@ -181,9 +181,9 @@ def parse_actions_from_data(data, components, joint_names):
                 action.extend(pos_data)
             else:
                 logger.warning(f"未找到组件 {component.value} 的数据")
-        
+
         all_actions.append(action)
-    
+
     return all_actions
 
 
@@ -191,9 +191,9 @@ def main():
     parser = argparse.ArgumentParser(description="MMK2 动作回放工具")
     parser.add_argument("file_path", help="BSON 数据文件路径")
     parser.add_argument("--ip", default="172.25.11.188", help="机器人IP地址 (默认: 172.25.11.188)")
-    parser.add_argument("--freq", type=float, default=20.0, help="回放频率 Hz (默认: 20.0)")
+    parser.add_argument("--freq", type=float, default=10.0, help="回放频率 Hz (默认: 10.0)")
     args = parser.parse_args()
-    
+
     file_path = args.file_path
     data = load_bson(file_path)
     # print(data.keys())
@@ -202,7 +202,7 @@ def main():
     mmk2 = MMK2REPLAY(ip=args.ip)
     mmk2.enter_servo_mode()
     all_actions = parse_actions_from_data(data, mmk2.components, mmk2.joint_names)
-    
+
     freq = args.freq  # 使用外部传入的频率参数
     for action in all_actions:
         start = time.time()

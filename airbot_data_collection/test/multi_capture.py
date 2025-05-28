@@ -6,7 +6,7 @@ import time
 import cv2
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 
-from airbot_data_collection.common.visualiziers.opencv import decode_image
+from airbot_data_collection.common.visualizers.opencv import decode_image
 
 MODES = {
     "auto": None,
