@@ -19,25 +19,25 @@ def test_bson_player():
         start_index=0,
         end_index=10  # 只播放前10帧进行测试
     )
-    
+
     # 创建播放器
     player = BsonPlayer(config)
-    
+
     # 配置播放器
     if not player.configure():
         print("播放器配置失败")
         return False
-    
+
     print(f"播放器配置成功，总样本数: {player.total_samples}")
-    
+
     # 切换到采样模式开始播放
     player.switch_mode(SystemMode.SAMPLING)
-    
+
     # 播放几帧数据
     for i in range(15):  # 播放15次，看看循环和结束逻辑
         obs = player.capture_observation()
         progress = player.get_current_progress()
-        
+
         if obs:
             print(f"帧 {i}: 索引 {progress[0]}/{progress[1]}, 话题数: {len(obs)}")
             # 打印一些关键话题的数据
@@ -50,16 +50,16 @@ def test_bson_player():
         else:
             print(f"帧 {i}: 无数据 (播放结束)")
             break
-        
+
         time.sleep(0.1)  # 模拟播放间隔
-    
+
     # 测试跳转功能
     print("\n测试跳转功能...")
     if player.seek_to(5):
         obs = player.capture_observation()
         progress = player.get_current_progress()
         print(f"跳转到索引 5 成功，当前进度: {progress[0]}/{progress[1]}")
-    
+
     # 关闭播放器
     player.shutdown()
     print("播放器测试完成")
@@ -67,4 +67,4 @@ def test_bson_player():
 
 
 if __name__ == "__main__":
-    test_bson_player() 
+    test_bson_player()

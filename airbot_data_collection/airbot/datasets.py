@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Union
 
 from airbot_data.io import save_bson
 from numpy import ndarray

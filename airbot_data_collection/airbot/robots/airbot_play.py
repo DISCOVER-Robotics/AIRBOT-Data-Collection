@@ -76,6 +76,9 @@ class AIRBOTPlay(System):
     def shutdown(self) -> bool:
         return self.interface.disconnect()
 
+    def get_info(self):
+        return self.interface.get_product_info()
+
     def observation_to_action(self, obs: dict) -> list[float]:
         """Convert the observation to final action"""
         action = []

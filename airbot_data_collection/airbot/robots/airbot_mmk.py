@@ -82,7 +82,7 @@ class AIRBOTMMK(System):
         if isinstance(action, dict):
             # 从 bson 格式的观察数据中提取关节位置
             action = self._observation_to_action(action)
-        
+
         goal = self._action_to_goal(action)
         if self.traj_mode:
             self._move_by_traj(goal)
@@ -93,11 +93,11 @@ class AIRBOTMMK(System):
     def _observation_to_action(self, obs: dict) -> list[float]:
         """将 bson 观察数据转换为动作列表"""
         action = []
-        
+
         # 按照组件顺序提取关节位置
         for comp in self.config.components:
             comp_name = comp.value
-            
+
             # 尝试从观察数据中获取关节状态
             joint_key = f"{comp_name}/joint_state"
             if joint_key in obs:
@@ -119,7 +119,7 @@ class AIRBOTMMK(System):
                         self.get_logger().warning(f"无效的关节数据格式: {action_key}")
                 else:
                     self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据")
-        
+
         return action
 
     def _action_to_goal(self, action) -> Dict[MMK2Components, JointState]:
@@ -148,7 +148,7 @@ class AIRBOTMMK(System):
             self.robot.set_goal(goal, ForwardPositionParams())
 
         return goal
-    
+
 
     def enter_traj_mode(self):
         self.traj_mode = True
@@ -216,7 +216,7 @@ class AIRBOTMMK(System):
                             "eff": [0.0],
                         },
                     }
-                
+
                 if comp in MMK2ComponentsGroup.HEAD_SPINE:
                     # print(f"[DEBUG] HEAD_SPINE component: {comp}, topic: {self._action_topics.get(comp)}")
                     listened_data = self.interface.get_listened(self._action_topics[comp])

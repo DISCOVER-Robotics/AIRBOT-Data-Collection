@@ -20,4 +20,4 @@ managers:
     - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
 
 # 启用播放模式
-playback_mode: true 
+playback_mode: true

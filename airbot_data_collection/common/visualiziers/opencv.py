@@ -80,13 +80,13 @@ class OpenCVisualizer(VisualizerBasis):
 
     def update(self, data: dict[str, np.ndarray], info: SampleInfo) -> bool:
         """Show the data on the OpenCV window."""
-        # TODO: add concatenation for the data
+        # TODO: add concatenation for the data?
         for key, value in data.items():
             if isinstance(value, bytes):
                 value = decode_image(value, self.config.pixel_format)
             if self.config.swap_rgb_bgr:
                 value = value[..., ::-1]
-            cv2.imshow(f"{key}", value)
+            cv2.imshow(key, value)
         if not self.config.ignore_info:
             image = self._put_info(self.info_image.copy(), info)
             cv2.imshow("info", image)
