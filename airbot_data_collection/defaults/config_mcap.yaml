@@ -1,47 +1,67 @@
-components:
-  names: [lead, follow, follow, env]
-  paths: [airbot_play, airbot_play, v4l2, v4l2]
-  params:
-    - port: 50050
-    - port: 50051
-    - camera_index: usb-0000:00:14.0-1  # device id or usb bus info
-    - camera_index: usb-0000:00:14.0-2
-  roles: [l, f, o, o]
-  groups: ["/", "/", "/", "/"]
-dataset:
-  directory: arm1-001 # The same as the task_id
 auto_control:
-  rate: 100 # Rate of auto control, in Hz.
-update_rate: 20 # Rate of updating the data collection, in Hz.
+  rate: 100
+components:
+  groups:
+  - /
+  - /
+  - /
+  - /
+  names:
+  - lead
+  - follow
+  - follow
+  - env
+  params:
+  - port: 50050
+  - port: 50051
+  - camera_index: usb-0000:00:14.0-3.3
+  - camera_index: usb-0000:00:14.0-2
+  paths:
+  - airbot_play
+  - airbot_play
+  - v4l2
+  - v4l2
+  roles:
+  - l
+  - f
+  - o
+  - o
+dataset:
+  directory: arm1-001
+managers:
+  names:
+  - self_manager
+  - keyboard
+  params:
+  - _target_: airbot_data_collection.managers.basis.SelfManager
+  - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+  paths:
+  - ''
+  - ''
 sample_limit:
-  start_round: -1 # Start round for sampling, -1 means auto generating by existing file number.
-  size: 1000 # Size of the sample limit, used to control the amount of data collected.
-
+  size: 1000
+  start_round: -1
 sampler:
   name: airbot_bson_sampler
-  path: ""
   param:
     _target_: airbot_data_collection.airbot.samplers.mcap_sampler.McapSampler
     info:
-      task:
-        name: put_cup # Name of the task, used for identification, logging, and reporting.
-        description: Put the cup on the plate on the desk. # Description of the task, providing context and details about what the task entails
-        id: arm1-001 # Unique identifier for the task, used for tracking and management.
-      station: ptk-001 # Identifier for the station where the task is performed, useful for multi-station setups.
       operator: hongrui
+      station: ptk-001
+      task:
+        description: Put the cup on the plate on the desk.
+        id: arm1-001
+        name: put_cup
     save_type:
-      image: frame # Type of image saving, can be 'frame' or 'h264'.
-      depth: frame # Type of depth saving, can be 'frame' or 'h264'.
-
+      depth: frame
+      image: frame
+  path: ''
+update_rate: 20
 visualizers:
-  names: [opencv]
-  paths: ["", ""]
+  names:
+  - opencv
   params:
-    - _target_: airbot_data_collection.airbot.visualiziers.opencv.AIRBOTBsonOpenCVisualizer
-
-managers:
-  names: [self_manager, keyboard]
-  paths: ["", ""]
-  params:
-    - _target_: airbot_data_collection.managers.basis.SelfManager
-    - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+  - _target_: airbot_data_collection.airbot.visualiziers.opencv.AIRBOTBsonOpenCVisualizer
+  paths:
+  - ''
+  - ''
