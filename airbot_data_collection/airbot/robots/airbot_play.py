@@ -78,7 +78,10 @@ class AIRBOTPlay(System):
         return self.interface.disconnect()
 
     def get_info(self):
-        return self.interface.get_product_info()
+        return self.interface.get_product_info() | {
+            "arm/joint_names": [f"joint{i}" for i in range(1, 7)],
+            "arm_eef/joint_names": ["arm_eef_gripper_joint"],
+        }
 
     def observation_to_action(self, obs: dict) -> list[float]:
         """Convert the observation to final action"""
