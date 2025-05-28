@@ -90,7 +90,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
         self.node = None
         self.ros_initialized = False
         self._init_ros2()
-        
+
         # 建立按钮到动作的双向映射
         self.button_to_action = bidict({
             btn.value: action for action, btn in self.config.action_button.items()
@@ -106,7 +106,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
             rclpy.init()
             self.ros_initialized = True
             self.node = Node('mmk2_robot_subscriber')
-            
+
             # 订阅joy消息
             self.joy_sub = self.node.create_subscription(
                 Joy,
@@ -114,7 +114,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
                 self.joy_callback,
                 10
             )
-            
+
             # 启动单独的线程运行ROS2回调
             import threading
             self.ros_thread = threading.Thread(target=self._ros_spin, daemon=True)
@@ -170,7 +170,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
                 action = self.axis_to_action[axis_idx]
                 print(f"Axis {axis_idx} pressed, triggering action: {action.name}")
                 self.handle_joy_action(action)
-            
+
 
 
     def handle_joy_action(self, action: Action):
@@ -180,7 +180,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
         self.get_logger().info(f"{bcolors.OKGREEN}Triggering action: {action.name}{bcolors.ENDC}")
         self.fsm.act(action)
         self.print_round()
-    
+
 
     def on_shutdown(self) -> bool:
         """
@@ -189,6 +189,3 @@ class JoyCallbackManager(DemonstrateManagerBasis):
         """
         self.get_logger().info("Shutting down JoyCallbackManager.")
         return True
-
-
-
