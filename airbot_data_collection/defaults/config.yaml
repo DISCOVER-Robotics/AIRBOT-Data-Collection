@@ -9,8 +9,8 @@ visualizers:
   paths: ["", ""]
   params:
     - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTBsonOpenCVisualizer
-      width: 640
-      height: 480
+      width: 320
+      height: 240
 
 managers:
   names: [self_manager, keyboard]

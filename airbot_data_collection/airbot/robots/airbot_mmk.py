@@ -38,12 +38,12 @@ class AIRBOTMMKConfig(BaseModel):
             if isinstance(cam, str):
                 self.cameras[MMK2Components[cam.upper()]] = self.cameras.pop(cam)
 
-
 class AIRBOTMMK(System):
     config: AIRBOTMMKConfig
 
     def on_configure(self) -> bool:
         self.interface = AirbotMMK2(ip=self.config.ip)
+        self.traj_mode = False  # 添加traj_mode属性
         self._action_topics = {
             comp: TopicNames.tracking.format(component=comp.value)
             for comp in MMK2ComponentsGroup.ARMS
@@ -61,17 +61,19 @@ class AIRBOTMMK(System):
         self.interface.listen_to(self._action_topics.values())
         self.interface.enable_resources(self.config.cameras)
         self._joint_names = JointNames().__dict__
+        self.cameras = {cam: [ImageTypes.COLOR] for cam in self.config.cameras}
+
         print(f"[DEBUG] _joint_names: {self._joint_names}")
         self._check_joints(self.interface.get_robot_state().joint_state.name)
         return True
 
+    def get_info(self):
+        return {}
+
     def reset(self, sleep_time=0):
         if self.config.default_action is not None:
             goal = self._action_to_goal(self.config.default_action)
-            logger.info(f"Reset to default action: {self.config.default_action}")
-            # logger.info(f"Reset to default goal: {goal}")
-            # TODO: hard code for spine&head control
-            self._move_by_traj(goal)
+            self.interface.set_goal(goal, TrajectoryParams())
         else:
             logger.warning("No default action is set.")
         time.sleep(sleep_time)
@@ -85,41 +87,55 @@ class AIRBOTMMK(System):
 
         goal = self._action_to_goal(action)
         if self.traj_mode:
-            self._move_by_traj(goal)
+            self.interface.set_goal(goal, TrajectoryParams())
         else:
-            # self.robot.set_goal(goal, MoveServoParams())
-            self.robot.set_goal(goal, ForwardPositionParams())
+            self.interface.set_goal(goal, MoveServoParams())
 
     def _observation_to_action(self, obs: dict) -> list[float]:
         """将 bson 观察数据转换为动作列表"""
         action = []
-
-        # 按照组件顺序提取关节位置
+        
+        # 按照组件顺序提取关节位置，兼容不同的数据格式
         for comp in self.config.components:
             comp_name = comp.value
-
-            # 尝试从观察数据中获取关节状态
-            joint_key = f"{comp_name}/joint_state"
-            if joint_key in obs:
-                joint_data = obs[joint_key]
-                if isinstance(joint_data, dict) and "data" in joint_data:
-                    pos_data = joint_data["data"].get("pos", [])
-                    action.extend(pos_data)
-                else:
-                    self.get_logger().warning(f"无效的关节数据格式: {joint_key}")
-            else:
-                # 如果找不到对应组件的数据，尝试寻找 action 命名空间
-                action_key = f"action/{comp_name}/joint_state"
-                if action_key in obs:
-                    joint_data = obs[action_key]
-                    if isinstance(joint_data, dict) and "data" in joint_data:
-                        pos_data = joint_data["data"].get("pos", [])
+            
+            # 尝试多种可能的数据格式和命名空间
+            possible_keys = [
+                f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
+                f"{comp_name}/joint_state",           # 简化格式
+                f"action/{comp_name}/joint_state",    # action 命名空间
+                f"observation/{comp_name}/joint_state"  # observation 命名空间
+            ]
+            
+            found_data = False
+            for joint_key in possible_keys:
+                if joint_key in obs:
+                    joint_data = obs[joint_key]
+                    
+                    # 处理不同的数据结构
+                    pos_data = None
+                    if isinstance(joint_data, dict):
+                        if "data" in joint_data and isinstance(joint_data["data"], dict):
+                            pos_data = joint_data["data"].get("pos", [])
+                        elif "pos" in joint_data:
+                            pos_data = joint_data["pos"]
+                        elif "position" in joint_data:
+                            pos_data = joint_data["position"]
+                    elif isinstance(joint_data, list):
+                        pos_data = joint_data
+                    
+                    if pos_data:
                         action.extend(pos_data)
-                    else:
-                        self.get_logger().warning(f"无效的关节数据格式: {action_key}")
-                else:
-                    self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据")
-
+                        found_data = True
+                        break
+            
+            if not found_data:
+                self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据，尝试的键: {possible_keys}")
+        
+        if not action:
+            self.get_logger().error("无法从观察数据中提取任何关节位置信息")
+            return []
+        
         return action
 
     def _action_to_goal(self, action) -> Dict[MMK2Components, JointState]:
@@ -137,19 +153,7 @@ class AIRBOTMMK(System):
         expected_dim = sum(len(self._joint_names[comp.value]) for comp in self.config.components)
         if len(action) != expected_dim:
             raise ValueError(f"Action dimension mismatch: expected {expected_dim}, got {len(action)}")
-
-    def _move_by_traj(self, goal: dict):
-        if self.config.demonstrate:
-            # TODO: since the arms and eefs are controlled by the teleop bag
-            for comp in MMK2ComponentsGroup.ARMS_EEFS:
-                goal.pop(comp)
-        if goal:
-            self.robot.set_goal(goal, TrajectoryParams())
-            self.robot.set_goal(goal, ForwardPositionParams())
-
-        return goal
-
-
+    
     def enter_traj_mode(self):
         self.traj_mode = True
 
@@ -248,12 +252,14 @@ class AIRBOTMMK(System):
     def _capture_images(self) -> Tuple[Dict[str, bytes], Dict[str, Time]]:
         images = {}
         img_stamps: Dict[MMK2Components, Time] = {}
-        # print(f"[DEBUG] Capturing images from cameras: {self.config.cameras}")
-        comp_images = self.interface.get_image({cam: [ImageTypes.COLOR] for cam in self.config.cameras})
+        before_camread_t = time.perf_counter()
+        comp_images = self.interface.get_image(self.cameras)
         for comp, image in comp_images.items():
             # TODO: now only support for color image
             images[comp.value] = image.data[ImageTypes.COLOR]
             img_stamps[comp.value] = image.stamp
+        
+        print(f"async_read_camera_{time.perf_counter() - before_camread_t}_dt_s")
         return images, img_stamps
 
     def capture_observation(self):
@@ -261,14 +267,14 @@ class AIRBOTMMK(System):
         # Capture images from cameras
         obs_act_dict = self._get_low_dim()
         images, img_stamps = self._capture_images()
+
         for name in images:
-            if not isinstance(images[name], np.ndarray):
-                raise TypeError(f"Image data for {name} is not a valid np.ndarray")
             stamp = img_stamps[name]
             t = int((stamp.sec + stamp.nanosec * 1e-9) * 1000)
             # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
             # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
+            print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
             obs_act_dict[f"{name}/color_image"] = {
                 "t": t,
                 "data": images[name],
@@ -291,22 +297,32 @@ class AIRBOTMMK(System):
 if __name__ == "__main__":
     mmk = AIRBOTMMK(
         AIRBOTMMKConfig(
-            ip="172.25.11.188",
+            ip="192.168.11.200",
             components=MMK2ComponentsGroup.ARMS_EEFS + MMK2ComponentsGroup.HEAD_SPINE,
             cameras={
-                MMK2Components.LEFT_CAMERA: {
+                MMK2Components.HEAD_CAMERA: {
+                    "camera_type": "REALSENSE",
                     "rgb_camera.color_profile": "640,480,30",
                     "enable_depth": "false",
+                },
+                MMK2Components.LEFT_CAMERA: {
+                    "camera_type": "USB",
+                    "video_device": "/dev/left_camera",
+                    "image_width": "640",
+                    "image_height": "480",
+                    "framerate": "25",
                 },
                 MMK2Components.RIGHT_CAMERA: {
-                    "rgb_camera.color_profile": "640,480,30",
-                    "enable_depth": "false",
-                },
-                MMK2Components.HEAD_CAMERA: {
-                    "rgb_camera.color_profile": "640,480,30",
-                    "enable_depth": "false",
+                    "camera_type": "USB",
+                    "video_device": "/dev/right_camera",
+                    "image_width": "640",
+                    "image_height": "480",
+                    "framerate": "25",
                 },
             },
         )
     )
     assert mmk.configure()
+    for i in range(100000):
+        mmk.capture_observation()
+    mmk.shutdown()
