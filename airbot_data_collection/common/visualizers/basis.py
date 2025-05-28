@@ -15,8 +15,8 @@ class GUIVisualizerConfig(BaseModel):
     # window when single_window or concatenate
     # is set to True
     # 0 means auto
-    width: NonNegativeInt = 1280
-    height: NonNegativeInt = 720
+    width: NonNegativeInt = 640
+    height: NonNegativeInt = 480
     # the tile of the GUI window when
     # the single_window or concatenate
     # is set to True

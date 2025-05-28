@@ -2,7 +2,7 @@ sampler:
   name: airbot_bson_sampler
   path: ""
   param:
-    _target_: airbot_data_collection.airbot.datasets.AIRBOTBsonDataSampler
+    _target_: airbot_data_collection.airbot.samplers.bson_sampler.AIRBOTBsonDataSampler
 
 visualizers:
   names: [opencv]

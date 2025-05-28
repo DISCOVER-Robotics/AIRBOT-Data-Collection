@@ -42,19 +42,19 @@ sample_limit:
   size: 1000
   start_round: -1
 sampler:
-  name: airbot_bson_sampler
+  name: airbot_mcap_sampler
   param:
-    _target_: airbot_data_collection.airbot.samplers.mcap_sampler.McapSampler
+    _target_: airbot_data_collection.airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
     info:
-      operator: hongrui
+      operator: Anonymous
       station: ptk-001
       task:
         description: Put the cup on the plate on the desk.
         id: arm1-001
         name: put_cup
     save_type:
-      depth: frame
-      image: frame
+      depth: jpeg
+      image: jpeg
   path: ''
 update_rate: 20
 visualizers:
@@ -63,5 +63,4 @@ visualizers:
   params:
   - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTBsonOpenCVisualizer
   paths:
-  - ''
   - ''

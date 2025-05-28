@@ -1,9 +1,10 @@
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Any, Dict, Protocol, runtime_checkable
+from typing import Any, Dict, Protocol, runtime_checkable, DefaultDict, List
 
 from airbot_data_collection.basis import ConfigBasis
+from time import time_ns
 
 
 @runtime_checkable
@@ -24,29 +25,28 @@ class DictDataSampler(ConfigBasis):
     """Data sampler for sampling dict-like data."""
 
     def on_configure(self) -> bool:
-        self._data = defaultdict(list)
+        self._data: DefaultDict[str, list] = defaultdict(list)
         self._info = {}
+        self._log_stamps: List[int] = []
         return True
 
     def append(self, data: dict[str, list]) -> None:
         """Append one sample point to the data collector."""
         for key, value in data.items():
             self._data[key].append(value)
-
-    def extend(self, data: dict[str, list]) -> None:
-        """Append multiple sample points to the data collector."""
-        for key, value in data.items():
-            self._data[key].extend(value)
+        self._log_stamps.append(time_ns())
 
     def clear(self) -> None:
         """Clear the data collector."""
         self._data.clear()
+        self._log_stamps.clear()
 
     def pop(self, index: int = -1) -> Any:
         """Pop the data by the given index."""
         popd = {}
         for key, value in self._data.items():
             popd[key] = value.pop(index)
+        self._log_stamps.pop(index)
         return popd
 
     def remove(self, path: str) -> bool:
