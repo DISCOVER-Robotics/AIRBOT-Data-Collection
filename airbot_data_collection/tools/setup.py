@@ -81,10 +81,10 @@ for can_group in can_buses:
     execute_shell_script(
         f"{os.path.abspath(os.path.dirname(__file__))}/bind_can_udev.sh",
         args=[
+            "--target",
+            *new_can,
             "--raw",
             *can_group,
-            "--new",
-            *new_can,
         ],
         with_sudo=True,
     )
