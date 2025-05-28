@@ -1,0 +1,173 @@
+from airbot_data_collection.common.robot_devices.cameras.v4l2 import (
+    V4L2Camera,
+    V4L2CameraConfig,
+)
+from airbot_data_collection.common.visualizers.opencv import (
+    OpenCVisualizer,
+    OpenCVisualizerConfig,
+)
+from airbot_data_collection.common.robot_devices.cameras.utils import (
+    find_camera_indices,
+)
+from airbot_data_collection.utils import (
+    init_logging,
+    execute_shell_script,
+    get_can_interfaces,
+)
+from airbot_data_collection.tools.system_info import SystemInfo
+import logging
+import argparse
+import yaml
+import cv2
+import os
+from pprint import pprint
+
+
+def list_to_nested_tuples(lst):
+    return [(lst[i], lst[i + 1]) for i in range(0, len(lst), 2)]
+
+
+parser = argparse.ArgumentParser(description="Setup script for data collection.")
+parser.add_argument(
+    "-ic",
+    "--ignore_cameras",
+    nargs="+",
+    default=[0],
+    type=int,
+    help="Camera indices to ignore (default: [0]).",
+)
+args = parser.parse_args()
+
+
+init_logging(logging.INFO)
+logger = logging.getLogger("data_collection_setup")
+
+
+BUS_NAME_MAPPINGS = {
+    2: {
+        # PC SN
+        "422096H32290450831": {
+            # USB bus
+            "usb-0000:00:14.0-3.3": "follow",
+            "usb-0000:00:14.0-2": "env",
+        }
+    },
+    4: {},
+}
+CAN_NAME_MAPPINGS = {
+    2: {
+        "can0": "can_lead",
+        "can1": "can_follow",
+    },
+    4: {
+        "can0": "can_left_lead",
+        "can1": "can_left_follow",
+        "can2": "can_right_lead",
+        "can3": "can_right_follow",
+    },
+}
+
+can_itfs = sorted(get_can_interfaces())
+can_buses = list_to_nested_tuples(can_itfs)
+can_num = len(can_itfs)
+can_group_num = len(can_buses)
+assert can_num in BUS_NAME_MAPPINGS, f"Not enough can: {can_itfs}"
+hw_sn = SystemInfo.get_product(True)["serial_number"]
+logger.info(f"CAN interfaces: {can_buses}")
+logger.info(f"Hardware serial number: {hw_sn}")
+bus_name_mapping = BUS_NAME_MAPPINGS[can_num][hw_sn]
+can_name_mapping = CAN_NAME_MAPPINGS[can_num]
+
+cur_dir = os.path.abspath(os.path.dirname(__file__))
+
+for can_group in can_buses:
+    new_can = [can_name_mapping.get(can, can) for can in can_group]
+    if set(new_can) != set(can_group):
+        for can in new_can:
+            assert can in can_name_mapping, f"Unknown CAN interface: {can}"
+        execute_shell_script(
+            f"{cur_dir}/bind_can_udev.sh",
+            args=[
+                "--target",
+                *new_can,
+                "--raw",
+                *can_group,
+            ],
+            with_sudo=True,
+        )
+    else:
+        logger.info(f"CAN group {can_group} already bound correctly.")
+
+camera_indices = find_camera_indices()
+for index in args.ignore_cameras:
+    if index in camera_indices:
+        camera_indices.remove(index)
+        logger.info(f"Removed camera index: {index}")
+    else:
+        logger.info(f"Device {index} not found")
+
+logger.info(f"Found camera indices: {camera_indices}")
+
+cameras: list[V4L2Camera] = []
+visualizers: list[OpenCVisualizer] = []
+
+opened_indices = []
+opened_buses = []
+opened_names = []
+for index in camera_indices:
+    config = V4L2CameraConfig(camera_index=index, pixel_format="MJPEG", decode=False)
+    camera = V4L2Camera(config)
+    visualizer = OpenCVisualizer(OpenCVisualizerConfig(ignore_info=True))
+    if camera.configure():
+        if visualizer.configure():
+            bus = camera.device.info.bus_info
+            logger.info(f"Camera {index} bus info: {bus}")
+            prefix = bus_name_mapping.get(bus, "None")
+            if prefix == "None":
+                logger.error(
+                    f"Camera {index} bus info {bus} not found in bus name mapping."
+                )
+            else:
+                opened_buses.append(bus)
+                opened_names.append(prefix)
+            camera.set_visualizer(visualizer, prefix=prefix)
+            cameras.append(camera)
+            visualizers.append(visualizer)
+            opened_indices.append(index)
+
+if opened_indices:
+    logger.info(f"Opened cameras: {opened_indices}")
+else:
+    logger.error("No camera opened. Please check the camera indices.")
+    exit(1)
+
+while True:
+    for camera, visualizer in zip(cameras, visualizers):
+        visualizer.update({camera._vis_key: camera.capture_observation()}, None)
+    key = cv2.waitKey(20) & 0xFF
+    if key == ord("q"):
+        logger.info("Exiting setup script.")
+        break
+    elif key == ord("s"):
+        components = {
+            "paths": ["airbot_play"] * len(can_itfs) + ["v4l2"] * len(opened_indices),
+            "params": [{"port": 50050 + i} for i in range(len(can_itfs))]
+            + [{"camera_index": bus} for bus in opened_buses],
+            "names": ["lead", "follow"] * can_group_num + opened_names,
+            "roles": ["l", "f"] * can_group_num + ["o"] * len(opened_indices),
+            "groups": ["/"] * (len(can_itfs) + len(opened_indices)),
+        }
+        pprint(components)
+        file_path = f"{cur_dir}/../defaults/config_mcap.yaml"
+        with open(file_path) as f:
+            config = yaml.safe_load(f)
+            config["components"] = components
+        with open(file_path, "w") as f:
+            yaml.dump(
+                config,
+                f,
+                default_flow_style=False,
+            )
+        break
+cv2.destroyAllWindows()
+logger.info("Setup script completed successfully.")

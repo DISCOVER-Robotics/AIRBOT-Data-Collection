@@ -1,5 +1,3 @@
-from typing import Dict, Union
-
 from numpy import ndarray
 
 from airbot_data_collection.common.robot_devices.cameras.v4l2 import (

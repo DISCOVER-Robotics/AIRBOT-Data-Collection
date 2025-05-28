@@ -80,7 +80,7 @@ class AIRBOTMMK(System):
         if isinstance(action, dict):
             # 从 bson 格式的观察数据中提取关节位置
             action = self._observation_to_action(action)
-        
+
         goal = self._action_to_goal(action)
         if self.traj_mode:
             self.interface.set_goal(goal, TrajectoryParams())
@@ -216,7 +216,7 @@ class AIRBOTMMK(System):
                             "eff": [0.0],
                         },
                     }
-                
+
                 if comp in MMK2ComponentsGroup.HEAD_SPINE:
                     # print(f"[DEBUG] HEAD_SPINE component: {comp}, topic: {self._action_topics.get(comp)}")
                     listened_data = self.interface.get_listened(self._action_topics[comp])

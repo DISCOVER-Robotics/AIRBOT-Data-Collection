@@ -1,4 +1,4 @@
-from airbot_data_collection.common.visualiziers.opencv import (
+from airbot_data_collection.common.visualizers.opencv import (
     OpenCVisualizer, OpenCVisualizerConfig)
 
 

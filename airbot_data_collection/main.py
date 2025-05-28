@@ -18,7 +18,7 @@ if __name__ == "__main__":
     init_logging(logging.INFO)
     logger = getLogger("airbot_data_collection")
 
-    from airbot_data_collection.common.visualiziers.opencv import \
+    from airbot_data_collection.common.visualizers.opencv import \
         prepare_cv2_imshow
 
     prepare_cv2_imshow(logger)

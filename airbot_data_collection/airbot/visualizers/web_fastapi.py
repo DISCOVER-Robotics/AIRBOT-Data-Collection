@@ -1,4 +1,4 @@
-from airbot_data_collection.common.visualiziers.web_fastapi import (
+from airbot_data_collection.common.visualizers.web_fastapi import (
     FastAPIVisualizer, WebVisualizerConfig)
 
 

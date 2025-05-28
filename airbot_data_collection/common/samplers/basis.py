@@ -17,9 +17,7 @@ class DataSampler(Protocol):
     def save(self, path: str) -> bool: ...
     def remove(self, path: str) -> bool: ...
     def compose_path(self, directory: str, round: int) -> str: ...
-
-    # def extend(self, data) -> None: ...
-    # def pop(self, index: int = -1) -> Any: ...
+    def set_info(self, info: Dict[str, Any]) -> None: ...
 
 
 class DictDataSampler(ConfigBasis):
@@ -27,6 +25,7 @@ class DictDataSampler(ConfigBasis):
 
     def on_configure(self) -> bool:
         self._data = defaultdict(list)
+        self._info = {}
         return True
 
     def append(self, data: dict[str, list]) -> None:
@@ -50,10 +49,6 @@ class DictDataSampler(ConfigBasis):
             popd[key] = value.pop(index)
         return popd
 
-    @abstractmethod
-    def save(self, path: str) -> bool:
-        """Save the data by the given number."""
-
     def remove(self, path: str) -> bool:
         """Remove the data from the given or last saved path."""
         if os.path.exists(path):
@@ -66,6 +61,14 @@ class DictDataSampler(ConfigBasis):
         else:
             self.get_logger().warning(f"Path {path} does not exist.")
             return False
+
+    def set_info(self, info: Dict[str, Any]) -> None:
+        """Set the info of the data collector."""
+        self._info = info
+
+    @abstractmethod
+    def save(self, path: str) -> bool:
+        """Save the data by the given number."""
 
     @abstractmethod
     def compose_path(self, directory: str, round: int) -> str: ...

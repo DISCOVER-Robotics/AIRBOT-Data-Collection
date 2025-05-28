@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Union
 
 from airbot_data.io import save_bson
 from numpy import ndarray
@@ -9,6 +8,8 @@ from pydantic import BaseModel
 from airbot_data_collection.common.samplers.basis import DictDataSampler
 from airbot_data_collection.utils import get_stamp_ms
 import json
+from typing import Union, List
+
 
 DEFAULT_META_DATA = {
     "2AIRBOT-Play": {
@@ -28,26 +29,22 @@ DEFAULT_META_DATA = {
         "hardware_info": {
             "robot_type": "2AIRBOT-Play",
             "host_type": "default",
-            "arm/lead/joint_names":
-                json.dumps(
-                    ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-                ),
+            "arm/lead/joint_names": json.dumps(
+                ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
+            ),
             "arm/lead/sku": "AIRBOT-Play",
             "arm/lead/sn": "DEFAULT-SN-00001",
-            "arm/lead/firmware":
-                json.dumps(
-                    ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
-                ),
-            "arm/follow/joint_names":
-                json.dumps(
-                    ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-                ),
+            "arm/lead/firmware": json.dumps(
+                ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
+            ),
+            "arm/follow/joint_names": json.dumps(
+                ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
+            ),
             "arm/follow/sku": "AIRBOT-Play",
             "arm/follow/sn": "DEFAULT-SN-00002",
-            "arm/follow/firmware":
-                json.dumps(
-                    ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
-                ),
+            "arm/follow/firmware": json.dumps(
+                ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
+            ),
         },
     }
 }
@@ -127,22 +124,20 @@ class AIRBOTMcapDataSampler(DictDataSampler):
 
         # check path
         import pathlib
+
         path = pathlib.Path(path)
         os.makedirs(path.parent, exist_ok=True)
 
         # start_time = time.time()
 
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             # Create the writer
             writer = Writer(f)
             writer.start()
 
             # metadata
             for key, value in self.config.data_schema["metadata"].items():
-                writer.add_metadata(
-                    name=key,
-                    data=value
-                )
+                writer.add_metadata(name=key, data=value)
 
             # schemas
             float_array_schema_id = writer.register_schema(
@@ -160,7 +155,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             float_array_channels = {}
             compressed_image_channels = {}
             for key, topic in self.topics.items():
-                key_parts = key.strip().split('/')
+                key_parts = key.strip().split("/")
                 if key_parts[1] == "camera":
                     compressed_image_channels[key] = writer.register_channel(
                         schema_id=compressed_image_schema_id,
@@ -168,7 +163,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                         message_encoding=MessageEncoding.Flatbuffer,
                     )
                 else:
-                    rename = key_parts[2] + '/' + key_parts[1].replace("er", "")
+                    rename = key_parts[2] + "/" + key_parts[1].replace("er", "")
                     for field in ["pos", "vel", "eff"]:
                         channel_name = f"{rename}/joint_{field}"
                         float_array_channels[channel_name] = writer.register_channel(
@@ -179,29 +174,33 @@ class AIRBOTMcapDataSampler(DictDataSampler):
 
             # Write data
             for key, value in self.config.data_schema["data"].items():
-                key_parts = key.strip().split('/')
+                key_parts = key.strip().split("/")
                 if key_parts[1] == "camera":
                     for v in value:
                         compressed_image_bytes = v["data"]
-                        builder = flatbuffers.Builder(len(compressed_image_bytes) + 1024)
+                        builder = flatbuffers.Builder(
+                            len(compressed_image_bytes) + 1024
+                        )
                         fmt_str = builder.CreateString(compressed_image_bytes)
                         data_vec = builder.CreateByteVector(compressed_image_bytes)
                         CompressedImage.CompressedImageStart(builder)
                         CompressedImage.CompressedImageAddFormat(builder, fmt_str)
                         CompressedImage.CompressedImageAddData(builder, data_vec)
-                        compressed_image_msg = CompressedImage.CompressedImageEnd(builder)
+                        compressed_image_msg = CompressedImage.CompressedImageEnd(
+                            builder
+                        )
                         builder.Finish(compressed_image_msg)
                         data = builder.Output()
                         writer.add_message(
                             channel_id=compressed_image_channels[key],
                             data=bytes(data),
-                            publish_time=int(v["t"]*1e6),
+                            publish_time=int(v["t"] * 1e6),
                             # log_time=time.time_ns()
-                            log_time=int(v["t"]*1e6)
+                            log_time=int(v["t"] * 1e6),
                         )
                 else:
                     builder = flatbuffers.Builder(256)
-                    rename = key_parts[2] + '/' + key_parts[1].replace("er", "")
+                    rename = key_parts[2] + "/" + key_parts[1].replace("er", "")
                     for v in value:
                         joint_state = v["data"]
                         for field in ["pos", "vel", "eff"]:
@@ -221,9 +220,9 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                                 writer.add_message(
                                     channel_id=channel_id,
                                     data=bytes(data),
-                                    publish_time=int(v["t"]*1e6),
+                                    publish_time=int(v["t"] * 1e6),
                                     # log_time=time.time_ns()
-                                    log_time=int(v["t"]*1e6)
+                                    log_time=int(v["t"] * 1e6),
                                 )
             writer.finish()
         # end_time = time.time()
@@ -232,6 +231,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
 
     def compose_path(self, directory, round) -> str:
         return os.path.join(directory, f"{round}.mcap")
+
 
 class AIRBOTBsonDataSampler(DictDataSampler):
 

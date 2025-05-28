@@ -6,7 +6,7 @@ import fastapi
 import fastapi.responses
 from uvicorn import Config, Server
 
-from airbot_data_collection.common.visualiziers.basis import (
+from airbot_data_collection.common.visualizers.basis import (
     SampleInfo, VisualizerBasis, WebVisualizerConfig)
 from airbot_data_collection.utils import run_event_loop
 
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     from PIL import Image
 
-    from airbot_data_collection.common.visualiziers.basis import SampleInfo
+    from airbot_data_collection.common.visualizers.basis import SampleInfo
 
     def generate_image_bytes(size=(320, 240), color=(100, 100, 200)) -> bytes:
         img = Image.new("RGB", size, color=color)
