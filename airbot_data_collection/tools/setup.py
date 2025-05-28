@@ -16,7 +16,6 @@ from airbot_data_collection.utils import (
 )
 from airbot_data_collection.tools.system_info import SystemInfo
 import logging
-import time
 import argparse
 import yaml
 import cv2
@@ -47,7 +46,8 @@ BUS_NAME_MAPPINGS = {
     2: {
         # PC SN
         "422096H32290450831": {
-            "usb-0000:00:14.0-1": "follow",
+            # USB bus
+            "usb-0000:00:14.0-3.3": "follow",
             "usb-0000:00:14.0-2": "env",
         }
     },
@@ -71,31 +71,36 @@ can_group_num = len(can_itfs)
 assert can_group_num in BUS_NAME_MAPPINGS, f"Not enough can: {can_itfs}"
 can_buses = list_to_nested_tuples(can_itfs)
 hw_sn = SystemInfo.get_product()["serial_number"]
-print(f"CAN interfaces: {can_itfs}")
-print(f"Hardware serial number: {hw_sn}")
+logger.info(f"CAN interfaces: {can_buses}")
+logger.info(f"Hardware serial number: {hw_sn}")
 bus_name_mapping = BUS_NAME_MAPPINGS[can_group_num][hw_sn]
 can_name_mapping = CAN_NAME_MAPPINGS[can_group_num]
 
 for can_group in can_buses:
-    new_can = [can_name_mapping[can] for can in can_group]
-    execute_shell_script(
-        f"{os.path.abspath(os.path.dirname(__file__))}/bind_can_udev.sh",
-        args=[
-            "--target",
-            *new_can,
-            "--raw",
-            *can_group,
-        ],
-        with_sudo=True,
-    )
+    new_can = [can_name_mapping.get(can, can) for can in can_group]
+    if set(new_can) != set(can_group):
+        for can in new_can:
+            assert can in can_name_mapping, f"Unknown CAN interface: {can}"
+        execute_shell_script(
+            f"{os.path.abspath(os.path.dirname(__file__))}/bind_can_udev.sh",
+            args=[
+                "--target",
+                *new_can,
+                "--raw",
+                *can_group,
+            ],
+            with_sudo=True,
+        )
+    else:
+        logger.info(f"CAN group {can_group} already bound correctly.")
 
 camera_indices = find_camera_indices()
 for index in args.ignore_cameras:
     if index in camera_indices:
         camera_indices.remove(index)
-        print(f"Removed camera index: {index}")
+        logger.info(f"Removed camera index: {index}")
     else:
-        print(f"Device {index} not found")
+        logger.info(f"Device {index} not found")
 
 logger.info(f"Found camera indices: {camera_indices}")
 
@@ -111,7 +116,12 @@ for index in camera_indices:
         if visualizer.configure():
             bus = camera.device.info.bus_info
             logger.info(f"Camera {index} bus info: {bus}")
-            camera.set_visualizer(visualizer, prefix=bus_name_mapping.get(bus, "None"))
+            prefix = bus_name_mapping.get(bus, "None")
+            if prefix == "None":
+                logger.error(
+                    f"Camera {index} bus info {bus} not found in bus name mapping."
+                )
+            camera.set_visualizer(visualizer, prefix=prefix)
             cameras.append(camera)
             visualizers.append(visualizer)
             opened_indices.append(index)
