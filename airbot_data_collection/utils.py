@@ -328,11 +328,14 @@ class ImageCoder:
         return bgr
 
 
-def get_platform_info() -> Dict[str, Any]:
-    return platform.uname()._asdict()
-
-
-def execute_shell_script(script_path, args=None, env=None, timeout=None, check=True):
+def execute_shell_script(
+    script_path: str,
+    args=None,
+    env=None,
+    timeout=None,
+    check=True,
+    with_sudo: bool = False,
+):
     """
     执行shell脚本并返回执行结果
 
@@ -360,6 +363,8 @@ def execute_shell_script(script_path, args=None, env=None, timeout=None, check=T
 
     # 构建命令
     cmd = [os.path.abspath(script_path)]
+    if with_sudo:
+        cmd.insert(0, "sudo")
     if args:
         cmd.extend(args)
 
@@ -392,6 +397,36 @@ def execute_shell_script(script_path, args=None, env=None, timeout=None, check=T
         print(f"标准输出:\n{e.stdout}")
         print(f"错误输出:\n{e.stderr}")
         raise
+
+
+def get_can_interfaces():
+    try:
+        # 执行 ip l 命令
+        ip_result = subprocess.run(
+            ["ip", "l"], capture_output=True, text=True, check=True
+        )
+
+        # 获取输出并按行分割
+        output = ip_result.stdout
+        lines = output.split("\n")
+
+        # 筛选包含 'can' 的行并提取设备名称
+        can_interfaces = []
+        for line in lines:
+            if "can" in line:
+                # 提取设备名称（格式通常为数字: 设备名: <...>）
+                parts = line.strip().split(": ")
+                if len(parts) > 1:
+                    can_interfaces.append(parts[1])
+
+        return can_interfaces
+
+    except subprocess.CalledProcessError as e:
+        print(f"命令执行失败: {e.stderr}")
+        return []
+    except Exception as e:
+        print(f"发生错误: {e}")
+        return []
 
 
 if __name__ == "__main__":
