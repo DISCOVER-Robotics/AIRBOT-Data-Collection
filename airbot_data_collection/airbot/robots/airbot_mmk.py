@@ -65,6 +65,7 @@ class AIRBOTMMK(System):
 
         print(f"[DEBUG] _joint_names: {self._joint_names}")
         self._check_joints(self.interface.get_robot_state().joint_state.name)
+        self.reset()
         return True
 
     def get_info(self):
@@ -258,7 +259,6 @@ class AIRBOTMMK(System):
             # TODO: now only support for color image
             images[comp.value] = image.data[ImageTypes.COLOR]
             img_stamps[comp.value] = image.stamp
-        
         print(f"async_read_camera_{time.perf_counter() - before_camread_t}_dt_s")
         return images, img_stamps
 
@@ -274,7 +274,7 @@ class AIRBOTMMK(System):
             # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
             # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
-            print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
+            # print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
             obs_act_dict[f"{name}/color_image"] = {
                 "t": t,
                 "data": images[name],
