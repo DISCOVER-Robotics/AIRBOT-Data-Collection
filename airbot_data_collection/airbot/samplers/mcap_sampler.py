@@ -13,7 +13,7 @@ from importlib.resources import read_binary
 from flatten_dict import flatten
 import json
 from time import time_ns
-import numpy as np
+
 
 class TaskInfo(BaseModel):
     # Name of the task, used for identification, logging, and reporting.
@@ -54,7 +54,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
 
     def save(self, path: str) -> str:
         """Save the data to a MCAP file."""
-        self.get_logger().info(f"data keys: {list(self._data.keys())}")
+        # self.get_logger().info(f"data keys: {list(self._data.keys())}")
         with open(path, "wb") as f:
             writer = Writer(f)
             writer.start()
@@ -68,11 +68,11 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                 writer.add_metadata(name=key, data=flatten(value, "path"))
             # add attachments
             """
-                text/plain: 纯文本
-                text/html：HTML 文档
-                application/json：JSON 数据
-                image/png：PNG 图像
-                video/mp4：MP4 视频
+                text/plain: pure text
+                text/html：HTML
+                application/json：JSON
+                image/png：PNG image
+                video/mp4：MP4 video
             """
             writer.add_attachment(
                 time_ns(),
@@ -139,9 +139,6 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                     for i, value in enumerate(values)
                 ]
             writer.finish()
-        # end_time = time.time()
-        # print(f"Data saved to {path} in {end_time - start_time:.2f} seconds.")
-        self._data.clear()
         return path
 
     def compose_path(self, directory, round) -> str:

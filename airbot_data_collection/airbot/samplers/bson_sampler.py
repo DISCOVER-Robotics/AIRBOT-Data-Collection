@@ -81,20 +81,20 @@ class AIRBOTBsonDataSampler(DictDataSampler):
             if not topic_data:  # 检查是否为空
                 print(f"警告: topic {key} 的数据为空，跳过...")
                 continue
-                
+
             # 对图像数据进行额外验证
             if key.endswith("image_raw"):
                 valid_frames = []
                 seen_timestamps = set()
                 for i, frame in enumerate(topic_data):
                     try:
-                        if (frame is not None and 
-                            isinstance(frame, dict) and 
-                            "data" in frame and 
+                        if (frame is not None and
+                            isinstance(frame, dict) and
+                            "data" in frame and
                             "t" in frame and
                             frame["data"] is not None and
                             frame["t"] is not None):
-                            
+
                             # 确保图像数据是有效的numpy数组
                             if isinstance(frame["data"], np.ndarray) and frame["data"].size > 0:
                                 # 检查图像数据的形状
@@ -104,22 +104,22 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                                         # 处理时间戳重复问题
                                         original_timestamp = frame["t"]
                                         adjusted_timestamp = original_timestamp
-                                        
+
                                         # 如果时间戳重复，进行微调
                                         adjustment_counter = 0
                                         while adjusted_timestamp in seen_timestamps:
                                             adjustment_counter += 1
                                             # 每次增加1毫秒来避免重复
                                             adjusted_timestamp = original_timestamp + adjustment_counter
-                                        
+
                                         seen_timestamps.add(adjusted_timestamp)
-                                        
+
                                         # 创建调整后的帧
                                         adjusted_frame = frame.copy()
                                         if adjusted_timestamp != original_timestamp:
                                             adjusted_frame["t"] = adjusted_timestamp
                                             print(f"警告: topic {key} 帧 {i} 时间戳从 {original_timestamp} 调整为 {adjusted_timestamp}")
-                                        
+
                                         # 确保图像数据类型正确
                                         if frame["data"].dtype == np.uint8:
                                             valid_frames.append(adjusted_frame)
@@ -138,13 +138,13 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                             print(f"警告: topic {key} 帧 {i} 中发现无效的帧数据，跳过此帧")
                     except Exception as e:
                         print(f"警告: topic {key} 帧 {i} 数据验证失败: {e}")
-                
+
                 if valid_frames:
                     # 最终检查：确保时间戳是递增的
                     valid_frames.sort(key=lambda x: x["t"])
                     validated_data[key] = valid_frames
                     print(f"topic {key}: {len(valid_frames)}/{len(topic_data)} 帧有效")
-                    
+
                     # 打印时间戳信息用于调试
                     timestamps = [f["t"] for f in valid_frames]
                     print(f"  时间戳范围: {min(timestamps)} - {max(timestamps)}")
@@ -155,19 +155,18 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                     print(f"警告: topic {key} 没有有效的图像数据，跳过整个topic")
             else:
                 validated_data[key] = topic_data
-        
+
         if not validated_data:
             raise ValueError("没有有效的数据可以保存")
-        
+
         # 临时更新数据引用
         self.config.data_schema["data"] = validated_data
-        
+
         save_bson(
             self.config.data_schema,
             Path(path),
         )
-        
-        self._data.clear()
+
         return path
 
     def compose_path(self, directory, round) -> str:
