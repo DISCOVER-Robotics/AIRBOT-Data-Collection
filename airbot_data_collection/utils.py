@@ -4,12 +4,9 @@ import math
 import os
 import threading
 import time
-import tkinter
 from enum import Enum
 import numpy as np
 from tqdm import tqdm
-import platform
-from typing import Dict, Any
 import subprocess
 
 
@@ -222,6 +219,8 @@ def optimal_grid(
 
 
 def get_dpi() -> float:
+    import tkinter
+
     root = tkinter.Tk()
     dpi = root.winfo_fpixels("1i")  # 水平方向的DPI
     root.destroy()
