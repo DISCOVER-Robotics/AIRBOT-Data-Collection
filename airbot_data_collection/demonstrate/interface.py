@@ -458,6 +458,7 @@ class DemonstrateInterface:
         else:
             if not self._show_save_info(path, self.sampler.save(path)):
                 return False
+        self.sampler.clear()
         self.sample_info.round += 1
         self.sample_info.index = 0
         self._bar.reset(desc=f"Round {self.sample_info.round}")
