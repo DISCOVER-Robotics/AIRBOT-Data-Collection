@@ -130,7 +130,7 @@ class SystemInfo:
                         pci_address = pci_address.strip()
                         device_type = device_type.strip()
                         vendor_model = vendor_model.strip()
-                        revision = revision.strip() if revision else None
+                        revision = revision.strip() if revision else ""
 
                         # 尝试分离厂商和型号
                         parts = vendor_model.split(" ", 1)
