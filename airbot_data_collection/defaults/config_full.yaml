@@ -1,0 +1,67 @@
+auto_control:
+  rate: [100]
+components:
+  groups:
+  - left
+  - left
+  - right
+  - right
+  - env_camera
+  names:
+  - lead
+  - follow
+  - lead
+  - follow
+  - env
+  params:
+  - port: 50050
+  - port: 50051
+  - port: 50052
+  - port: 50053
+  - camera_index: usb-0000:00:14.0-5
+  paths:
+  - airbot_play_mock
+  - airbot_play_mock
+  - airbot_play_mock
+  - airbot_play_mock
+  - v4l2
+  roles:
+  - l
+  - f
+  - l
+  - f
+  - o
+dataset:
+  directory: arm1-001
+managers:
+  names:
+  - self_manager
+  - keyboard
+  params:
+  - _target_: airbot_data_collection.managers.basis.SelfManager
+  - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+  paths:
+  - ''
+  - ''
+sample_limit:
+  size: 1000
+  start_round: -1
+sampler:
+  name: airbot_mcap_sampler
+  param:
+    _target_: airbot_data_collection.airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
+    task_info:
+      operator: Anonymous
+      station: ptk-001
+      task_name: put_cup
+      task_description: Put the cup on the plate on the desk.
+      task_id: arm1-001
+  path: ''
+update_rate: 20
+visualizers:
+  names:
+  - opencv
+  params:
+  - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTBsonOpenCVisualizer
+  paths:
+  - ''
