@@ -35,6 +35,8 @@ class SystemInfo:
                     info["version"] = line.strip().split(":", 1)[1].strip()
                 elif "Serial Number:" in line:
                     info["serial_number"] = line.strip().split(":", 1)[1].strip()
+                elif "UUID:" in line:
+                    info["uuid"] = line.strip().split(":", 1)[1].strip()
             return info
         except Exception as e:
             print(f"Error: {e}")
