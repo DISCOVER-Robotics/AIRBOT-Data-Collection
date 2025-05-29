@@ -59,7 +59,7 @@ BUS_NAME_MAPPINGS = {
             # USB bus
             "usb-0000:00:14.0-1": "follow_camera",
             "usb-0000:00:14.0-4": "env_camera",
-        }
+        },
     },
     4: {
         # "03000200-0400-0500-0006-000700080009": {
@@ -179,10 +179,12 @@ while True:
             "groups": groups,
         }
         pprint(components)
-        file_path = f"{cur_dir}/../defaults/config_mcap.yaml"
-        with open(file_path) as f:
+
+        input_file_path = f"{cur_dir}/../defaults/config_full.yaml"
+        with open(input_file_path) as f:
             config = yaml.safe_load(f)
             config["components"] = components
+        file_path = input_file_path.replace("full", f"setup")
         with open(file_path, "w") as f:
             yaml.dump(
                 config,
