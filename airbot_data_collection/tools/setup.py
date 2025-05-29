@@ -62,6 +62,18 @@ BUS_NAME_MAPPINGS = {
         },
     },
     4: {
+        # chu
+        "62861f46-94eb-43f2-bc3b-c4efbbf6083e": {
+            "usb-0000:00:14.0-8": "left_camera",
+            "usb-0000:00:14.0-13.3": "right_camera",
+            "usb-0000:00:14.0-4": "env_camera",
+        },
+        # George
+        "2f65ca50-4038-4964-8c95-fc5cee443bea": {
+            "usb-0000:00:14.0-9.3": "left_camera",
+            "usb-0000:00:14.0-4": "right_camera",
+            "usb-0000:00:14.0-2.1": "env_camera",
+        },
         # "03000200-0400-0500-0006-000700080009": {
         #     # USB bus
         #     "usb-0000:00:14.0-1": "left_camera",
