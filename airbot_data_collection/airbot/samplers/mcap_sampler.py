@@ -179,12 +179,12 @@ class AIRBOTMcapDataSampler(DictDataSampler):
         CompressedImage.AddFormat(self.builder, fmt_str)
         CompressedImage.AddFrameId(self.builder, frame_id_str)
         CompressedImage.AddData(self.builder, data_vec)
-        compressed_image_msg = CompressedImage.End(self.builder)
-        self.builder.Finish(compressed_image_msg)
-        data = self.builder.Output()
+        end_data = CompressedImage.End(self.builder)
+        self.builder.Finish(end_data)
+        msg_data = self.builder.Output()
         writer.add_message(
             channel_id=channel_id,
-            data=data,
+            data=bytes(msg_data),
             publish_time=publish_time,
             log_time=log_time,
         )
@@ -208,12 +208,12 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             vec_data = self.builder.EndVector()
             FloatArray.Start(self.builder)
             FloatArray.AddValues(self.builder, vec_data)
-            data_msg = FloatArray.End(self.builder)
-            self.builder.Finish(data_msg)
-            values = self.builder.Output()
+            end_data = FloatArray.End(self.builder)
+            self.builder.Finish(end_data)
+            msg_data = self.builder.Output()
             writer.add_message(
                 channel_id=channel_id[field],
-                data=values,
+                data=bytes(msg_data),
                 publish_time=publish_time,
                 log_time=log_time,
             )
