@@ -185,6 +185,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             publish_time=publish_time,
             log_time=log_time,
         )
+        self.builder.Clear()
 
     def _add_joint_state(
         self,
@@ -213,3 +214,4 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                 publish_time=publish_time,
                 log_time=log_time,
             )
+            self.builder.Clear()
