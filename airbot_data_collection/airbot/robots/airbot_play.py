@@ -1,10 +1,11 @@
-from typing import List, Optional, Union
+from typing import List, Union
 
 from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from pydantic import BaseModel, PositiveInt
 
 from airbot_data_collection.basis import System, SystemMode
-from airbot_data_collection.utils import get_stamp_ms
+
+from time import time_ns
 
 
 class AIRBOTPlayConfig(BaseModel):
@@ -52,23 +53,23 @@ class AIRBOTPlay(System):
             return True
         return False
 
-    def capture_observation(self) -> dict:
-        """key: component kind | name / data type"""
+    def capture_observation(self) -> dict[str, dict[str, Union[float, List[float]]]]:
+        """key: component_name/data_type"""
         return {
             "arm/joint_state": {
-                "t": get_stamp_ms(),
+                "t": time_ns(),
                 "data": {
-                    "pos": self.interface.get_joint_pos(),
-                    "vel": self.interface.get_joint_vel(),
-                    "eff": self.interface.get_joint_eff(),
+                    "position": self.interface.get_joint_pos(),
+                    "velocity": self.interface.get_joint_vel(),
+                    "effort": self.interface.get_joint_eff(),
                 },
             },
             "eef/joint_state": {
-                "t": get_stamp_ms(),
+                "t": time_ns(),
                 "data": {
-                    "pos": self.interface.get_eef_pos(),
-                    "vel": [0.0] * 6,
-                    "eff": self.interface.get_eef_eff(),
+                    "position": self.interface.get_eef_pos(),
+                    "velocity": [0.0] * 6,
+                    "effort": self.interface.get_eef_eff(),
                 },
             },
         }
@@ -77,7 +78,10 @@ class AIRBOTPlay(System):
         return self.interface.disconnect()
 
     def get_info(self):
-        return self.interface.get_product_info()
+        return self.interface.get_product_info() | {
+            "arm/joint_names": [f"joint{i}" for i in range(1, 7)],
+            "arm_eef/joint_names": ["arm_eef_gripper_joint"],
+        }
 
     def observation_to_action(self, obs: dict) -> list[float]:
         """Convert the observation to final action"""

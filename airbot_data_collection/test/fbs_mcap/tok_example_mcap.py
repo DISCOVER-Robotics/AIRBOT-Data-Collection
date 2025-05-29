@@ -1,5 +1,4 @@
 import flatbuffers
-from time import time_ns
 from mcap.writer import Writer
 from mcap.well_known import SchemaEncoding, MessageEncoding
 import json
@@ -7,9 +6,11 @@ from foxglove_schemas_flatbuffer import get_schema
 import foxglove_schemas_flatbuffer.Vector3 as Vec3
 import foxglove_schemas_flatbuffer.Quaternion as Quat
 import foxglove_schemas_flatbuffer.Pose as PoseFB
-import airbot_type.FloatArray as FloatArray
+from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 import time
 from random import uniform
+
+
 # Create the builder
 builder = flatbuffers.Builder(0)
 with open("tok_example.mcap", "wb") as f:
@@ -24,7 +25,7 @@ with open("tok_example.mcap", "wb") as f:
             "driver_version": "5.1.3",
             "recorder_version": "1",
             "file_version": "1",
-        }
+        },
     )
     writer.add_metadata(
         name="task_info",
@@ -35,53 +36,77 @@ with open("tok_example.mcap", "wb") as f:
             "operator": "Lue",
             "object": "keyboard",
             "skill": "click",
-        }
+        },
     )
     writer.add_metadata(
         name="hardware_info",
         data={
             "robot_type": "TOK2",
             "host_type": "X5_RDK",
-            "arm/lead_left/joint_names":
-                json.dumps(
-                    ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "eef_joint"]
-                ),
+            "arm/lead_left/joint_names": json.dumps(
+                [
+                    "joint1",
+                    "joint2",
+                    "joint3",
+                    "joint4",
+                    "joint5",
+                    "joint6",
+                    "eef_joint",
+                ]
+            ),
             "arm/lead_left/sku": "AIRBOT-Replay",
             "arm/lead_left/sn": "PB34123412340001",
-            "arm/lead_left/firmware":
-                json.dumps(
-                    ["0300", "0304", "0304", "0304", "0304", "0304", "0304", "0304"]
-                ),
-            "arm/lead_right/joint_names":
-                json.dumps(
-                    ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "eef_joint"]
-                ),
+            "arm/lead_left/firmware": json.dumps(
+                ["0300", "0304", "0304", "0304", "0304", "0304", "0304", "0304"]
+            ),
+            "arm/lead_right/joint_names": json.dumps(
+                [
+                    "joint1",
+                    "joint2",
+                    "joint3",
+                    "joint4",
+                    "joint5",
+                    "joint6",
+                    "eef_joint",
+                ]
+            ),
             "arm/lead_right/sku": "AIRBOT-Replay",
             "arm/lead_right/sn": "PB34123412340002",
-            "arm/lead_right/firmware":
-                json.dumps(
-                    ["0300", "0304", "0304", "0304", "0304", "0304", "0304", "0304"]
-                ),
-            "arm/follow_left/joint_names":
-                json.dumps(
-                    ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "eef_joint"]
-                ),
+            "arm/lead_right/firmware": json.dumps(
+                ["0300", "0304", "0304", "0304", "0304", "0304", "0304", "0304"]
+            ),
+            "arm/follow_left/joint_names": json.dumps(
+                [
+                    "joint1",
+                    "joint2",
+                    "joint3",
+                    "joint4",
+                    "joint5",
+                    "joint6",
+                    "eef_joint",
+                ]
+            ),
             "arm/follow_left/sku": "AIRBOT-Play",
             "arm/follow_left/sn": "PZ34123412340001",
-            "arm/follow_left/firmware":
-                json.dumps(
-                    ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
-                ),
-            "arm/follow_right/joint_names":
-                json.dumps(
-                    ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "eef_joint"]
-                ),
+            "arm/follow_left/firmware": json.dumps(
+                ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
+            ),
+            "arm/follow_right/joint_names": json.dumps(
+                [
+                    "joint1",
+                    "joint2",
+                    "joint3",
+                    "joint4",
+                    "joint5",
+                    "joint6",
+                    "eef_joint",
+                ]
+            ),
             "arm/follow_right/sku": "AIRBOT-Play",
             "arm/follow_right/sn": "PZ34123412340002",
-            "arm/follow_right/firmware":
-                json.dumps(
-                    ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
-                ),
+            "arm/follow_right/firmware": json.dumps(
+                ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
+            ),
             "eef/lead_left/sku": "AIRBOT-FE2",
             "eef/lead_left/sn": "BE34123412340001",
             "eef/lead_left/firmware": "0304",
@@ -118,7 +143,7 @@ with open("tok_example.mcap", "wb") as f:
             "cam/env_front/rgb/frame_size": "640x480",
             "cam/env_front/depth/save_type": "H264",
             "cam/env_front/rgb/save_type": "H264",
-        }
+        },
     )
 
     # schemas
@@ -306,7 +331,7 @@ with open("tok_example.mcap", "wb") as f:
                 channel_id=pose_channels[arm],
                 log_time=time.time_ns(),
                 publish_time=time.time_ns(),
-                data=bytes(pose_bytes)
+                data=bytes(pose_bytes),
             )
 
         for typ, arms in joint_pos.items():
@@ -326,7 +351,7 @@ with open("tok_example.mcap", "wb") as f:
                     channel_id=float_array_channels[typ][arm]["joint_pos"],
                     log_time=time.time_ns(),
                     publish_time=time.time_ns(),
-                    data=bytes(float_array_bytes)
+                    data=bytes(float_array_bytes),
                 )
         for typ, arms in joint_vel.items():
             for arm, vel in arms.items():
@@ -345,7 +370,7 @@ with open("tok_example.mcap", "wb") as f:
                     channel_id=float_array_channels[typ][arm]["joint_vel"],
                     log_time=time.time_ns(),
                     publish_time=time.time_ns(),
-                    data=bytes(float_array_bytes)
+                    data=bytes(float_array_bytes),
                 )
         for typ, arms in joint_eff.items():
             for arm, eff in arms.items():
@@ -364,7 +389,7 @@ with open("tok_example.mcap", "wb") as f:
                     channel_id=float_array_channels[typ][arm]["joint_eff"],
                     log_time=time.time_ns(),
                     publish_time=time.time_ns(),
-                    data=bytes(float_array_bytes)
+                    data=bytes(float_array_bytes),
                 )
         time.sleep(0.004)
     # Finish writing the file

@@ -1,4 +1,4 @@
-namespace airbot_type;
+namespace airbot_fbs;
 
 table FloatArray {
     values: [float];
