@@ -54,14 +54,20 @@ BUS_NAME_MAPPINGS = {
             "usb-0000:00:14.0-3.3": "follow_camera",
             "usb-0000:00:14.0-2": "env_camera",
         },
-    },
-    4: {  # hui qiang
+        # hui qiang
         "03000200-0400-0500-0006-000700080009": {
             # USB bus
-            "usb-0000:00:14.0-1": "left_camera",
-            "usb-0000:00:14.0-5.3": "right_camera",
+            "usb-0000:00:14.0-1": "follow_camera",
             "usb-0000:00:14.0-4": "env_camera",
         }
+    },
+    4: {
+        # "03000200-0400-0500-0006-000700080009": {
+        #     # USB bus
+        #     "usb-0000:00:14.0-1": "left_camera",
+        #     "usb-0000:00:14.0-5.3": "right_camera",
+        #     "usb-0000:00:14.0-4": "env_camera",
+        # }
     },
 }
 CAN_NAME_MAPPINGS = {
