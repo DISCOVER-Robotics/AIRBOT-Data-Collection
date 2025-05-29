@@ -310,6 +310,7 @@ class DemonstrateInterface:
         # start the auto control loop
         # TODO: should choose to use a process?
         if self.config.auto_control:
+            self.get_logger().info(bcolors.OKBLUE + "Starting auto control loop")
             self._deactivated = False
             self.auto_control_thread = Thread(
                 target=self._auto_control_loop,
