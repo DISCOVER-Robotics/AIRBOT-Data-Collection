@@ -106,7 +106,7 @@ class SystemInfo:
                     device_type = device_type.strip()
                     vendor = vendor.strip()
                     model = model.strip()
-                    revision = revision.strip() if revision else None
+                    revision = revision.strip() if revision else ""
 
                     devices[f"device{i}"] = {
                         "pci_address": pci_address,
