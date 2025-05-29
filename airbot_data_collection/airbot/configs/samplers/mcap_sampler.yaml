@@ -1,8 +1,0 @@
-_target_: airbot_data_collection.airbot.mcap_sampler.McapSampler
-
-task_info:
-  task_name: put_cup  # Name of the task, used for identification, logging, and reporting.
-  task_description: This is a sample task for mcap data collection. # Description of the task, providing context and details about what the task entails
-  task_id: mcap_task_001  # Unique identifier for the task, used for tracking and management.
-  station_id: station_001  # Identifier for the station where the task is performed, useful for multi-station setups.
-  operator: hongrui  # Name of the operator performing the task, useful for logging and accountability.

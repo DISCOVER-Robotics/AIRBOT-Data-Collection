@@ -26,7 +26,6 @@ class DictDataSampler(ConfigBasis):
 
     def on_configure(self) -> bool:
         self._data: DefaultDict[str, list] = defaultdict(list)
-        self._info = {}
         self._log_stamps: List[int] = []
         return True
 

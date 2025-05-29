@@ -22,6 +22,7 @@ dependencies = [
     "pynput",
     "tqdm",
     "mcap",
+    "flatten-dict",
 ]
 
 [project.optional-dependencies]

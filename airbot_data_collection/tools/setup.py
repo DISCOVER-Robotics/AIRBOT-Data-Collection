@@ -61,9 +61,9 @@ CAN_NAME_MAPPINGS = {
     },
     4: {
         "can0": "can_left_lead",
-        "can1": "can_left_follow",
+        "can1": "can_left",
         "can2": "can_right_lead",
-        "can3": "can_right_follow",
+        "can3": "can_right",
     },
 }
 
