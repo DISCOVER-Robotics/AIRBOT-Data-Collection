@@ -9,3 +9,4 @@ build/
 *.txt
 *.log
 test.py
+config_mcap.yaml
