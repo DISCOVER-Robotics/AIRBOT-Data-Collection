@@ -2,7 +2,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from logging import getLogger
 from threading import Event, Lock, Thread
-from typing import Any
+from typing import Any, List, Union, Callable
 
 from pydantic import BaseModel, ConfigDict
 
@@ -32,6 +32,10 @@ from airbot_data_collection.utils import (
     get_items_by_ext,
 )
 from airbot_data_collection.tools.system_info import SystemInfo
+import os
+
+
+Component = Union[System, Sensor]
 
 
 class GroupComponentNames(BaseModel):
@@ -39,13 +43,19 @@ class GroupComponentNames(BaseModel):
     followers: list[str] = []
     others: list[str] = []
 
+    def get_all_names(self) -> List[str]:
+        return self.leader + self.followers + self.others
+
 
 class DemonstrateGroup(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str
-    leader: list[System | Sensor] = []
-    followers: list[System | Sensor] = []
-    others: list[System | Sensor] = []
+    leader: list[Component] = []
+    followers: list[Component] = []
+    others: list[Component] = []
+
+    def get_all_components(self) -> List[Component]:
+        return self.leader + self.followers + self.others
 
 
 class ComponentsInstancer:
@@ -161,28 +171,39 @@ class DemonstrateInterface:
         Configure all the components.
         """
         for group, name in zip(self.groups, self.group_component_names):
-            names = name.leader + name.followers + name.others
-            components = group.leader + group.followers + group.others
             roles = (
                 [ComponentRole.l] * len(group.leader)
                 + [ComponentRole.f] * len(group.followers)
                 + [ComponentRole.o] * len(group.others)
             )
-            for component, n, role in zip(components, names, roles):
+            for component, n, role in zip(
+                group.get_all_components(), name.get_all_names(), roles
+            ):
                 if not component.configure():
                     self.get_logger().error(
                         f"Failed to configure {n} of role: {role} in group {group.name}"
                     )
                     return False
-        names = ["sampler"] + list(self.visualizers.keys())
-        components = [self.sampler] + list(self.visualizers.values())
-        types = ["sampler"] + ["visualizer"] * len(self.visualizers)
+        # set info before configuring the sampler
+        # so that the sampler can use it for configuring
+        names = list(self.visualizers.keys())
+        components = list(self.visualizers.values())
+        types = ["visualizer"] * len(self.visualizers)
+        self._configure_components(names, components, types)
+        self._set_info()
+        self._configure_components(["sampler"], [self.sampler], ["sampler"])
+        return True
+
+    def _configure_components(
+        self,
+        names: List[str],
+        components: List[Union[Visualizer, DataSampler]],
+        types: List[str],
+    ) -> bool:
         for name, component, tp in zip(names, components, types):
             if not component.configure():
                 self.get_logger().error(f"Failed to configure {tp}: {name}")
                 return False
-        self._set_info()
-        return True
 
     def _auto_control_loop(self):
         """Control the followers to follow the leader."""
@@ -307,6 +328,7 @@ class DemonstrateInterface:
                 self.config.sample_limit.size,
                 f"Round {self.sample_info.round}",
             )
+            os.makedirs(self.config.dataset.absolute_directory, exist_ok=True)
             return True
         return False
 
@@ -349,12 +371,19 @@ class DemonstrateInterface:
         self._role_mode_set[ComponentRole.f] = mode
         return True
 
-    def _get_sample_suffix(self, group_name: str, component_name: str, key: str) -> str:
+    def _get_component_key(self, group_name: str, component_name: str, key: str) -> str:
         # TODO: should allow component_name to be empty or the group name to be /?
         if component_name:
             return f"/{group_name}/{component_name}/{key}".removeprefix("//")
         else:
             return f"/{group_name}/{key}".removeprefix("//")
+
+    def _fully_process(self, func: Callable[[DemonstrateGroup, Component, str], None]):
+        for group, all_names in zip(self.groups, self.group_component_names):
+            for component, comp_name in zip(
+                group.get_all_components(), all_names.get_all_names()
+            ):
+                func(group, component, comp_name)
 
     def sample(self) -> bool:
         """
@@ -373,17 +402,14 @@ class DemonstrateInterface:
     def capture(self) -> dict[str, Any]:
         # TODO: can be called when sampling?
         data = {}
-        for group, all_names in zip(self.groups, self.group_component_names):
-            get_suffix = lambda name, key: self._get_sample_suffix(
-                group.name, name, key
-            )
-            for component, name in zip(
-                group.leader + group.followers + group.others,
-                all_names.leader + all_names.followers + all_names.others,
-            ):
-                observation = component.capture_observation()
-                for key, value in observation.items():
-                    data[get_suffix(name, key)] = value
+
+        def add_data(
+            group: DemonstrateGroup, component: Component, component_name: str
+        ):
+            for key, value in component.capture_observation().items():
+                data[self._get_component_key(group.name, component_name, key)] = value
+
+        self._fully_process(add_data)
         self.last_capture = data
         # update the visualizers
         for name, visualizer in self.visualizers.items():
@@ -472,7 +498,7 @@ class DemonstrateInterface:
         self._post_action(DemonstrateAction.finish)
         if self.deactivate():
             for group in self.groups:
-                for component in group.leader + group.followers + group.others:
+                for component in group.get_all_components():
                     component.shutdown()
             self.get_logger().info(
                 f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info}"
@@ -485,10 +511,18 @@ class DemonstrateInterface:
         Set the component info for the sampler.
         """
         info = {}
-        for group in self.groups:
-            for component in group.leader + group.followers + group.others:
-                info.update(component.get_info())
-        info.update(SystemInfo.all_info())
+
+        def add_info(
+            group: DemonstrateGroup, component: Component, component_name: str
+        ):
+            # info[self._get_component_key(group.name, component_name, "")] = (
+            #     component.get_info()
+            # )
+            for key, value in component.get_info().items():
+                info[self._get_component_key(group.name, component_name, key)] = value
+
+        self._fully_process(add_info)
+        info["system"] = SystemInfo.all_info()
         self.sampler.set_info(info)
 
     @property

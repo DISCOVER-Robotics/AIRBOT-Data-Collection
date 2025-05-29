@@ -13,7 +13,7 @@ class BsonV4L2Camera(V4L2Camera):
         self,
     ) -> dict[str, dict[str, int | bytes | ndarray]]:
         return {
-            "camera/color_image": {
+            "color/image_raw": {
                 "t": get_stamp_ms(),
                 "data": super().capture_observation(),
             }

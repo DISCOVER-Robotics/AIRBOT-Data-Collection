@@ -1,9 +1,8 @@
 import os
-from pydantic import BaseModel
+from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.common.samplers.basis import DictDataSampler
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from airbot_data_collection import __version__ as collector_version
-import json
 from typing import Literal, Dict
 import flatbuffers
 from mcap.writer import Writer
@@ -11,37 +10,9 @@ from mcap.well_known import SchemaEncoding, MessageEncoding
 from foxglove_schemas_flatbuffer import get_schema
 import foxglove_schemas_flatbuffer.CompressedImage as CompressedImage
 from importlib.resources import read_binary
-
-
-DEFAULT_META_DATA = {
-    "2AIRBOT-Play": {
-        "version": {
-            "driver_version": "5.1.3",
-            "recorder_version": "1",
-            "file_version": "1",
-        },
-        "hardware_info": {
-            "robot_type": "2AIRBOT-Play",
-            "host_type": "default",
-            "arm/lead/joint_names": json.dumps(
-                ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-            ),
-            "arm/lead/sku": "AIRBOT-Play",
-            "arm/lead/sn": "DEFAULT-SN-00001",
-            "arm/lead/firmware": json.dumps(
-                ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
-            ),
-            "arm/follow/joint_names": json.dumps(
-                ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-            ),
-            "arm/follow/sku": "AIRBOT-Play",
-            "arm/follow/sn": "DEFAULT-SN-00002",
-            "arm/follow/firmware": json.dumps(
-                ["0513", "0419", "0419", "0419", "5015", "5015", "5015", "5015", "0502"]
-            ),
-        },
-    }
-}
+from flatten_dict import flatten
+import json
+from time import time_ns
 
 
 class TaskInfo(BaseModel):
@@ -69,32 +40,50 @@ class AIRBOTMcapDataSamplerConfig(BaseModel):
     task_info: TaskInfo = TaskInfo()
     version: Version = Version()
     save_type: SaveType = SaveType()
+    initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
 
 
 class AIRBOTMcapDataSampler(DictDataSampler):
     config: AIRBOTMcapDataSamplerConfig
+    _info: Dict[str, Dict[str, str]]
 
     def on_configure(self):
-        super().on_configure()
-        self.builder = flatbuffers.Builder(1024 * 1024)
-        return True
+        """Configure the mcap data sampler."""
+        self.builder = flatbuffers.Builder(self.config.initial_builder_size)
+        return super().on_configure()
 
     def save(self, path: str) -> str:
         """Save the data to a MCAP file."""
+        self.get_logger().info(f"data keys: {list(self._data.keys())}")
         with open(path, "wb") as f:
-            # Create the writer
             writer = Writer(f)
             writer.start()
-
-            # metadata
-            # for key, value in self._info.items():
-            #     print(f"Adding metadata: {key}")
-            #     from pprint import pprint
-
-            #     pprint(value)
-            #     writer.add_metadata(name=key, data=value)
-
-            # schemas
+            info = self._info.copy()
+            # add metadata
+            config_dict = self.config.model_dump()
+            config_dict.pop("initial_builder_size")
+            for key, value in config_dict.items():
+                writer.add_metadata(name=key, data=value)
+            from pprint import pprint
+            pprint(info)
+            for key, value in info.pop("system").items():
+                writer.add_metadata(name=key, data=flatten(value, "path"))
+            # add attachments
+            """
+                text/plain: 纯文本
+                text/html：HTML 文档
+                application/json：JSON 数据
+                image/png：PNG 图像
+                video/mp4：MP4 视频
+            """
+            writer.add_attachment(
+                time_ns(),
+                time_ns(),
+                name="component_info",
+                data=json.dumps(info).encode("utf-8"),
+                media_type="application/json",
+            )
+            # add schemas
             float_array_schema_id = writer.register_schema(
                 name="airbot_fbs.FloatArray",
                 encoding=SchemaEncoding.Flatbuffer,
@@ -109,10 +98,9 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                 data=get_schema("CompressedImage"),
             )
 
-            # register channels and write messages
+            # register channels and add messages
             for key, values in self._data.items():
-                prefix, data_type = key.rsplit("/", 1)
-                if data_type == "color_image":
+                if "color" in key:
                     data_type = "compressed_image"
                     channel_id = writer.register_channel(
                         schema_id=compressed_image_schema_id,
@@ -123,7 +111,8 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                         "format": self.config.save_type.image,
                         "frame_id": "airbot",
                     }
-                elif data_type == "joint_state":
+                elif "joint_state" in key:
+                    data_type = "joint_state"
                     fields = values[0]["data"].keys()
                     channel_id = {}
                     for field in fields:
@@ -222,7 +211,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             values = self.builder.Output()
             writer.add_message(
                 channel_id=channel_id[field],
-                data=bytes(values),
+                data=values,
                 publish_time=publish_time,
                 log_time=log_time,
             )

@@ -1,5 +1,7 @@
-from airbot_data_collection.airbot.robots.airbot_play import (AIRBOTPlay,
-                                                              AIRBOTPlayConfig)
+from airbot_data_collection.airbot.robots.airbot_play import (
+    AIRBOTPlay,
+    AIRBOTPlayConfig,
+)
 
 
 class AIRBOTArmMock:
@@ -25,6 +27,9 @@ class AIRBOTArmMock:
     def get_eef_eff(self):
         return [0.0]
 
+    def get_product_info(self):
+        return {}
+
 
 class AIRBOTPlayMock(AIRBOTPlay):
     """
@@ -45,6 +50,3 @@ class AIRBOTPlayMock(AIRBOTPlay):
 
     def shutdown(self):
         return True
-
-    def get_info(self):
-        return {}

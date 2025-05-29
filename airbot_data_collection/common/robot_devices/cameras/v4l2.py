@@ -109,12 +109,13 @@ class V4L2Camera(Sensor):
         self.device.controls._init_if_needed()
         id_to_name = {}
         for ctrl in self.device.info.controls:
-            id_to_name[ctrl.id] = ctrl.name.decode()
+            id_to_name[ctrl.id] = ctrl.name.decode().lower().replace(" ", "_")
         ctrl_info = {}
         for key, ctrl in self.device.controls.items():
             ctrl_info[id_to_name[key]] = ctrl.value
+        fps = self._capture.get_fps().as_integer_ratio()
         info.update(
-            {"fps": self._capture.get_fps(), "pixel_format": cam_format.pixel_format}
+            {"fps": str(fps[0] / fps[1]), "pixel_format": cam_format.pixel_format.value}
         )
         info.update(ctrl_info)
         dev_info = self.device.info
