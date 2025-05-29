@@ -76,11 +76,22 @@ class AIRBOTMMK(System):
     def reset(self, sleep_time=0):
         if self.config.default_action is not None:
             goal = self._action_to_goal(self.config.default_action)
-            self.interface.set_goal(goal, TrajectoryParams())
+            self._move_by_traj(goal)
         else:
             logger.warning("No default action is set.")
         time.sleep(sleep_time)
         self.enter_servo_mode()
+
+    def _move_by_traj(self, goal: dict):
+        if self.config.demonstrate:
+            # TODO: since the arms and eefs are controlled by the teleop bag
+            for comp in MMK2ComponentsGroup.ARMS_EEFS:
+                goal.pop(comp)
+        if goal:
+            # start = time.time()
+            # logger.info(f"Move by trajectory")
+            self.interface.set_goal(goal, TrajectoryParams())
+            self.interface.set_goal(goal, ForwardPositionParams())
 
     def send_action(self, action):
         # 检查是否是来自 bson 播放器的字典格式数据
