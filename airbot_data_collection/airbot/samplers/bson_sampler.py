@@ -41,6 +41,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
         if not self.topics:  # TODO: how to configure?
             for key, value in data.items():
                 prefix, data_type = key.rsplit("/", 1)
+                # print(f"Processing topic: {key}, prefix: {prefix}, data_type: {data_type}")
                 if data_type in {"joint_state", "pose"}:
                     self.topics[key] = {
                         "description": "",
@@ -48,7 +49,7 @@ class AIRBOTBsonDataSampler(DictDataSampler):
                         "sn": "",
                         "firmware_version": "0.0.0",
                     }
-                elif data_type == "color_image":
+                elif data_type == "image_raw":
                     h, w = value["data"].shape[:2]
                     self.topics[key] = {
                         "description": "DSJ-2062-309",

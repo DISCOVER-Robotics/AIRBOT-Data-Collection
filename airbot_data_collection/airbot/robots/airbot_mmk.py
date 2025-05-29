@@ -236,8 +236,8 @@ class AIRBOTMMK(System):
                             },
                         }
                     else:
-                        # print(f"[WARNING] No data received for component: {comp}")
-                        return data
+                        print(f"[WARNING] No data received for component: {comp}")
+        return data
 
     def _set_js_field(
         self, data: dict, comp: MMK2Components, t: float, js: JointState
