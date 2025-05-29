@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional, Protocol, final, runtime_checkable
+from typing import Protocol, final, runtime_checkable
 
 from pydantic import BaseModel
 

@@ -1,16 +1,13 @@
 from enum import Enum
 from pprint import pformat
-from typing import Dict
 
 from bidict import bidict
 from pydantic import BaseModel
 from pynput import keyboard
 
-from airbot_data_collection.demonstrate.configs import (ComponentRole,
-                                                        SystemMode)
+from airbot_data_collection.demonstrate.configs import ComponentRole
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
-from airbot_data_collection.state_machine.fsm import \
-    DemonstrateAction as Action
+from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from airbot_data_collection.utils import bcolors
 
 

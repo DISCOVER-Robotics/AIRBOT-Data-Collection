@@ -9,16 +9,16 @@ from mcap.reader import make_reader
 def validate_mcap(mcap_file: str):
     """验证MCAP文件的结构和内容"""
     print(f"验证MCAP文件: {mcap_file}")
-    
+
     with open(mcap_file, "rb") as f:
         reader = make_reader(f)
-        
+
         # 获取摘要信息
         summary = reader.get_summary()
         print(f"消息总数: {summary.message_count if hasattr(summary, 'message_count') else 'N/A'}")
         print(f"通道数: {len(summary.channels) if hasattr(summary, 'channels') else 'N/A'}")
         print(f"Schema数: {len(summary.schemas) if hasattr(summary, 'schemas') else 'N/A'}")
-        
+
         # 显示schemas
         print("\nSchemas:")
         if hasattr(summary, 'schemas'):
@@ -32,7 +32,7 @@ def validate_mcap(mcap_file: str):
                         print(f"    属性: {props}")
                 except json.JSONDecodeError:
                     print(f"    数据: {schema.data[:100]}...")
-        
+
         # 显示channels
         print("\nChannels:")
         if hasattr(summary, 'channels'):
@@ -40,18 +40,18 @@ def validate_mcap(mcap_file: str):
                 print(f"  Channel ID {channel_id}: {channel.topic}")
                 print(f"    Schema ID: {channel.schema_id}")
                 print(f"    消息编码: {channel.message_encoding}")
-        
+
         # 读取前几条消息进行验证
         print("\n前几条消息:")
         message_count = 0
         for schema, channel, message in reader.iter_messages():
             if message_count >= 3:  # 只显示前3条消息
                 break
-                
+
             print(f"  消息 {message_count + 1}:")
             print(f"    话题: {channel.topic}")
             print(f"    时间戳: {message.log_time}")
-            
+
             try:
                 # 尝试解析消息数据
                 if channel.message_encoding == "json":
@@ -67,7 +67,7 @@ def validate_mcap(mcap_file: str):
                     print(f"    数据长度: {len(message.data)} bytes")
             except Exception as e:
                 print(f"    解析错误: {e}")
-            
+
             message_count += 1
             print()
 
@@ -76,9 +76,9 @@ def main():
     parser = argparse.ArgumentParser(description="验证MCAP文件")
     parser.add_argument("mcap_file", help="MCAP文件路径")
     args = parser.parse_args()
-    
+
     validate_mcap(args.mcap_file)
 
 
 if __name__ == "__main__":
-    main() 
+    main()

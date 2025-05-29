@@ -108,11 +108,11 @@ class AIRBOTMMK(System):
     def _observation_to_action(self, obs: dict) -> list[float]:
         """将 bson 观察数据转换为动作列表"""
         action = []
-        
+
         # 按照组件顺序提取关节位置，兼容不同的数据格式
         for comp in self.config.components:
             comp_name = comp.value
-            
+
             # 尝试多种可能的数据格式和命名空间
             possible_keys = [
                 f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
@@ -120,12 +120,12 @@ class AIRBOTMMK(System):
                 f"action/{comp_name}/joint_state",    # action 命名空间
                 f"observation/{comp_name}/joint_state"  # observation 命名空间
             ]
-            
+
             found_data = False
             for joint_key in possible_keys:
                 if joint_key in obs:
                     joint_data = obs[joint_key]
-                    
+
                     # 处理不同的数据结构
                     pos_data = None
                     if isinstance(joint_data, dict):
@@ -137,19 +137,19 @@ class AIRBOTMMK(System):
                             pos_data = joint_data["position"]
                     elif isinstance(joint_data, list):
                         pos_data = joint_data
-                    
+
                     if pos_data:
                         action.extend(pos_data)
                         found_data = True
                         break
-            
+
             if not found_data:
                 self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据，尝试的键: {possible_keys}")
-        
+
         if not action:
             self.get_logger().error("无法从观察数据中提取任何关节位置信息")
             return []
-        
+
         return action
 
     def _action_to_goal(self, action) -> Dict[MMK2Components, JointState]:
@@ -167,7 +167,7 @@ class AIRBOTMMK(System):
         expected_dim = sum(len(self._joint_names[comp.value]) for comp in self.config.components)
         if len(action) != expected_dim:
             raise ValueError(f"Action dimension mismatch: expected {expected_dim}, got {len(action)}")
-    
+
     def enter_traj_mode(self):
         self.traj_mode = True
 

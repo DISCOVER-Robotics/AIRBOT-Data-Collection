@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @dataclass
-class AIRBOTMMK2Config(object):
+class AIRBOTMMK2Config:
     name: str = "mmk2"
     domain_id: int = -1
     ip: str = "192.168.11.200"
@@ -51,7 +51,7 @@ class AIRBOTMMK2Config(object):
     demonstrate: bool = True
 
 
-class AIRBOTMMK2(object):
+class AIRBOTMMK2:
     def __init__(self, config: Optional[AIRBOTMMK2Config] = None, **kwargs) -> None:
         if config is None:
             config = AIRBOTMMK2Config()
@@ -80,7 +80,7 @@ class AIRBOTMMK2(object):
         logger.info(f"Joint numbers: {self.joint_num}")
 
         print(self.cameras)
-        
+
         self.robot.enable_resources(
             {
                 comp: {
@@ -210,10 +210,10 @@ class AIRBOTMMK2(object):
         obs_act_dict = {}
         for comp, stamp in img_stamps.items():
             obs_act_dict[f"/time/{comp}"] = stamp.sec + stamp.nanosec * 1e-9
-        # Populate output dictionnaries and format to pytorch
+        # Populate output dictionaries and format to pytorch
         obs_act_dict["low_dim"] = low_dim_data
         for name in images:
-            print(images[name].shape)
+            # print(images[name].shape)
             obs_act_dict[f"observation.images.{name}"] = images[name]
         return obs_act_dict
 

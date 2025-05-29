@@ -1,21 +1,15 @@
-from enum import Enum
-from pprint import pformat
-from typing import Dict, Any
+from typing import Dict
 import time
-from abc import ABC, abstractmethod
 
-from bidict import bidict
 from pydantic import BaseModel
 import logging
 import rclpy
 from rclpy.node import Node
-from std_srvs.srv import SetBool   # 使用空服务类型
+from std_srvs.srv import SetBool
 from std_msgs.msg import Float32MultiArray
 
-from airbot_data_collection.demonstrate.configs import ComponentRole, SystemMode
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.utils import bcolors
 
 from rclpy.qos import QoSProfile, QoSHistoryPolicy, QoSDurabilityPolicy
 
