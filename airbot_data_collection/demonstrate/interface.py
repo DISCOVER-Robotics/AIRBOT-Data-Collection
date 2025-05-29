@@ -335,6 +335,7 @@ class DemonstrateInterface:
 
     def deactivate(self) -> bool:
         self._deactivated = True
+        self._auto_control_event.set()
         self.auto_control_thread.join(5.0)
         if self.auto_control_thread.is_alive():
             self.get_logger().error(
