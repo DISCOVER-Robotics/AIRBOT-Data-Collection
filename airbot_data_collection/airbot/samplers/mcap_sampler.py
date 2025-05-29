@@ -141,6 +141,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             writer.finish()
         # end_time = time.time()
         # print(f"Data saved to {path} in {end_time - start_time:.2f} seconds.")
+        self._data.clear()
         return path
 
     def compose_path(self, directory, round) -> str:
