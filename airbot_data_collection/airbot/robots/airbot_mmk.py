@@ -117,9 +117,9 @@ class AIRBOTMMK(System):
                     pos_data = None
                     if isinstance(joint_data, dict):
                         if "data" in joint_data and isinstance(joint_data["data"], dict):
-                            pos_data = joint_data["data"].get("pos", [])
-                        elif "pos" in joint_data:
-                            pos_data = joint_data["pos"]
+                            pos_data = joint_data["data"].get("position", [])
+                        elif "position" in joint_data:
+                            pos_data = joint_data["position"]
                         elif "position" in joint_data:
                             pos_data = joint_data["position"]
                     elif isinstance(joint_data, list):
@@ -173,7 +173,7 @@ class AIRBOTMMK(System):
         # t = stamp.sec + stamp.nanosec * 1e-9
         for comp in self.config.components:
             comp_name = comp.value
-            self._set_js_bson(data, comp, t, all_joints)
+            self._set_js_field(data, comp, t, all_joints)
             if comp == MMK2Components.BASE:
                 base_pose = robot_state.base_state.pose
                 base_vel = robot_state.base_state.velocity
@@ -191,9 +191,9 @@ class AIRBOTMMK(System):
                 data[f"observation/{comp_name}/joint_state"] = {
                     "t": t,
                     "data": {
-                        "pos": data_pose,
-                        "vel": data_vel,
-                        "eff": [0.0] * len(data_pose),
+                        "position": data_pose,
+                        "velocity": data_vel,
+                        "effort": [0.0] * len(data_pose),
                     },
                 }
         if self.config.demonstrate:
@@ -208,17 +208,17 @@ class AIRBOTMMK(System):
                     data[f"action/{comp.value}/joint_state"] = {
                         "t": t,
                         "data": {
-                            "pos": jq[:-1],
-                            "vel": [0.0] * len(arm_jn),
-                            "eff": [0.0] * len(arm_jn),
+                            "position": jq[:-1],
+                            "velocity": [0.0] * len(arm_jn),
+                            "effort": [0.0] * len(arm_jn),
                         },
                     }
                     data[f"action/{comp_eef}/joint_state"] = {
                         "t": t,
                         "data": {
-                            "pos": [jq[-1]],
-                            "vel": [0.0],
-                            "eff": [0.0],
+                            "position": [jq[-1]],
+                            "velocity": [0.0],
+                            "effort": [0.0],
                         },
                     }
 
@@ -230,16 +230,16 @@ class AIRBOTMMK(System):
                         data[f"action/{comp.value}/joint_state"] = {
                             "t": t,
                             "data": {
-                                "pos": jq,
-                                "vel": [0.0] * len(jq),
-                                "eff": [0.0] * len(jq),
+                                "position": jq,
+                                "velocity": [0.0] * len(jq),
+                                "effort": [0.0] * len(jq),
                             },
                         }
                     else:
                         # print(f"[WARNING] No data received for component: {comp}")
                         return data
 
-    def _set_js_bson(
+    def _set_js_field(
         self, data: dict, comp: MMK2Components, t: float, js: JointState
     ):
         comp_data = {"t": t, "data": {}}
@@ -275,7 +275,7 @@ class AIRBOTMMK(System):
             # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
             # print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
-            obs_act_dict[f"{name}/color_image"] = {
+            obs_act_dict[f"{name}/color/image_raw"] = {
                 "t": t,
                 "data": images[name],
             }
