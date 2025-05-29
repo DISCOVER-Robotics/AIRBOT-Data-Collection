@@ -261,7 +261,7 @@ class AIRBOTMMK(System):
                 js, self._joint_names[comp.value], field
             )
             comp_data["data"][field[:3]] = value
-        data[f"{comp.value}/joint_state"] = comp_data
+        data[f"observation/{comp.value}/joint_state"] = comp_data
 
     def _capture_images(self) -> Tuple[Dict[str, bytes], Dict[str, Time]]:
         images = {}
