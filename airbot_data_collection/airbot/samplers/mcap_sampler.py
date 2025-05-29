@@ -33,7 +33,7 @@ class SaveType(BaseModel):
 
 class Version(BaseModel):
     collector: str = collector_version
-    schema: str = "0.0.1"
+    data_schema: str = "0.0.1"
 
 
 class AIRBOTMcapDataSamplerConfig(BaseModel):
@@ -64,8 +64,6 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             config_dict.pop("initial_builder_size")
             for key, value in config_dict.items():
                 writer.add_metadata(name=key, data=value)
-            from pprint import pprint
-            pprint(info)
             for key, value in info.pop("system").items():
                 writer.add_metadata(name=key, data=flatten(value, "path"))
             # add attachments
