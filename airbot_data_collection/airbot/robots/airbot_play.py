@@ -88,8 +88,8 @@ class AIRBOTPlay(System):
     def observation_to_action(self, obs: dict) -> list[float]:
         """Convert the observation to final action"""
         action = []
-        for kind in ["arm", "eef"]:
-            action.extend(obs[f"{kind}/joint_state"]["data"]["pos"])
+        for component in ["arm", "eef"]:
+            action.extend(obs[f"{component}/joint_state"]["data"]["position"])
         return action
 
 

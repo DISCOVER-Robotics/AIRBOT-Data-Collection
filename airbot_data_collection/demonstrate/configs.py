@@ -246,7 +246,7 @@ class AutoControlConfig(BaseModel):
     # None means all group names are used
     # if empty, the control should be implicitly implemented when
     # switching to the active / passive mode
-    groups: list[str] = []
+    groups: Optional[list[str]] = None
     # the rate of the auto control loop for each group
     # 0 means as fast as possible
     rate: list[NonNegativeInt] = []
