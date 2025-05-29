@@ -4,7 +4,6 @@ from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from pydantic import BaseModel, PositiveInt
 
 from airbot_data_collection.basis import System, SystemMode
-from google.protobuf.internal.containers import RepeatedScalarFieldContainer
 from time import time_ns
 
 
@@ -79,11 +78,7 @@ class AIRBOTPlay(System):
 
     def get_info(self):
         return {
-            key: (
-                list(value)
-                if isinstance(value, RepeatedScalarFieldContainer)
-                else value
-            )
+            key: list(value) if not isinstance(value, str) else value
             for key, value in self.interface.get_product_info().items()
         } | {
             "arm/joint_names": [f"joint{i}" for i in range(1, 7)],
