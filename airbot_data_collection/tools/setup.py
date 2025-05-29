@@ -43,19 +43,25 @@ init_logging(logging.INFO)
 logger = logging.getLogger("data_collection_setup")
 
 
-hw_sn = SystemInfo.get_product(True)["serial_number"]
-logger.info(f"Hardware serial number: {hw_sn}")
+hw_uuid = SystemInfo.get_product(True)["uuid"]
+logger.info(f"Hardware uuid: {hw_uuid}")
 
 BUS_NAME_MAPPINGS = {
     2: {
-        # PC SN
-        "422096H32290450831": {
+        # PC UUID
+        "b0dc8900-3b32-11ed-99b1-ef6412dd1a00": {
+            # USB bus
+            "usb-0000:00:14.0-3.3": "follow_camera",
+            "usb-0000:00:14.0-2": "env_camera",
+        },
+    },
+    4: {  # hui qiang
+        "03000200-0400-0500-0006-000700080009": {
             # USB bus
             "usb-0000:00:14.0-3.3": "follow_camera",
             "usb-0000:00:14.0-2": "env_camera",
         }
     },
-    4: {},
 }
 CAN_NAME_MAPPINGS = {
     2: {
@@ -77,7 +83,7 @@ can_group_num = len(can_buses)
 assert can_num in BUS_NAME_MAPPINGS, f"Not enough can: {can_itfs}"
 
 logger.info(f"CAN interfaces: {can_buses}")
-bus_name_mapping = BUS_NAME_MAPPINGS[can_num][hw_sn]
+bus_name_mapping = BUS_NAME_MAPPINGS[can_num][hw_uuid]
 can_name_mapping = CAN_NAME_MAPPINGS[can_num]
 
 cur_dir = os.path.abspath(os.path.dirname(__file__))
