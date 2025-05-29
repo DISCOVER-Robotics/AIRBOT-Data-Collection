@@ -11,3 +11,9 @@ bash install.sh
 ```bash
 python3 tools/setup.py
 ```
+
+# Usage
+
+```bash
+python3 main.py --path defaults/config_setup.yaml
+```
