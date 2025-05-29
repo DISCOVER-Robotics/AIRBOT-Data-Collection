@@ -64,6 +64,7 @@ class AIRBOTMMK(System):
         self._joint_names = JointNames().__dict__
         print(f"[DEBUG] _joint_names: {self._joint_names}")
         self._check_joints(self.interface.get_robot_state().joint_state.name)
+        self.reset()
         return True
 
     def reset(self, sleep_time=0):
@@ -248,12 +249,14 @@ class AIRBOTMMK(System):
     def _capture_images(self) -> Tuple[Dict[str, bytes], Dict[str, Time]]:
         images = {}
         img_stamps: Dict[MMK2Components, Time] = {}
-        # print(f"[DEBUG] Capturing images from cameras: {self.config.cameras}")
-        comp_images = self.interface.get_image({cam: [ImageTypes.COLOR] for cam in self.config.cameras})
+        before_camread_t = time.perf_counter()
+        comp_images = self.interface.get_image(self.cameras)
         for comp, image in comp_images.items():
             # TODO: now only support for color image
             images[comp.value] = image.data[ImageTypes.COLOR]
             img_stamps[comp.value] = image.stamp
+
+        print(f"async_read_camera_{time.perf_counter() - before_camread_t}_dt_s")
         return images, img_stamps
 
     def capture_observation(self):
@@ -261,14 +264,14 @@ class AIRBOTMMK(System):
         # Capture images from cameras
         obs_act_dict = self._get_low_dim()
         images, img_stamps = self._capture_images()
+
         for name in images:
-            if not isinstance(images[name], np.ndarray):
-                raise TypeError(f"Image data for {name} is not a valid np.ndarray")
             stamp = img_stamps[name]
             t = int((stamp.sec + stamp.nanosec * 1e-9) * 1000)
             # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
             # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
+            # print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
             obs_act_dict[f"{name}/color_image"] = {
                 "t": t,
                 "data": images[name],
