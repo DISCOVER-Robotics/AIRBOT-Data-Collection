@@ -169,8 +169,6 @@ class AIRBOTMcapDataSampler(DictDataSampler):
         frame_id: str,
     ):
         """Add a compressed image message to the MCAP writer."""
-        if isinstance(data, np.ndarray):
-            data = data.tobytes()
 
         fmt_str = self.builder.CreateString(format)
         frame_id_str = self.builder.CreateString(frame_id)
