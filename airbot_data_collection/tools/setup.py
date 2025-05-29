@@ -43,13 +43,16 @@ init_logging(logging.INFO)
 logger = logging.getLogger("data_collection_setup")
 
 
+hw_sn = SystemInfo.get_product(True)["serial_number"]
+logger.info(f"Hardware serial number: {hw_sn}")
+
 BUS_NAME_MAPPINGS = {
     2: {
         # PC SN
         "422096H32290450831": {
             # USB bus
-            "usb-0000:00:14.0-3.3": "follow",
-            "usb-0000:00:14.0-2": "env",
+            "usb-0000:00:14.0-3.3": "follow_camera",
+            "usb-0000:00:14.0-2": "env_camera",
         }
     },
     4: {},
@@ -72,9 +75,8 @@ can_buses = list_to_nested_tuples(can_itfs)
 can_num = len(can_itfs)
 can_group_num = len(can_buses)
 assert can_num in BUS_NAME_MAPPINGS, f"Not enough can: {can_itfs}"
-hw_sn = SystemInfo.get_product(True)["serial_number"]
+
 logger.info(f"CAN interfaces: {can_buses}")
-logger.info(f"Hardware serial number: {hw_sn}")
 bus_name_mapping = BUS_NAME_MAPPINGS[can_num][hw_sn]
 can_name_mapping = CAN_NAME_MAPPINGS[can_num]
 
@@ -149,13 +151,19 @@ while True:
         logger.info("Exiting setup script.")
         break
     elif key == ord("s"):
+        if can_group_num == 1:
+            groups = ["/"] * (len(can_itfs) + len(opened_indices))
+        elif can_group_num == 2:
+            groups = ["/left"] * 2 + ["/right"] * 2 + ["/"] * len(opened_indices)
+        else:
+            raise NotImplementedError
         components = {
             "paths": ["airbot_play"] * len(can_itfs) + ["v4l2"] * len(opened_indices),
             "params": [{"port": 50050 + i} for i in range(len(can_itfs))]
             + [{"camera_index": bus} for bus in opened_buses],
             "names": ["lead", "follow"] * can_group_num + opened_names,
             "roles": ["l", "f"] * can_group_num + ["o"] * len(opened_indices),
-            "groups": ["/"] * (len(can_itfs) + len(opened_indices)),
+            "groups": groups,
         }
         pprint(components)
         file_path = f"{cur_dir}/../defaults/config_mcap.yaml"

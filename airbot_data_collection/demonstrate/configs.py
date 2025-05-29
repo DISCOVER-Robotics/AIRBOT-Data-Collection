@@ -4,8 +4,7 @@ from collections import Counter
 from enum import auto
 from typing import Any, Dict, List, Optional, Set, Union
 
-from pydantic import (BaseModel, NonNegativeFloat, NonNegativeInt,
-                      computed_field)
+from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
 
 from airbot_data_collection.basis import SystemMode
 from airbot_data_collection.utils import StrEnum
@@ -78,7 +77,7 @@ class ComponentGroupsConfig(BaseModel):
     # names of the robots, e.g. ("left_arm", "right_arm", "head_camera")
     names: list[str] = []
     # paths to the robot hydra config yaml files
-    paths: list[str]
+    paths: list[str] = []
     # params to override the robot config in the yaml file
     params: list[str | dict] = []
     # the groups to which the robot belongs,
@@ -115,7 +114,8 @@ class ComponentGroupsConfig(BaseModel):
             self.params
         ), "names and params must have the same length"
         self.params = [
-            literal_eval(param) for param in self.params if isinstance(param, str)
+            literal_eval(param) if isinstance(param, str) else param
+            for param in self.params
         ]
         group_num = len(self.groups)
         role_num = len(self.roles)
@@ -170,6 +170,10 @@ class ComponentGroupsConfig(BaseModel):
         """
         Returns a set of grouped configs.
         """
+        print(self.groups)
+        print(self.names)
+        print(self.roles)
+        print(self.params)
         group_set = set(self.groups)
         grouped_config = []
         for group in group_set:
@@ -204,7 +208,7 @@ class ComponentGroupsConfig(BaseModel):
 class DatasetConfig(BaseModel):
     root: str = "./data"  # root directory of all data
     # relative directory to the root directory where the data files are stored
-    directory: str
+    directory: str = ""
     # used to automatically get the start sample round
     file_extension: str = "."
 
