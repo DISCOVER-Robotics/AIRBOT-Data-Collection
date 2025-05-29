@@ -13,7 +13,7 @@ from importlib.resources import read_binary
 from flatten_dict import flatten
 import json
 from time import time_ns
-
+import numpy as np
 
 class TaskInfo(BaseModel):
     # Name of the task, used for identification, logging, and reporting.
@@ -169,6 +169,7 @@ class AIRBOTMcapDataSampler(DictDataSampler):
         frame_id: str,
     ):
         """Add a compressed image message to the MCAP writer."""
+
         fmt_str = self.builder.CreateString(format)
         frame_id_str = self.builder.CreateString(frame_id)
         data_vec = self.builder.CreateByteVector(data)

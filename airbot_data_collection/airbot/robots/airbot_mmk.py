@@ -14,6 +14,7 @@ from pydantic import BaseModel, PositiveInt
 from typing import Optional, List, Union, Dict, Tuple
 import numpy as np
 import time
+from turbojpeg import TurboJPEG
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -66,6 +67,7 @@ class AIRBOTMMK(System):
         print(f"[DEBUG] _joint_names: {self._joint_names}")
         self._check_joints(self.interface.get_robot_state().joint_state.name)
         self.reset()
+        self.jpeg = TurboJPEG()
         return True
 
     def get_info(self):
@@ -236,8 +238,8 @@ class AIRBOTMMK(System):
                             },
                         }
                     else:
-                        # print(f"[WARNING] No data received for component: {comp}")
-                        return data
+                        print(f"[WARNING] No data received for component: {comp}")
+        return data
 
     def _set_js_field(
         self, data: dict, comp: MMK2Components, t: float, js: JointState
@@ -277,7 +279,7 @@ class AIRBOTMMK(System):
             # print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
             obs_act_dict[f"{name}/color/image_raw"] = {
                 "t": t,
-                "data": images[name],
+                "data": self.jpeg.encode(images[name]),
             }
         return obs_act_dict
 
