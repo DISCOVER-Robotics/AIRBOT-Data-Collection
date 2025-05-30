@@ -110,7 +110,7 @@ cur_dir = os.path.abspath(os.path.dirname(__file__))
 for can_group in can_buses:
     new_can = [can_name_mapping.get(can, can) for can in can_group]
     if set(new_can) != set(can_group):
-        for can in new_can:
+        for can in can_group:
             assert can in can_name_mapping, f"Unknown CAN interface: {can}"
         execute_shell_script(
             f"{cur_dir}/bind_can_udev.sh",
