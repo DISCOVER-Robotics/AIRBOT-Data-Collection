@@ -1,0 +1,28 @@
+bus_name_mapping:
+  2:
+    03000200-0400-0500-0006-000700080009:
+      usb-0000:00:14.0-1: follow_camera
+      usb-0000:00:14.0-4: env_camera
+    b0dc8900-3b32-11ed-99b1-ef6412dd1a00:
+      usb-0000:00:14.0-3: follow_camera
+      usb-0000:00:14.0-5: env_camera
+    c5bc8546-51a9-21a3-9b32-1c697aa5e070:
+      usb-0000:00:14.0-2: follow_camera
+      usb-0000:00:14.0-3: env_camera
+  4:
+    2f65ca50-4038-4964-8c95-fc5cee443bea:
+      usb-0000:00:14.0-11.1: env_camera
+      usb-0000:00:14.0-11.3: left_camera
+      usb-0000:00:14.0-4: right_camera
+    62861f46-94eb-43f2-bc3b-c4efbbf6083e:
+      usb-0000:00:14.0-13.3: right_camera
+      usb-0000:00:14.0-4: env_camera
+      usb-0000:00:14.0-8: left_camera
+choices:
+  2:
+  - follow_camera
+  - env_camera
+  4:
+  - left_camera
+  - right_camera
+  - env_camera

@@ -140,8 +140,6 @@ class V4L2Camera(Sensor):
         :param prefix: Prefix for the visualizer key.
         """
         self._visualizer = visualizer
-        self._vis_prefix = f"{prefix} :" if prefix else ""
-        self._vis_key = f"{self._vis_prefix} {str(self.device.filename)} : {self.device.info.bus_info}"
 
     async def _read_frame(self):
         with self._capture as stream:

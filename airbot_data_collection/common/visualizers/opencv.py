@@ -6,7 +6,10 @@ import numpy as np
 from pydantic import BaseModel
 
 from airbot_data_collection.common.visualizers.basis import (
-    GUIVisualizerConfig, SampleInfo, VisualizerBasis)
+    GUIVisualizerConfig,
+    SampleInfo,
+    VisualizerBasis,
+)
 
 
 def prepare_cv2_imshow(logger: logging.Logger):
@@ -51,6 +54,8 @@ class OpenCVisualizerConfig(GUIVisualizerConfig):
     """Configuration for OpenCV visualizer."""
 
     window_type: int = cv2.WINDOW_NORMAL
+    # -1 means do not wait key
+    wait_key: int = 1
 
 
 class TextConfig(BaseModel):
@@ -90,7 +95,8 @@ class OpenCVisualizer(VisualizerBasis):
         if not self.config.ignore_info:
             image = self._put_info(self.info_image.copy(), info)
             cv2.imshow("info", image)
-        cv2.waitKey(1)
+        if self.config.wait_key > 0:
+            cv2.waitKey(1)
         return True
 
     def shutdown(self):
