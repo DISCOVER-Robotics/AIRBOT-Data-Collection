@@ -159,6 +159,7 @@ class DemonstrateInterface:
         self._deactivated = False
         self._auto_control_event = Event()
         self._role_mode_set = {}
+        self._auto_control_thread: Thread | None = None
 
     def get_logger(self):
         """
@@ -309,15 +310,15 @@ class DemonstrateInterface:
     def activate(self) -> bool:
         # start the auto control loop
         # TODO: should choose to use a process?
-        if self.config.auto_control:
+        if self.config.auto_control.groups:
             self.get_logger().info(bcolors.OKBLUE + "Starting auto control loop")
             self._deactivated = False
-            self.auto_control_thread = Thread(
+            self._auto_control_thread = Thread(
                 target=self._auto_control_loop,
                 name="auto_control_loop",
                 daemon=True,
             )
-            self.auto_control_thread.start()
+            self._auto_control_thread.start()
             # start auto control by default
             if not self.set_auto_control():
                 return False
@@ -336,12 +337,14 @@ class DemonstrateInterface:
     def deactivate(self) -> bool:
         self._deactivated = True
         self._auto_control_event.set()
-        self.auto_control_thread.join(5.0)
-        if self.auto_control_thread.is_alive():
-            self.get_logger().error(
-                "Failed to stop the auto control thread after 5 seconds"
-            )
-            return False
+        act = self._auto_control_thread
+        if act:
+            act.join(5.0)
+            if act.is_alive():
+                self.get_logger().error(
+                    "Failed to stop the auto control thread after 5 seconds"
+                )
+                return False
         return True
 
     def _set_leaders_mode(self, mode: SystemMode) -> bool:
