@@ -73,6 +73,7 @@ class V4L2Camera(Sensor):
 
     def capture_observation(self) -> bytes | np.ndarray:
         self.event.wait()
+        self.event.clear()
         frame_bytes = bytes(self.frame)
         if not self.config.decode:
             return frame_bytes
