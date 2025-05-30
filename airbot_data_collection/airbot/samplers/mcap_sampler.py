@@ -13,6 +13,7 @@ from importlib.resources import read_binary
 from flatten_dict import flatten
 import json
 from time import time_ns
+from airbot_data_collection.tools.av_coder import encode_h264
 
 
 class TaskInfo(BaseModel):
@@ -97,18 +98,21 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             )
 
             # register channels and add messages
+            image_keys = set()
             for key, values in self._data.items():
                 if "color" in key:
-                    data_type = "compressed_image"
-                    channel_id = writer.register_channel(
-                        schema_id=compressed_image_schema_id,
-                        topic=key,
-                        message_encoding=MessageEncoding.Flatbuffer,
-                    )
-                    kwargs = {
-                        "format": self.config.save_type.image,
-                        "frame_id": "airbot",
-                    }
+                    # data_type = "compressed_image"
+                    # channel_id = writer.register_channel(
+                    #     schema_id=compressed_image_schema_id,
+                    #     topic=key,
+                    #     message_encoding=MessageEncoding.Flatbuffer,
+                    # )
+                    # kwargs = {
+                    #     "format": self.config.save_type.image,
+                    #     "frame_id": "airbot",
+                    # }
+                    data_type = None
+                    image_keys.add(key)
                 elif "joint_state" in key:
                     data_type = "joint_state"
                     fields = values[0]["data"].keys()
@@ -126,18 +130,27 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                     raise NotImplementedError(
                         f"Data type {data_type} not implemented for MCAP saving."
                     )
-                _ = [
-                    self._add_message(
-                        data_type,
-                        writer=writer,
-                        channel_id=channel_id,
-                        data=value["data"],
-                        publish_time=value["t"],
-                        log_time=self._log_stamps[i],
-                        **kwargs,
-                    )
-                    for i, value in enumerate(values)
-                ]
+                if data_type:
+                    _ = [
+                        self._add_message(
+                            data_type,
+                            writer=writer,
+                            channel_id=channel_id,
+                            data=value["data"],
+                            publish_time=value["t"],
+                            log_time=self._log_stamps[i],
+                            **kwargs,
+                        )
+                        for i, value in enumerate(values)
+                    ]
+            for key in image_keys:
+                writer.add_attachment(
+                    time_ns(),
+                    time_ns(),
+                    name=key,
+                    media_type="video/mp4",
+                    data=encode_h264(self._data[key]),
+                )
             writer.finish()
         return path
 
