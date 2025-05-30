@@ -14,6 +14,89 @@ from flatten_dict import flatten
 import json
 from time import time_ns
 from airbot_data_collection.tools.av_coder import encode_h264
+import numpy as np
+
+def validate_image_data(key: str, topic_data: list[dict]) -> list[dict]:
+    """验证图像数据的有效性并处理时间戳重复问题。
+
+    Args:
+        key (str): 数据的 topic 名称。
+        topic_data (list[dict]): 包含图像帧的列表。
+
+    Returns:
+        list[dict]: 验证后的有效帧列表。
+    """
+    valid_frames = []
+    seen_timestamps = set()
+
+    for i, frame in enumerate(topic_data):
+        try:
+            if (frame is not None and
+                isinstance(frame, dict) and
+                "data" in frame and
+                "t" in frame and
+                frame["data"] is not None and
+                frame["t"] is not None):
+
+                # 确保图像数据是有效的 numpy 数组
+                if isinstance(frame["data"], np.ndarray) and frame["data"].size > 0:
+                    # 检查图像数据的形状
+                    if len(frame["data"].shape) == 3 and frame["data"].shape[2] == 3:
+                        # 检查时间戳是否有效
+                        if isinstance(frame["t"], (int, float)) and frame["t"] >= 0:
+                            # 处理时间戳重复问题
+                            original_timestamp = frame["t"]
+                            adjusted_timestamp = original_timestamp
+
+                            # 如果时间戳重复，进行微调
+                            adjustment_counter = 0
+                            while adjusted_timestamp in seen_timestamps:
+                                adjustment_counter += 1
+                                # 每次增加 1 毫秒来避免重复
+                                adjusted_timestamp = original_timestamp + adjustment_counter
+
+                            seen_timestamps.add(adjusted_timestamp)
+
+                            # 创建调整后的帧
+                            adjusted_frame = frame.copy()
+                            if adjusted_timestamp != original_timestamp:
+                                adjusted_frame["t"] = adjusted_timestamp
+                                print(f"警告: topic {key} 帧 {i} 时间戳从 {original_timestamp} 调整为 {adjusted_timestamp}")
+
+                            # 确保图像数据类型正确
+                            if frame["data"].dtype == np.uint8:
+                                valid_frames.append(adjusted_frame)
+                            else:
+                                # 尝试转换数据类型
+                                adjusted_frame["data"] = frame["data"].astype(np.uint8)
+                                valid_frames.append(adjusted_frame)
+                                print(f"警告: topic {key} 帧 {i} 的数据类型已从 {frame['data'].dtype} 转换为 uint8")
+                        else:
+                            print(f"警告: topic {key} 帧 {i} 时间戳无效: {frame['t']}")
+                    else:
+                        print(f"警告: topic {key} 帧 {i} 图像形状无效: {frame['data'].shape}")
+                else:
+                    print(f"警告: topic {key} 帧 {i} 中发现无效的图像数据，跳过此帧")
+            else:
+                print(f"警告: topic {key} 帧 {i} 中发现无效的帧数据，跳过此帧")
+        except Exception as e:
+            print(f"警告: topic {key} 帧 {i} 数据验证失败: {e}")
+
+    # 最终检查：确保时间戳是递增的
+    if valid_frames:
+        valid_frames.sort(key=lambda x: x["t"])
+        print(f"topic {key}: {len(valid_frames)}/{len(topic_data)} 帧有效")
+
+        # 打印时间戳信息用于调试
+        timestamps = [f["t"] for f in valid_frames]
+        print(f"  时间戳范围: {min(timestamps)} - {max(timestamps)}")
+        duplicates = len(timestamps) - len(set(timestamps))
+        if duplicates > 0:
+            print(f"  警告: 仍有 {duplicates} 个重复时间戳")
+    else:
+        print(f"警告: topic {key} 没有有效的图像数据，跳过整个 topic")
+
+    return valid_frames
 
 
 class TaskInfo(BaseModel):
@@ -143,13 +226,22 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                         )
                         for i, value in enumerate(values)
                     ]
+
+            # 保存图像数据
             for key in image_keys:
+                validated_frames = validate_image_data(key, self._data[key])
+                # print(f"topic {key} 有效帧数: {len(validated_frames)}")
+                # print(validated_frames)
+                if not validated_frames:
+                    raise ValueError("没有有效的数据可以保存")
+
                 writer.add_attachment(
                     time_ns(),
                     time_ns(),
                     name=key,
                     media_type="video/mp4",
-                    data=encode_h264(self._data[key]),
+                    # data=encode_h264(self._data[key]),
+                    data=encode_h264(validated_frames),
                 )
             writer.finish()
         return path
