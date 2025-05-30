@@ -15,6 +15,7 @@ from typing import Optional, List, Union, Dict, Tuple
 import numpy as np
 import time
 from turbojpeg import TurboJPEG
+from time import time_ns
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -88,8 +89,6 @@ class AIRBOTMMK(System):
             for comp in MMK2ComponentsGroup.ARMS_EEFS:
                 goal.pop(comp)
         if goal:
-            # start = time.time()
-            # logger.info(f"Move by trajectory")
             self.interface.set_goal(goal, TrajectoryParams())
             self.interface.set_goal(goal, ForwardPositionParams())
 
@@ -260,7 +259,7 @@ class AIRBOTMMK(System):
             value = self.interface.get_joint_values_by_names(
                 js, self._joint_names[comp.value], field
             )
-            comp_data["data"][field[:3]] = value
+            comp_data["data"][field] = value
         data[f"observation/{comp.value}/joint_state"] = comp_data
 
     def _capture_images(self) -> Tuple[Dict[str, bytes], Dict[str, Time]]:
@@ -289,8 +288,10 @@ class AIRBOTMMK(System):
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
             # print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
             obs_act_dict[f"{name}/color/image_raw"] = {
+                # "t": time_ns(),
                 "t": t,
-                "data": self.jpeg.encode(images[name]),
+                # "data": self.jpeg.encode(images[name]),
+                "data": images[name],
             }
         return obs_act_dict
 
