@@ -1,120 +1,131 @@
 #!/bin/bash
 
-# usb2can_bind.sh
-# 用法示例：
-#   sudo ./usb2can_bind.sh --target can_lead can_follow --raw can0 can1
-#   sudo ./usb2can_bind.sh rm [can|slcan]
-
 CAN_RULE_PATH=/etc/udev/rules.d/91-usb-can-airbot.rules
 SLCAN_RULE_PATH=/etc/udev/rules.d/91-usb-slcan-airbot.rules
 
-print_usage() {
-    echo "Usage:"
-    echo "  $0 --target name1 name2 ... --raw dev1 dev2 ..."
-    echo "  $0 rm [can|slcan]"
-    exit 1
-}
+# 初始化参数变量
+RAW_DEVICES=()
+TARGET_NAMES=()
 
-# --- 参数解析 ---
-if [[ "$1" == "rm" ]]; then
-    MODE="rm"
-    TARGET_TYPE="$2"
-else
-    MODE="bind"
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            --target)
+# 解析命令行参数
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        rm)
+            if [ -z "$2" ] || [ "$2" = "slcan" ]; then
+                rm -f "$SLCAN_RULE_PATH"
+                echo "Removed $SLCAN_RULE_PATH"
+            fi
+            if [ -z "$2" ] || [ "$2" = "can" ]; then
+                rm -f "$CAN_RULE_PATH"
+                echo "Removed $CAN_RULE_PATH"
+            fi
+            exit 0
+            ;;
+        --raw)
+            shift
+            while [[ "$#" -gt 0 && ! "$1" =~ ^-- ]]; do
+                RAW_DEVICES+=("$1")
                 shift
-                while [[ $# -gt 0 && "$1" != "--raw" ]]; do
-                    TARGETS+=("$1")
-                    shift
-                done
-                ;;
-            --raw)
+            done
+            continue
+            ;;
+        --target)
+            shift
+            while [[ "$#" -gt 0 && ! "$1" =~ ^-- ]]; do
+                TARGET_NAMES+=("$1")
                 shift
-                while [[ $# -gt 0 ]]; do
-                    RAW_DEVS+=("$1")
-                    shift
-                done
-                ;;
-            *)
-                echo "Unknown argument: $1"
-                print_usage
-                ;;
-        esac
-    done
-    # 校验
-    if [[ ${#TARGETS[@]} -lt 1 || ${#TARGETS[@]} -ne ${#RAW_DEVS[@]} ]]; then
-        echo "--target 和 --raw 参数数量必须一致且不少于一个"
-        print_usage
+            done
+            continue
+            ;;
+        *)
+            BIND_NAME="$1"
+            shift
+            ;;
+    esac
+done
+
+# 检查原始设备和目标名称数量是否一致
+if [ ${#RAW_DEVICES[@]} -gt 0 ] && [ ${#TARGET_NAMES[@]} -gt 0 ]; then
+    if [ ${#RAW_DEVICES[@]} -ne ${#TARGET_NAMES[@]} ]; then
+        echo "Error: Number of raw devices (${#RAW_DEVICES[@]}) does not match number of target names (${#TARGET_NAMES[@]})"
+        exit 1
     fi
 fi
 
-# --- 清理模式 ---
-if [[ "$MODE" == "rm" ]]; then
-    if [[ -z "$TARGET_TYPE" || "$TARGET_TYPE" == "slcan" ]]; then
-        rm -f "$SLCAN_RULE_PATH" && echo "Removed $SLCAN_RULE_PATH"
-    fi
-    if [[ -z "$TARGET_TYPE" || "$TARGET_TYPE" == "can" ]]; then
-        rm -f "$CAN_RULE_PATH" && echo "Removed $CAN_RULE_PATH"
-    fi
-    exit 0
-fi
-
-# --- 绑定模式，检查权限 ---
-if [[ $EUID -ne 0 ]]; then
-    echo "请以 root 权限运行"
+# Check for root permissions
+if [ $EUID -ne 0 ]; then
+    echo "This script must be run as root. Use sudo to run the script."
     exit 1
 fi
 
-DMESG_LOG=$(dmesg)
-USB_LINES=$(echo "$DMESG_LOG" | grep -i "usb [0-9]-[0-9]: Product: DISCOVER Robotics USB to CAN adapter")
-CAN_ATTACH_LINES=$(echo "$DMESG_LOG" | grep -iE "renamed from|link becomes ready")
+# Detect connected USB2CAN devices by idVendor and idProduct
+echo "Detecting connected USB2CAN devices..."
+DEVICES=($(lsusb | awk '/ID (0483:0000|1d50:606f)/ {print $2 "/" $4}' | sed 's/://'))
+NUM_DEVICES=${#DEVICES[@]}
 
-for idx in "${!RAW_DEVS[@]}"; do
-    DEV_NAME="${RAW_DEVS[$idx]}"
-    CAN_NAME="${TARGETS[$idx]}"
+if [ $NUM_DEVICES -eq 0 ]; then
+    echo "No USB2CAN devices detected. Please connect a device and try again."
+    exit 1
+fi
 
-    MATCH_LINE=$(echo "$CAN_ATTACH_LINES" | grep "$DEV_NAME")
-    if [[ -z "$MATCH_LINE" ]]; then
-        echo "未找到与 $DEV_NAME 对应的 dmesg 日志，跳过"
+# Display detected devices and extract serial numbers
+echo "Detected USB2CAN devices:"
+for ((i = 0; i < NUM_DEVICES; i++)); do
+    DEVICE_PATH="/dev/bus/usb/${DEVICES[i]}"
+    SERIAL=$(udevadm info --query=property --path=$(udevadm info --query=path --name=$DEVICE_PATH) | grep 'ID_SERIAL_SHORT=' | cut -d'=' -f2)
+
+    if [ -z "$SERIAL" ]; then
+        SERIAL="Unknown"
+    fi
+
+    echo "$((i + 1)). ${DEVICES[i]}"
+    echo "Serial number: $SERIAL"
+done
+
+# Loop to gather CAN interface names and automatically use serial numbers
+for ((i = 0; i < NUM_DEVICES; i++)); do
+    DEVICE_PATH="/dev/bus/usb/${DEVICES[i]}"
+    SERIAL=$(udevadm info --query=property --path=$(udevadm info --query=path --name=$DEVICE_PATH) | grep 'ID_SERIAL_SHORT=' | cut -d'=' -f2)
+
+    if [ -z "$SERIAL" ]; then
+        echo "Error: Unable to detect serial number for device ${DEVICES[i]}"
         continue
     fi
 
-    MATCH_INDEX=$(echo "$DMESG_LOG" | grep -nF "$MATCH_LINE" | cut -d: -f1 | head -n1)
-    if [[ -z "$MATCH_INDEX" ]]; then
-        echo "无法定位 $DEV_NAME 的日志行号，跳过"
+    # 决定使用哪个CAN名称
+    if [ ${#TARGET_NAMES[@]} -gt 0 ] && [ $i -lt ${#TARGET_NAMES[@]} ]; then
+        # 使用--target中指定的名称
+        CAN_NAME=${TARGET_NAMES[$i]}
+    elif [ -n "$BIND_NAME" ]; then
+        # 如果提供了单个BIND_NAME，则使用它
+        CAN_NAME=${BIND_NAME}
+    else
+        # 如果没有指定--target和BIND_NAME，则提示用户输入
+        read -p "Enter desired CAN interface name for device with serial number $SERIAL (e.g., can_left) or press Enter to skip this device: " CAN_NAME
+    fi
+
+    if [ -z "$CAN_NAME" ]; then
+        echo "Please enter a non-empty name"
         continue
     fi
 
-    USB_BLOCK=$(echo "$DMESG_LOG" | head -n "$MATCH_INDEX" | tac | grep -m1 -B5 "Product: DISCOVER Robotics USB to CAN adapter")
-    USB_PORT_LINE=$(echo "$USB_BLOCK" | grep -m1 "usb [0-9]-[0-9]:")
-    USB_RAW_ID=$(echo "$USB_PORT_LINE" | awk '{print $2}')
-    USB_ID=$(echo "$USB_PORT_LINE" | grep -oP 'usb \K[0-9\-]+(?=:)')
-
-    if [[ -z "$USB_ID" ]]; then
-        echo "无法从行中解析 USB ID: $USB_PORT_LINE"
+    if [ ${#CAN_NAME} -gt 15 ]; then
+        echo "The name is too long! Please enter a name with 15 characters or less"
         continue
     fi
 
-    SYSFS_PATH="/sys/bus/usb/devices/$USB_ID"
-    if [[ ! -f "$SYSFS_PATH/idVendor" || ! -f "$SYSFS_PATH/idProduct" ]]; then
-        echo "未能识别 USB ID ($USB_ID) 对应的 sysfs 路径，跳过"
-        continue
-    fi
-
-    VENDOR_ID=$(cat "$SYSFS_PATH/idVendor" 2>/dev/null)
-    PRODUCT_ID=$(cat "$SYSFS_PATH/idProduct" 2>/dev/null)
-    SERIAL="${DEV_NAME}_serial"
-
-    echo "设备 $DEV_NAME 与目标 $CAN_NAME 映射。USB: $USB_ID ($VENDOR_ID:$PRODUCT_ID)"
-
+    VENDOR_ID=$(udevadm info --query=property --path=$(udevadm info --query=path --name=$DEVICE_PATH) | grep 'ID_VENDOR_ID=' | cut -d'=' -f2)
+    PRODUCT_ID=$(udevadm info --query=property --path=$(udevadm info --query=path --name=$DEVICE_PATH) | grep 'ID_MODEL_ID=' | cut -d'=' -f2)
     if [[ "$VENDOR_ID" == "0483" && "$PRODUCT_ID" == "0000" ]]; then
-        cat >>"$SLCAN_RULE_PATH" <<-EOL
-ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="$VENDOR_ID", ATTRS{idProduct}=="$PRODUCT_ID", SYMLINK+="$CAN_NAME", GROUP="dialout", MODE="0777", TAG+="systemd", ENV{SYSTEMD_WANTS}="slcan_$CAN_NAME@.service"
-EOL
 
-        cat >/etc/systemd/system/slcan_$CAN_NAME@.service <<-EOL
+        # generate udev rule
+        cat >>"${SLCAN_RULE_PATH}" <<EOL
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="0000", ATTRS{serial}=="$SERIAL", SYMLINK+="$CAN_NAME", GROUP="dialout", MODE="0777", TAG+="systemd", ENV{SYSTEMD_WANTS}="slcan_$CAN_NAME@.service"
+EOL
+        chmod +x "${SLCAN_RULE_PATH}"
+
+        # generate service file
+        cat >/etc/systemd/system/slcan_$CAN_NAME@.service <<EOL
 [Unit]
 Description=SocketCAN device $CAN_NAME
 After=dev-$CAN_NAME.device
@@ -124,8 +135,10 @@ BindsTo=dev-$CAN_NAME.device
 ExecStart=/usr/local/bin/slcan_add_$CAN_NAME.sh
 Type=forking
 EOL
+        chmod +x /etc/systemd/system/slcan_$CAN_NAME@.service
 
-        cat >/usr/local/bin/slcan_add_$CAN_NAME.sh <<-EOL
+        # generate script file
+        cat >/usr/local/bin/slcan_add_$CAN_NAME.sh <<EOL
 #!/bin/bash
 /usr/bin/slcand -o -c -f -s8 -S 3000000 /dev/$CAN_NAME $CAN_NAME
 sleep 1
@@ -134,17 +147,18 @@ sleep 1
 EOL
 
         chmod +x /usr/local/bin/slcan_add_$CAN_NAME.sh
-        echo "创建 slcan udev 规则: $CAN_NAME"
+        echo "udev for $CAN_NAME created in $SLCAN_RULE_PATH"
     else
-        cat >>"$CAN_RULE_PATH" <<-EOL
-ACTION=="add", SUBSYSTEM=="net", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", NAME="$CAN_NAME", RUN+="/sbin/ip link set $CAN_NAME up type can bitrate 1000000", RUN+="/sbin/ip link set $CAN_NAME txqueuelen 1000"
+        # generate udev rule
+        cat >>${CAN_RULE_PATH} <<EOL
+ACTION=="add", SUBSYSTEM=="net", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="606f", ATTRS{serial}=="$SERIAL", NAME="$CAN_NAME", RUN+="/sbin/ip link set $CAN_NAME up type can bitrate 1000000", RUN+="/sbin/ip link set $CAN_NAME txqueuelen 1000"
 EOL
-        echo "创建 can udev 规则: $CAN_NAME"
+        chmod +x ${CAN_RULE_PATH}
+        echo "udev for $CAN_NAME created in $CAN_RULE_PATH"
     fi
-
 done
 
+# Reload udev rules
 udevadm control --reload-rules
 udevadm trigger
-
-echo "规则已加载，请重新插入设备以生效。"
+echo "Udev rules reloaded successfully. Reconnect your USB2CAN devices."

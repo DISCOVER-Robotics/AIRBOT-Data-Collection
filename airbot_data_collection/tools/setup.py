@@ -115,10 +115,10 @@ for can_group in can_buses:
         execute_shell_script(
             f"{cur_dir}/bind_can_udev.sh",
             args=[
-                "--target",
-                *new_can,
                 "--raw",
                 *can_group,
+                "--target",
+                *new_can,
             ],
             with_sudo=True,
         )
