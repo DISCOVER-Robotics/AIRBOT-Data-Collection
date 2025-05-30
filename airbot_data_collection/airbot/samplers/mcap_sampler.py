@@ -229,19 +229,19 @@ class AIRBOTMcapDataSampler(DictDataSampler):
 
             # 保存图像数据
             for key in image_keys:
-                validated_frames = validate_image_data(key, self._data[key])
-                # print(f"topic {key} 有效帧数: {len(validated_frames)}")
-                # print(validated_frames)
-                if not validated_frames:
-                    raise ValueError("没有有效的数据可以保存")
+                # validated_frames = validate_image_data(key, self._data[key])
+                # # print(f"topic {key} 有效帧数: {len(validated_frames)}")
+                # # print(validated_frames)
+                # if not validated_frames:
+                #     raise ValueError("没有有效的数据可以保存")
 
                 writer.add_attachment(
                     time_ns(),
                     time_ns(),
                     name=key,
                     media_type="video/mp4",
-                    # data=encode_h264(self._data[key]),
-                    data=encode_h264(validated_frames),
+                    data=encode_h264(self._data[key]),
+                    # data=encode_h264(validated_frames),
                 )
             writer.finish()
         return path
