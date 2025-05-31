@@ -171,6 +171,11 @@ while True:
         logger.info("Exiting setup script.")
         break
     elif key == ord("c"):
+        if not no_cfg_buses_indexes:
+            logger.warning(
+                "No need to configure since all usb buses are mapped to their names"
+            )
+            continue
         logger.info(f"Configuring cameras {name_choices=} {cfged_names=}...")
         left_name = list(set(name_choices) - set(cfged_names))
         old_vis_keys = set()
