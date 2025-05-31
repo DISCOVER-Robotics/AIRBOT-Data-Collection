@@ -22,10 +22,31 @@ import yaml
 import cv2
 import os
 from pprint import pformat
+import subprocess
+import time
 
 
 def list_to_nested_tuples(lst):
     return [(lst[i], lst[i + 1]) for i in range(0, len(lst), 2)]
+
+
+def check_can_interfaces(expected_interfaces: list[str]) -> bool:
+    result = subprocess.run(
+        ["ip", "l"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    output = result.stdout
+
+    found_interfaces = [line for line in output.splitlines() if "can_" in line]
+    found_names = [line.split(":")[1].strip() for line in found_interfaces]
+
+    missing = [name for name in expected_interfaces if name not in found_names]
+    if not missing:
+        return True
+    else:
+        return False
 
 
 parser = argparse.ArgumentParser(description="Setup script for data collection.")
@@ -53,6 +74,7 @@ station_config_path = f"{cur_dir}/station_config.yaml"
 station_config = yaml.safe_load(open(station_config_path))
 NAME_CHOICES = station_config["choices"]
 BUS_NAME_MAPPINGS = station_config["bus_name_mapping"]
+# TODO: support for X5
 CAN_NAME_MAPPINGS = {
     2: {
         "can0": "can_lead",
@@ -94,6 +116,24 @@ for can_group in can_buses:
             ],
             with_sudo=True,
         )
+        logger.info(
+            bcolors.OKCYAN
+            + "Please reconnect the robotic arms and press `Enter` to continue..."
+        )
+        input()
+        logger.info("Waiting for the system to stabilize after reconnection...")
+        time.sleep(4)
+        if check_can_interfaces(new_can):
+            logger.info(
+                bcolors.OKGREEN
+                + f"Successfully bound CAN group {can_group} to {new_can}."
+            )
+        else:
+            logger.error(
+                bcolors.FAIL
+                + f"Failed to bind CAN group {can_group} to {new_can}. Please check the connections."
+            )
+            exit(1)
     else:
         logger.info(f"CAN group {can_group} already bound correctly.")
 
@@ -162,6 +202,7 @@ logger.info(
             "s": "Save the current configuration and exit.",
         }
     )
+    + "\nNote: Click any of the image windows and then press the key"
 )
 while True:
     for camera, vis_key, visualizer in zip(cameras, camera_vis_keys, visualizers):
