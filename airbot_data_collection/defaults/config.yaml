@@ -4,19 +4,13 @@ sampler:
   param:
     _target_: airbot_data_collection.airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
 
-# sampler:
-#   name: airbot_bson_sampler
-#   path: ""
-#   param:
-#     _target_: airbot_data_collection.airbot.samplers.bson_sampler.AIRBOTBsonDataSampler
-
 visualizers:
   names: [opencv]
-  paths: ["", ""]
+  paths: [""]
   params:
     - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTBsonOpenCVisualizer
-      width: 320
-      height: 240
+      width: 640
+      height: 480
 
 managers:
   names: [self_manager, keyboard]

@@ -8,6 +8,7 @@ import flatbuffers
 from mcap.writer import Writer
 from mcap.well_known import SchemaEncoding, MessageEncoding
 import foxglove_schemas_flatbuffer.CompressedImage as CompressedImage
+from foxglove_schemas_flatbuffer import get_schema
 from importlib.resources import read_binary
 from flatten_dict import flatten
 import json
@@ -27,7 +28,7 @@ class TaskInfo(BaseModel):
 
 
 class SaveType(BaseModel):
-    image: Literal["raw", "jpeg", "h264"] = "jpeg"
+    image: Literal["raw", "jpeg", "h264"] = "h264"
     depath: Literal["raw"] = "raw"
 
 
@@ -90,28 +91,35 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                     "FloatArray.bfbs",
                 ),
             )
-            # compressed_image_schema_id = writer.register_schema(
-            #     name="foxglove.CompressedImage",
-            #     encoding=SchemaEncoding.Flatbuffer,
-            #     data=get_schema("CompressedImage"),
-            # )
-
             # register channels and add messages
             image_keys = set()
+            save_type = self.config.save_type.image
+            if save_type == "jpeg":
+                compressed_image_schema_id = writer.register_schema(
+                    name="foxglove.CompressedImage",
+                    encoding=SchemaEncoding.Flatbuffer,
+                    data=get_schema("CompressedImage"),
+                )
             for key, values in self._data.items():
                 if "color" in key:
-                    # data_type = "compressed_image"
-                    # channel_id = writer.register_channel(
-                    #     schema_id=compressed_image_schema_id,
-                    #     topic=key,
-                    #     message_encoding=MessageEncoding.Flatbuffer,
-                    # )
-                    # kwargs = {
-                    #     "format": self.config.save_type.image,
-                    #     "frame_id": "airbot",
-                    # }
-                    data_type = None
-                    image_keys.add(key)
+                    if save_type == "jpeg":
+                        data_type = "compressed_image"
+                        channel_id = writer.register_channel(
+                            schema_id=compressed_image_schema_id,
+                            topic=key,
+                            message_encoding=MessageEncoding.Flatbuffer,
+                        )
+                        kwargs = {
+                            "format": self.config.save_type.image,
+                            "frame_id": "airbot",
+                        }
+                    elif save_type == "h264":
+                        data_type = None
+                        image_keys.add(key)
+                    else:
+                        raise NotImplementedError(
+                            f"Image save type {save_type} not implemented for MCAP saving."
+                        )
                 elif "joint_state" in key:
                     data_type = "joint_state"
                     fields = values[0]["data"].keys()

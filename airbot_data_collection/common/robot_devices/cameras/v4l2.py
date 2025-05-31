@@ -43,16 +43,16 @@ class V4L2Camera(Sensor):
 
     def on_configure(self) -> bool:
         config = self.config
-        if config.camera_index is None:
-            config.camera_index = find_camera_indices()[0]
-        if isinstance(config.camera_index, int):
-            self.device = Device.from_id(config.camera_index)
+        cam_id = config.camera_index
+        if cam_id is None:
+            cam_id = find_camera_indices()[0]
+        if isinstance(cam_id, int) or cam_id.isdigit():
+            self.device = Device.from_id(int(cam_id))
         else:
-            if "usb" in config.camera_index:
-                config.camera_index = get_camera_index_by_bus_info(config.camera_index)[
-                    0
-                ]
-            self.device = Device(config.camera_index)
+            if "usb" in cam_id:
+                cam_id = get_camera_index_by_bus_info(cam_id)[0]
+            self.device = Device(cam_id)
+        self.config.camera_index = cam_id
         self.device.open()
         if self.device.closed:
             return False
