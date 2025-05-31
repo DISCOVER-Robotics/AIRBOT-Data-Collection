@@ -21,7 +21,7 @@ import argparse
 import yaml
 import cv2
 import os
-from pprint import pprint
+from pprint import pformat
 
 
 def list_to_nested_tuples(lst):
@@ -152,6 +152,17 @@ else:
     logger.error("No camera opened. Please check the camera indices.")
     exit(1)
 
+logger.info(
+    bcolors.OKBLUE
+    + "\n"
+    + pformat(
+        {
+            "q or ESC": "Quit the setup script without saving configs.",
+            "c": "Configure cameras with names.",
+            "s": "Save the current configuration and exit.",
+        }
+    )
+)
 while True:
     for camera, vis_key, visualizer in zip(cameras, camera_vis_keys, visualizers):
         visualizer.update({vis_key: camera.capture_observation()}, None)
@@ -205,7 +216,7 @@ while True:
             "roles": ["l", "f"] * can_group_num + ["o"] * len(camera_indices),
             "groups": groups,
         }
-        pprint(components)
+        logger.info(f"Components: {pformat(components)}")
 
         input_file_path = f"{cur_dir}/../defaults/config_full.yaml"
         with open(input_file_path) as f:
