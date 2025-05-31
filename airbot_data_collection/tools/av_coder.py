@@ -44,10 +44,10 @@ def encode_h264(data: List[Dict[str, Union[int, bytes]]]) -> bytes:
     stream.height = height
     stream.pix_fmt = "yuv420p"
     # The time base is set to 1e-9 second (i.e. timestamps are in nanoseconds)
-    stream.time_base = fractions.Fraction(1, int(1e9))
+    time_base = fractions.Fraction(1, int(1e9))
+    stream.time_base = time_base
     start_time = data[0]["t"]
     last_time = start_time
-    time_base = fractions.Fraction(1, 1000)
     for frame in data:
         video_frame = av.VideoFrame.from_ndarray(
             preprocess(frame["data"]), format="bgr24"
@@ -58,7 +58,7 @@ def encode_h264(data: List[Dict[str, Union[int, bytes]]]) -> bytes:
             logger.warning(
                 f"Frame timestamp {cur_time} is not greater than last timestamp {last_time}. Adjusting."
             )
-            # cur_time = last_time + int(1e9 / 60)
+            cur_time = last_time + 1
         last_time = cur_time
         video_frame.pts = cur_time - start_time
         video_frame.time_base = time_base

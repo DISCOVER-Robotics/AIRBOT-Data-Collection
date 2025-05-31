@@ -282,11 +282,12 @@ class AIRBOTMMK(System):
 
         for name in images:
             stamp = img_stamps[name]
-            t = int((stamp.sec + stamp.nanosec * 1e-9) * 1000)
+            t = int((stamp.sec + stamp.nanosec * 1e-9) * 1e6)
             # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
             # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
-            # print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
+            print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
+            print(f"[DEBUG] Image time for {t}")  # 打印时间戳
             obs_act_dict[f"{name}/color/image_raw"] = {
                 # "t": time_ns(),
                 "t": t,
