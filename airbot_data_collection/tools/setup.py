@@ -119,7 +119,7 @@ visualizers: list[OpenCVisualizer] = []
 camera_indices = []
 cfged_buses = []
 cfged_names = []
-no_cfg_buses_indexes = []
+no_cfg_buses_indexes: list[int] = []
 for i, index in enumerate(list(found_camera_indices)):
     config = V4L2CameraConfig(camera_index=index, pixel_format="MJPEG", decode=False)
     camera = V4L2Camera(config)
@@ -156,7 +156,7 @@ while True:
     for camera, vis_key, visualizer in zip(cameras, camera_vis_keys, visualizers):
         visualizer.update({vis_key: camera.capture_observation()}, None)
     key = cv2.waitKey(1) & 0xFF
-    if key == ord("q"):
+    if key == ord("q") or key == 27:  # ESC or 'q' to quit
         logger.info("Exiting setup script.")
         break
     elif key == ord("c"):
@@ -165,25 +165,26 @@ while True:
         old_vis_keys = set()
         for bus_index in no_cfg_buses_indexes:
             bus = camera_buses[bus_index]
-            hint_str = ""
-            for i, name in enumerate(left_name):
-                hint_str += f"{name}[{i}] | "
-            logger.info(
-                bcolors.OKCYAN
-                + f"Name the camera on {bus} (press the digital number in []): {hint_str.removesuffix('| ')}"
-            )
-            index = cv2.waitKey(0) & 0xFF - ord("0")
-            # assert isinstance(, int), "Digit input needed"
-            # index = int(index)
-            final_name = left_name[index]
-            old_vis_key = camera_vis_keys[index]
+            if len(left_name) == 1:
+                final_name = left_name[0]
+            else:
+                hint_str = ""
+                for i, name in enumerate(left_name):
+                    hint_str += f"{name}[{i}] | "
+                logger.info(
+                    bcolors.OKCYAN
+                    + f"Name the camera on {bus} (press the digital number in []): {hint_str.removesuffix('| ')}"
+                )
+                index = cv2.waitKey(0) & 0xFF - ord("0")
+                final_name = left_name.pop(index)
+            old_vis_key = camera_vis_keys[bus_index]
             old_vis_keys.add(old_vis_key)
-            camera_vis_keys[index] = old_vis_key.replace("None", final_name)
+            camera_vis_keys[bus_index] = old_vis_key.replace("None", final_name)
             cfged_names.append(final_name)
             cfged_buses.append(bus)
             camera_indices.append(camera_indices[bus_index])
             bus_name_mapping[bus] = final_name
-            logger.info(bcolors.OKGREEN + f"Camera {bus} renamed to {left_name[index]}")
+            logger.info(bcolors.OKGREEN + f"Camera {bus} renamed to {final_name}")
         with open(station_config_path, "w") as f:
             yaml.dump(station_config, f, default_flow_style=False)
         logger.info(f"Updated station config: {station_config_path}")
