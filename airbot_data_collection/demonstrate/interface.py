@@ -298,8 +298,6 @@ class DemonstrateInterface:
         if role is ComponentRole.l:
             return self._set_leaders_mode(mode)
         elif role is ComponentRole.f:
-            # for safety movement, the mode should be reset now
-            assert isinstance(mode, SystemMode.RESETTING)
             return self._set_followers_mode(mode)
         else:
             raise ValueError(
