@@ -208,7 +208,9 @@ class DemonstrateInterface:
 
     def _auto_control_loop(self):
         """Control the followers to follow the leader."""
-        period = 1 / self.config.auto_control.rate[0]
+        rate = self.config.auto_control.rate
+        assert rate, "Auto control rate must be set"
+        period = 1 / rate[0]
         while not self._deactivated:
             self._auto_control_event.wait()
             start = time.perf_counter()
