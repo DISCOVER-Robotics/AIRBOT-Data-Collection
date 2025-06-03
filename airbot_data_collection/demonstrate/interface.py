@@ -107,7 +107,7 @@ class DemonstrateInterface:
         self.groups: list[DemonstrateGroup] = []
         self.group_component_names: list[GroupComponentNames] = []
         self.group_map: dict[str, DemonstrateGroup] = {}
-        if config.sampler is not None:
+        if config.sampler != ComponentConfig():
             self.sampler: DataSampler = self.instancer.instance(config.sampler)
         else:
             self.sampler = MockDataSampler()

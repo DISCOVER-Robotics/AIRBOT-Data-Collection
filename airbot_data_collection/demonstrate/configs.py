@@ -8,7 +8,7 @@ from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
 
 from airbot_data_collection.basis import SystemMode
 from airbot_data_collection.utils import StrEnum
-
+from airbot_data_collection.common import MockDataSampler
 
 class ComponentRole(StrEnum):
     """The role of the component in the group."""
@@ -305,8 +305,8 @@ class DemonstrateConfig(BaseModel):
     # if None, no action values will be sent
     send_actions: dict[DemonstrateAction, GroupsSendActionConfig] = {}
     # the sampler to be used to collect and save the data
-    # if None, a mock sampler will be used
-    sampler: ComponentConfig | None = None
+    # if empty, the default MockDataSampler will be used
+    sampler: ComponentConfig = ComponentConfig()
     # the sampled data will be passed to the visualizers at each update
     visualizers: ComponentsConfig = ComponentsConfig()
     # TODO: should use a dict to set the async mode for

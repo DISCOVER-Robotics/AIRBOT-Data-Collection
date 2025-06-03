@@ -16,7 +16,7 @@ dependencies = [
     "omegaconf >=2.3.0",
     "hydra-core >=1.3.2",
     "transitions",
-    "argdantic",
+    "tyro",
     "pydantic",
     "bidict",
     "pynput",

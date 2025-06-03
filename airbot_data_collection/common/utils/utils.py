@@ -1,21 +1,3 @@
-#!/usr/bin/env python
-
-# Copyright 2024 The HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
-import logging
 import os
 import os.path as osp
 from datetime import datetime, timezone
@@ -23,31 +5,13 @@ from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
+import flatten_dict
 
 
 def inside_slurm():
     """Check whether the python process was launched through slurm"""
     # TODO(rcadene): return False for interactive mode `--pty bash`
     return "SLURM_JOB_ID" in os.environ
-
-
-def init_logging():
-    def custom_format(record):
-        dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        fnameline = f"{record.pathname}:{record.lineno}"
-        message = f"{record.levelname} {dt} {fnameline[-15:]:>15} {record.msg}"
-        return message
-
-    logging.basicConfig(level=logging.INFO)
-
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    formatter = logging.Formatter()
-    formatter.format = custom_format
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logging.getLogger().addHandler(console_handler)
 
 
 def format_big_number(num, precision=0):
@@ -105,9 +69,11 @@ def hydra_instance(cfg: DictConfig):
 
 
 def hydra_instance_from_config_path(config_path: str, params: dict = None):
-    config = init_hydra_config(config_path)
-    if params is not None:
-        config.update(params)
+    overrides = []
+    flattened = flatten_dict.flatten(params, reducer="dot")
+    for key, value in flattened.items():
+        overrides.append(f"{key}={value}")
+    config = init_hydra_config(config_path, overrides=overrides)
     return hydra_instance(config)
 
 
