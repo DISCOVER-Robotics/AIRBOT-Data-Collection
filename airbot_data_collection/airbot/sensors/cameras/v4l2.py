@@ -2,8 +2,7 @@ from numpy import ndarray
 
 from airbot_data_collection.common.robot_devices.cameras.v4l2 import (
     V4L2Camera, V4L2CameraConfig)
-from airbot_data_collection.utils import get_stamp_ms
-
+from time import time_ns
 
 class BsonV4L2Camera(V4L2Camera):
 
@@ -14,7 +13,7 @@ class BsonV4L2Camera(V4L2Camera):
     ) -> dict[str, dict[str, int | bytes | ndarray]]:
         return {
             "color/image_raw": {
-                "t": get_stamp_ms(),
+                "t": time_ns(),
                 "data": super().capture_observation(),
             }
         }
