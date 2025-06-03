@@ -99,6 +99,9 @@ class SelfManager(DemonstrateManagerBasis):
             # capture to update the visualizers
             if not self.fsm.act(DemonstrateAction.capture):
                 self.failed_capture = True
+                self.get_logger().error(
+                    "Failed to capture the current component observations."
+                )
                 return False
         return True
 

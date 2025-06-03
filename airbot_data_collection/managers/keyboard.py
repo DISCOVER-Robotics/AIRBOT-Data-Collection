@@ -100,7 +100,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             for key, value in self.fsm.last_capture.items():
                 if "image" not in key and "depth" not in key:
                     data[key] = value
-            self.get_logger().info(bcolors.OKBLUE + f":\n{pformat(data)}")
+            self.get_logger().info(bcolors.OKBLUE + f"\n{pformat(data)}")
         elif key == "i":
             self.show_instruction()
         elif key == "b":

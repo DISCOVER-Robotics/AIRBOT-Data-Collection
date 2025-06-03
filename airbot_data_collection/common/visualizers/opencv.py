@@ -1,6 +1,5 @@
 import logging
-from typing import Dict, Tuple
-
+from threading import current_thread, main_thread
 import cv2
 import numpy as np
 from pydantic import BaseModel
@@ -10,7 +9,6 @@ from airbot_data_collection.common.visualizers.basis import (
     SampleInfo,
     VisualizerBasis,
 )
-
 
 def prepare_cv2_imshow(logger: logging.Logger):
     """Prepare OpenCV imshow for displaying images before import pynput.
@@ -86,6 +84,9 @@ class OpenCVisualizer(VisualizerBasis):
     def update(self, data: dict[str, np.ndarray], info: SampleInfo) -> bool:
         """Show the data on the OpenCV window."""
         # TODO: add concatenation for the data?
+        if current_thread() is not main_thread():
+            self.get_logger().warning("Not running in the main thread, skipping imshow")
+            return True
         for key, value in data.items():
             if isinstance(value, bytes):
                 value = decode_image(value, self.config.pixel_format)
