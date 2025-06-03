@@ -249,9 +249,8 @@ class DemonstrateInterface:
             config.groups, config.action_values, config.modes, config.to_follower
         ):
             group_leader = self.group_map[group_name].leader
-            if group_leader:
-                leader = group_leader[0]
-                if leader.switch_mode():
+            for leader in group_leader:
+                if leader.switch_mode(mode):
                     if mode is SystemMode.RESETTING:
                         leader.send_action(action_value)
                     else:
@@ -276,10 +275,10 @@ class DemonstrateInterface:
             start = not self._auto_control_event.is_set()
         if start:
             # set the followers to resetting mode to move smoothly
-            if self._set_followers_mode(SystemMode.RESETTING):
+            if self.set_role_mode(ComponentRole.f, SystemMode.RESETTING):
                 # TODO: control until the joint positions are near the leader
                 self._auto_control()
-                if self._set_followers_mode(SystemMode.SAMPLING):
+                if self.set_role_mode(ComponentRole.f, SystemMode.SAMPLING):
                     self._auto_control_event.set()
                     return True
         else:
@@ -290,12 +289,12 @@ class DemonstrateInterface:
 
     def set_role_mode(self, role: ComponentRole, mode: SystemMode | None) -> bool:
         """Set the mode of all the components of a role."""
-        self.get_logger().info(f"Setting {role} mode to {mode}")
         if mode is None:
             if self._role_mode_set[role] is SystemMode.PASSIVE:
                 mode = SystemMode.RESETTING
             else:
                 mode = SystemMode.PASSIVE
+        self.get_logger().info(f"Setting {role} mode to {mode}")
         if role is ComponentRole.l:
             return self._set_leaders_mode(mode)
         elif role is ComponentRole.f:
@@ -325,13 +324,14 @@ class DemonstrateInterface:
         # set the mode for leaders
         # the beginning mode can be considered as data are
         # saved in the -1 round, so save_mode is performed
-        if self._post_action(DemonstrateAction.save):
-            self._bar = ProgressBar(
-                self.config.sample_limit.size,
-                f"Round {self.sample_info.round}",
-            )
-            os.makedirs(self.config.dataset.absolute_directory, exist_ok=True)
-            return True
+        if self.set_role_mode(ComponentRole.l, SystemMode.RESETTING):
+            if self._post_action(DemonstrateAction.save):
+                self._bar = ProgressBar(
+                    self.config.sample_limit.size,
+                    f"Round {self.sample_info.round}",
+                )
+                os.makedirs(self.config.dataset.absolute_directory, exist_ok=True)
+                return True
         return False
 
     def deactivate(self) -> bool:
@@ -397,7 +397,7 @@ class DemonstrateInterface:
         if self.is_reached_round:
             self.get_logger().warning("Maximum number of rounds reached.")
         # set the mode for leaders to passive
-        elif self._set_leaders_mode(SystemMode.PASSIVE):
+        elif self.set_role_mode(ComponentRole.l, SystemMode.PASSIVE):
             self.get_logger().info(
                 bcolors.OKBLUE + f"Start sampling round: {self.sample_info.round}"
             )
