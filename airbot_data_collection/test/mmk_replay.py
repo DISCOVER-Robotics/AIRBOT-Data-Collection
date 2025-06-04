@@ -236,8 +236,10 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
     
     # 尝试不同的话题命名格式
     component_topic_formats = [
-        f"mmk/{first_component.value}/joint_state",  # BSON 格式
-        f"mmk/{first_component.value}/joint_state/position",  # MCAP 格式
+        # f"mmk/{first_component.value}/joint_state",  # BSON 格式
+        # f"mmk/{first_component.value}/joint_state/position",  # MCAP 格式
+        # f"mmk/observation/{first_component.value}/joint_state/position",  # MCAP 格式带observation前缀
+        f"mmk/action/{first_component.value}/joint_state/position",  # MCAP 格式带action前缀
     ]
     
     component_topic = None
@@ -261,9 +263,12 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
         
         for component in components:
             # 根据数据格式选择话题名称
+            topic_prefix = "mmk/observation/" if "observation" in component_topic else \
+                         "mmk/action/" if "action" in component_topic else "mmk/"
+            
             if component_topic.endswith("/position"):
                 # MCAP 格式：每个字段单独的话题
-                pos_topic = f"mmk/{component.value}/joint_state/position"
+                pos_topic = f"{topic_prefix}{component.value}/joint_state/position"
                 if pos_topic in data["data"]:
                     if i < len(data["data"][pos_topic]):
                         pos_data = data["data"][pos_topic][i]["data"]
@@ -274,7 +279,7 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
                     logger.warning(f"未找到组件 {component.value} 的位置数据")
             else:
                 # BSON 格式：完整的 joint_state 消息
-                joint_topic = f"mmk/{component.value}/joint_state"
+                joint_topic = f"{topic_prefix}{component.value}/joint_state"
                 if joint_topic in data["data"]:
                     if i < len(data["data"][joint_topic]):
                         pos_data = data["data"][joint_topic][i]["data"]["position"]
