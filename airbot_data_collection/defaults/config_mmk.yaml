@@ -23,7 +23,12 @@ sampler:
       station: mmk-MK11QWZ025170023
       task_name: stack_block
       task_description: stack three block on the desk.
-      task_id: "120"
+      task_id: 120
+    upload:
+      enabled: true
+      endpoint: '192.168.215.80'
+      username: 'admin'
+      password: '123456'
 
 visualizers:
   names: [opencv]
