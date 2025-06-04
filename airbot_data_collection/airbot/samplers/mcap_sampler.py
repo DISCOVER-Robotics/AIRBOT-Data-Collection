@@ -109,17 +109,26 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             # add metadata
             config_dict = self.config.model_dump()
             config_dict.pop("initial_builder_size")
+            # print(f"Saving config: {config_dict}")
+
             for key, value in config_dict.items():
-                # MCAP add_metadata expects dict, not encoded bytes
-                writer.add_metadata(name=key, metadata=value)
-            
+                # Convert all values in dict to strings for MCAP metadata
+                # MCAP add_metadata expects dict with string values
+                if isinstance(value, dict):
+                    string_dict = {k: json.dumps(v) if not isinstance(v, str) else v for k, v in value.items()}
+                else:
+                    string_dict = {"value": json.dumps(value)}
+                writer.add_metadata(name=key, data=string_dict)
+
             # Handle system info safely
             system_info = info.pop("system", {})
             if isinstance(system_info, dict):
                 for key, value in system_info.items():
                     flattened_value = flatten(value, "path")
-                    writer.add_metadata(name=key, metadata=flattened_value)
-            
+                    # Convert all values to strings
+                    string_dict = {k: json.dumps(v) if not isinstance(v, str) else v for k, v in flattened_value.items()}
+                    writer.add_metadata(name=key, data=string_dict)
+
             # add attachments
             """
                 text/plain: pure text
