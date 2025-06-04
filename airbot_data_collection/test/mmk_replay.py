@@ -10,7 +10,7 @@ from bson import BSON
 # MCAP 相关导入
 from mcap.reader import make_reader
 import flatbuffers
-from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
+from airbot_data_collection.airbot.schemas.airbot_fbs.FloatArray import FloatArray
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,22 +58,25 @@ def load_mcap(mcap_file: str) -> dict:
             
             # 解析 FlatBuffers 消息
             if schema.name == "airbot_fbs.FloatArray":
-                fb_data = flatbuffers.Table(bytearray(message.data), 0)
-                float_array = FloatArray.FloatArray()
-                float_array.Init(fb_data.Bytes, fb_data.Pos)
-                
-                # 提取数值
-                values = []
-                for i in range(float_array.ValuesLength()):
-                    values.append(float_array.Values(i))
-                
-                # 转换时间戳（纳秒转毫秒）
-                timestamp_ms = message.log_time / 1e6
-                
-                messages_by_topic[topic].append({
-                    "t": timestamp_ms,
-                    "data": values
-                })
+                try:
+                    # 使用正确的 FlatBuffers 解析方法
+                    float_array = FloatArray.GetRootAs(message.data, 0)
+                    
+                    # 提取数值
+                    values = []
+                    for i in range(float_array.ValuesLength()):
+                        values.append(float_array.Values(i))
+                    
+                    # 转换时间戳（纳秒转毫秒）
+                    timestamp_ms = message.log_time / 1e6
+                    
+                    messages_by_topic[topic].append({
+                        "t": timestamp_ms,
+                        "data": values
+                    })
+                except Exception as e:
+                    logger.warning(f"解析 FlatBuffers 消息失败 (话题: {topic}): {e}")
+                    continue
         
         # 按话题组织数据，按时间戳排序
         for topic, messages in messages_by_topic.items():
@@ -233,8 +236,8 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
     
     # 尝试不同的话题命名格式
     component_topic_formats = [
-        f"/mmk/mmk/{first_component.value}/joint_state",  # BSON 格式
-        f"/mmk/mmk/{first_component.value}/joint_state/pos",  # MCAP 格式
+        f"mmk/{first_component.value}/joint_state",  # BSON 格式
+        f"mmk/{first_component.value}/joint_state/position",  # MCAP 格式
     ]
     
     component_topic = None
@@ -244,6 +247,9 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
             break
     
     if component_topic is None:
+        available_topics = list(data["data"].keys())
+        logger.error(f"未找到组件 {first_component.value} 的数据")
+        logger.error(f"可用话题: {available_topics}")
         raise ValueError(f"未找到组件 {first_component.value} 的数据")
     
     data_length = len(data["data"][component_topic])
@@ -255,24 +261,31 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
         
         for component in components:
             # 根据数据格式选择话题名称
-            if component_topic.endswith("/pos"):
+            if component_topic.endswith("/position"):
                 # MCAP 格式：每个字段单独的话题
-                pos_topic = f"/mmk/mmk/{component.value}/joint_state/pos"
+                pos_topic = f"mmk/{component.value}/joint_state/position"
                 if pos_topic in data["data"]:
-                    pos_data = data["data"][pos_topic][i]["data"]
-                    action.extend(pos_data)
+                    if i < len(data["data"][pos_topic]):
+                        pos_data = data["data"][pos_topic][i]["data"]
+                        action.extend(pos_data)
+                    else:
+                        logger.warning(f"组件 {component.value} 数据索引 {i} 超出范围")
                 else:
                     logger.warning(f"未找到组件 {component.value} 的位置数据")
             else:
                 # BSON 格式：完整的 joint_state 消息
-                joint_topic = f"/mmk/mmk/{component.value}/joint_state"
+                joint_topic = f"mmk/{component.value}/joint_state"
                 if joint_topic in data["data"]:
-                    pos_data = data["data"][joint_topic][i]["data"]["pos"]
-                    action.extend(pos_data)
+                    if i < len(data["data"][joint_topic]):
+                        pos_data = data["data"][joint_topic][i]["data"]["position"]
+                        action.extend(pos_data)
+                    else:
+                        logger.warning(f"组件 {component.value} 数据索引 {i} 超出范围")
                 else:
                     logger.warning(f"未找到组件 {component.value} 的关节状态数据")
         
-        all_actions.append(action)
+        if action:  # 只添加非空动作
+            all_actions.append(action)
     
     logger.info(f"成功解析 {len(all_actions)} 个动作")
     return all_actions
@@ -336,6 +349,8 @@ def main():
         
     except Exception as e:
         logger.error(f"程序执行失败: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
     
     return 0
