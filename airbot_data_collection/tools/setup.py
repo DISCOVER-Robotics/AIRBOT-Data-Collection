@@ -156,6 +156,7 @@ camera_buses: list[str] = []
 visualizers: list[OpenCVisualizer] = []
 
 camera_indices = []
+cfged_indices = []
 cfged_buses = []
 cfged_names = []
 no_cfg_buses_indexes: list[int] = []
@@ -176,6 +177,7 @@ for i, index in enumerate(list(found_camera_indices)):
             else:
                 cfged_buses.append(bus)
                 cfged_names.append(prefix)
+                cfged_indices.append(index)
             vis_key = f"{prefix} : {str(camera.device.filename)} : {camera.device.info.bus_info}"
             cameras.append(camera)
             camera_vis_keys.append(vis_key)
@@ -238,7 +240,7 @@ while True:
             camera_vis_keys[bus_index] = old_vis_key.replace("None", final_name)
             cfged_names.append(final_name)
             cfged_buses.append(bus)
-            camera_indices.append(camera_indices[bus_index])
+            cfged_indices.append(camera_indices[bus_index])
             bus_name_mapping[bus] = final_name
             logger.info(bcolors.OKGREEN + f"Camera {bus} renamed to {final_name}")
         with open(station_config_path, "w") as f:
@@ -254,11 +256,11 @@ while True:
         else:
             raise NotImplementedError
         components = {
-            "paths": ["airbot_play"] * len(can_itfs) + ["v4l2"] * len(camera_indices),
+            "paths": ["airbot_play"] * len(can_itfs) + ["v4l2"] * len(cfged_indices),
             "params": [{"port": 50050 + i} for i in range(len(can_itfs))]
             + [{"camera_index": bus} for bus in cfged_buses],
             "names": ["lead", "follow"] * can_group_num + cfged_names,
-            "roles": ["l", "f"] * can_group_num + ["o"] * len(camera_indices),
+            "roles": ["l", "f"] * can_group_num + ["o"] * len(cfged_indices),
             "groups": groups,
         }
         logger.info(f"Components: {pformat(components)}")
