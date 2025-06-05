@@ -181,7 +181,8 @@ class AIRBOTMMK(System):
         robot_state = self.interface.get_robot_state()
         all_joints = robot_state.joint_state
         stamp = robot_state.joint_state.header.stamp
-        t = int((stamp.sec + stamp.nanosec * 1e-9)* 1000)
+        # t = int((stamp.sec + stamp.nanosec * 1e-9)* 1000)
+        t = int(stamp.sec * 1e9 + stamp.nanosec)
         # t = stamp.sec + stamp.nanosec * 1e-9
         for comp in self.config.components:
             comp_name = comp.value
@@ -282,13 +283,14 @@ class AIRBOTMMK(System):
 
         for name in images:
             stamp = img_stamps[name]
-            t = int((stamp.sec + stamp.nanosec * 1e-9) * 1e6)
+            # t = int((stamp.sec + stamp.nanosec * 1e-9) * 1e6)
+            t = int(stamp.sec * 1e9 + stamp.nanosec)
             # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
             # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
             # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
             print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
             print(f"[DEBUG] Image time for {t}")  # 打印时间戳
-            obs_act_dict[f"{name}/color/image_raw"] = {
+            obs_act_dict[f"{name}/color/video"] = {
                 # "t": time_ns(),
                 "t": t,
                 # "data": self.jpeg.encode(images[name]),

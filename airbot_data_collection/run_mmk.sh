@@ -1,12 +1,12 @@
-python3 main.py --path defaults/config.yaml \
+python3 main.py --path defaults/config_mmk.yaml \
                 --components.names mmk \
                 --components.paths airbot_mmk \
                 --components.params '{}' \
                 --components.roles o \
-                --components.groups mmk \
-                --dataset.directory example_task \
+                --components.groups '' \
+                --dataset.directory 0603 \
                 --update-rate 20 \
-                --sample-limit.start-round 0 \
+                --sample-limit.start-round 0\
                 --sample-limit.size 1000
 
 # python3 main.py --path defaults/config_playback.yaml \
