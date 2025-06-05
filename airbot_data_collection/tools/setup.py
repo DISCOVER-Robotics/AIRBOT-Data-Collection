@@ -101,41 +101,40 @@ bus_name_mapping: dict = BUS_NAME_MAPPINGS[can_num][hw_uuid]
 can_name_mapping = CAN_NAME_MAPPINGS[can_num]
 name_choices = NAME_CHOICES[can_num]
 
-for can_group in can_buses:
-    new_can = [can_name_mapping.get(can, can) for can in can_group]
-    if set(new_can) != set(can_group):
-        for can in can_group:
-            assert can in can_name_mapping, f"Unknown CAN interface: {can}"
-        execute_shell_script(
-            f"{cur_dir}/bind_can_udev.sh",
-            args=[
-                "--raw",
-                *can_group,
-                "--target",
-                *new_can,
-            ],
-            with_sudo=True,
-        )
+new_can = [can_name_mapping.get(can, can) for can in can_itfs]
+if set(new_can) != set(can_itfs):
+    for can in can_itfs:
+        assert can in can_name_mapping, f"Unknown CAN interface: {can}"
+    execute_shell_script(
+        f"{cur_dir}/bind_can_udev.sh",
+        args=[
+            "--raw",
+            *can_itfs,
+            "--target",
+            *new_can,
+        ],
+        with_sudo=True,
+    )
+    logger.info(
+        bcolors.OKCYAN
+        + "Please reconnect the robotic arms and press `Enter` to continue..."
+    )
+    input()
+    logger.info("Waiting for the system to stabilize after reconnection...")
+    time.sleep(4)
+    if check_can_interfaces(new_can):
         logger.info(
-            bcolors.OKCYAN
-            + "Please reconnect the robotic arms and press `Enter` to continue..."
+            bcolors.OKGREEN
+            + f"Successfully bound CAN group {can_itfs} to {new_can}."
         )
-        input()
-        logger.info("Waiting for the system to stabilize after reconnection...")
-        time.sleep(4)
-        if check_can_interfaces(new_can):
-            logger.info(
-                bcolors.OKGREEN
-                + f"Successfully bound CAN group {can_group} to {new_can}."
-            )
-        else:
-            logger.error(
-                bcolors.FAIL
-                + f"Failed to bind CAN group {can_group} to {new_can}. Please check the connections."
-            )
-            exit(1)
     else:
-        logger.info(f"CAN group {can_group} already bound correctly.")
+        logger.error(
+            bcolors.FAIL
+            + f"Failed to bind CAN group {can_itfs} to {new_can}. Please check the connections."
+        )
+        exit(1)
+else:
+    logger.info(f"CAN {can_itfs} already bound correctly.")
 
 found_camera_indices = find_camera_indices()
 
