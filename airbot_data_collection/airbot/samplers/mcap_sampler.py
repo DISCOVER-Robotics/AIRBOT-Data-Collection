@@ -15,7 +15,16 @@ import json
 from time import time_ns
 from airbot_data_collection.tools.av_coder import encode_h264
 import uuid
-from dataloop import DataLoopClient
+
+# 条件导入dataloop模块
+try:
+    from dataloop import DataLoopClient
+    DATALOOP_AVAILABLE = True
+except ImportError:
+    DATALOOP_AVAILABLE = False
+    import warnings
+    warnings.warn("dataloop模块未安装，云端上传功能将不可用。如需使用上传功能，请联系求之安装dataloop", 
+                  UserWarning, stacklevel=2)
 
 
 class Subtask(BaseModel):
@@ -30,6 +39,8 @@ class Subtask(BaseModel):
 class TaskInfo(BaseModel):
     # Name of the task, used for identification, logging, and reporting.
     task_name: str = ""
+    task_description: str = ""
+    task_description_zh: str = ""
     # Unique identifier for the task, used for tracking and management.
     task_id: Union[str, int] = ""
     # Identifier for the station where the task is performed, useful for multi-station setups.
@@ -89,6 +100,13 @@ class AIRBOTMcapDataSampler(DictDataSampler):
     def _init_dataloop_client(self):
         """Initialize DataLoop client for file upload."""
         try:
+            # 首先检查dataloop模块是否可用
+            if not DATALOOP_AVAILABLE:
+                self.get_logger().warning("dataloop模块未安装，无法使用云端上传功能")
+                self.get_logger().info("如需使用上传功能，请联系求之安装dataloop")
+                self.config.upload.enabled = False
+                return
+            
             self.get_logger().info("正在初始化DataLoop客户端...")
             self.get_logger().info(f"服务器地址: {self.config.upload.endpoint}")
             
@@ -109,9 +127,6 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                 self.get_logger().error("DataLoop客户端初始化失败，将禁用上传功能")
                 self.config.upload.enabled = False
                 
-        except ImportError:
-            self.get_logger().error("dataloop 模块未安装，无法上传到云端，将禁用上传功能")
-            self.config.upload.enabled = False
         except Exception as e:
             self.get_logger().error(f"DataLoop客户端初始化失败: {str(e)}，将禁用上传功能")
             self.config.upload.enabled = False
