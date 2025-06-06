@@ -18,6 +18,15 @@ import uuid
 from dataloop import DataLoopClient
 
 
+class Subtask(BaseModel):
+    # Skill template with placeholders like "pick {A} from {B}"
+    skill: str
+    # English description of the subtask
+    description: str
+    # Chinese description of the subtask  
+    description_zh: str
+
+
 class TaskInfo(BaseModel):
     # Name of the task, used for identification, logging, and reporting.
     task_name: str = ""
@@ -33,6 +42,8 @@ class TaskInfo(BaseModel):
     object: Union[str, List[str]] = ""
     # Scene or environment description for the task
     scene: str = ""
+    # List of subtasks that make up this task
+    subtasks: List[Subtask] = []
 
 
 class UploadConfig(BaseModel):
@@ -44,7 +55,7 @@ class UploadConfig(BaseModel):
 
 class SaveType(BaseModel):
     image: Literal["raw", "jpeg", "h264"] = "h264"
-    depath: Literal["raw"] = "raw"
+    depth: Literal["raw"] = "raw"
 
 
 class Version(BaseModel):
