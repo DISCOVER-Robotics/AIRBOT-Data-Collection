@@ -3,7 +3,7 @@ from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.common.samplers.basis import DictDataSampler
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from airbot_data_collection import __version__ as collector_version
-from typing import Literal, Dict, Union
+from typing import Literal, Dict, Union, List
 import flatbuffers
 from mcap.writer import Writer
 from mcap.well_known import SchemaEncoding, MessageEncoding
@@ -27,6 +27,12 @@ class TaskInfo(BaseModel):
     station: str = ""
     # ID of the operator performing the task, useful for logging and accountability.
     operator: str = ""
+    # Skill(s) being demonstrated or performed during the task
+    skill: Union[str, List[str]] = ""
+    # Object(s) involved in the task
+    object: Union[str, List[str]] = ""
+    # Scene or environment description for the task
+    scene: str = ""
 
 
 class UploadConfig(BaseModel):
