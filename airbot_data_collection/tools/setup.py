@@ -108,8 +108,6 @@ if set(new_can) != set(can_itfs):
     execute_shell_script(
         f"{cur_dir}/bind_can_udev.sh",
         args=[
-            "--raw",
-            *can_itfs,
             "--target",
             *new_can,
         ],
