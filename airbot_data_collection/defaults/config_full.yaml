@@ -56,6 +56,9 @@ sampler:
       task_name: put_cup
       task_description: Put the cup on the plate on the desk.
       task_id: arm1-001
+      skill: grasp
+      object: cup
+      scene: desktop
   path: ''
 update_rate: 20
 visualizers:

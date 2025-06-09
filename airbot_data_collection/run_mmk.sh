@@ -4,7 +4,8 @@ python3 main.py --path defaults/config_mmk.yaml \
                 --components.params '{}' \
                 --components.roles o \
                 --components.groups '' \
-                --dataset.directory 0603 \
+                --dataset.directory 0606 \
+                --auto-control.rate 100 \
                 --update-rate 20 \
                 --sample-limit.start-round 0\
                 --sample-limit.size 1000

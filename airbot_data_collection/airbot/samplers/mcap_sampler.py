@@ -3,7 +3,7 @@ from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.common.samplers.basis import DictDataSampler
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from airbot_data_collection import __version__ as collector_version
-from typing import Literal, Dict, Union
+from typing import Literal, Dict, Union, List
 import flatbuffers
 from mcap.writer import Writer
 from mcap.well_known import SchemaEncoding, MessageEncoding
@@ -15,18 +15,46 @@ import json
 from time import time_ns
 from airbot_data_collection.tools.av_coder import encode_h264
 import uuid
-from dataloop import DataLoopClient
+
+# 条件导入dataloop模块
+try:
+    from dataloop import DataLoopClient
+    DATALOOP_AVAILABLE = True
+except ImportError:
+    DATALOOP_AVAILABLE = False
+    import warnings
+    warnings.warn("dataloop模块未安装，云端上传功能将不可用。如需使用上传功能，请联系求之安装dataloop", 
+                  UserWarning, stacklevel=2)
+
+
+class Subtask(BaseModel):
+    # Skill template with placeholders like "pick {A} from {B}"
+    skill: str
+    # English description of the subtask
+    description: str
+    # Chinese description of the subtask  
+    description_zh: str
 
 
 class TaskInfo(BaseModel):
     # Name of the task, used for identification, logging, and reporting.
     task_name: str = ""
+    task_description: str = ""
+    task_description_zh: str = ""
     # Unique identifier for the task, used for tracking and management.
     task_id: Union[str, int] = ""
     # Identifier for the station where the task is performed, useful for multi-station setups.
     station: str = ""
     # ID of the operator performing the task, useful for logging and accountability.
     operator: str = ""
+    # Skill(s) being demonstrated or performed during the task
+    skill: Union[str, List[str]] = ""
+    # Object(s) involved in the task
+    object: Union[str, List[str]] = ""
+    # Scene or environment description for the task
+    scene: str = ""
+    # List of subtasks that make up this task
+    subtasks: List[Subtask] = []
 
 
 class UploadConfig(BaseModel):
@@ -38,7 +66,7 @@ class UploadConfig(BaseModel):
 
 class SaveType(BaseModel):
     image: Literal["raw", "jpeg", "h264"] = "h264"
-    depath: Literal["raw"] = "raw"
+    depth: Literal["raw"] = "raw"
 
 
 class Version(BaseModel):
@@ -72,6 +100,13 @@ class AIRBOTMcapDataSampler(DictDataSampler):
     def _init_dataloop_client(self):
         """Initialize DataLoop client for file upload."""
         try:
+            # 首先检查dataloop模块是否可用
+            if not DATALOOP_AVAILABLE:
+                self.get_logger().warning("dataloop模块未安装，无法使用云端上传功能")
+                self.get_logger().info("如需使用上传功能，请联系求之安装dataloop")
+                self.config.upload.enabled = False
+                return
+            
             self.get_logger().info("正在初始化DataLoop客户端...")
             self.get_logger().info(f"服务器地址: {self.config.upload.endpoint}")
             
@@ -92,9 +127,6 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                 self.get_logger().error("DataLoop客户端初始化失败，将禁用上传功能")
                 self.config.upload.enabled = False
                 
-        except ImportError:
-            self.get_logger().error("dataloop 模块未安装，无法上传到云端，将禁用上传功能")
-            self.config.upload.enabled = False
         except Exception as e:
             self.get_logger().error(f"DataLoop客户端初始化失败: {str(e)}，将禁用上传功能")
             self.config.upload.enabled = False
