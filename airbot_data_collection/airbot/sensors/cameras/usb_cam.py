@@ -20,7 +20,7 @@ class USBCamera(Sensor):
 
     def capture_observation(self):
         return {
-            "camera/color_image": {
+            "color/image_raw": {
                 "t": get_stamp_ms(),
                 "data": self.interface.read(),
             }
