@@ -55,7 +55,7 @@ sampler:
       station: ptk-001
       task_name: anonymous task
       task_description: do some thing
-      task_id: arm1-001
+      task_id: "135"
       skill:
         - pick
         - place
