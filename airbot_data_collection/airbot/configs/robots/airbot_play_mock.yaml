@@ -1,4 +1,4 @@
-_target_: airbot_data_collection.airbot.robots.airbot_play_mock.AIRBOTPlayMock
+_target_: airbot_data_collection.airbot.robots.airbot_play_mock.AIRBOTPlay
 
 url: localhost
 port: 50050

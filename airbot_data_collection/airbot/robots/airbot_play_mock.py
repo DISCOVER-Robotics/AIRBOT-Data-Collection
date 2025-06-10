@@ -31,7 +31,7 @@ class AIRBOTArmMock:
         return {}
 
 
-class AIRBOTPlayMock(AIRBOTPlay):
+class AIRBOTPlay(AIRBOTPlay):
     """
     A mock class for AIRBOTPlay.
     """
