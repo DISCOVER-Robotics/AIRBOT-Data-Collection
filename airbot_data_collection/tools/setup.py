@@ -89,10 +89,10 @@ CAN_NAME_MAPPINGS = {
 }
 
 can_itfs = sorted(get_can_interfaces())
-can_buses = list_to_nested_tuples(can_itfs)
 can_num = len(can_itfs)
-can_group_num = len(can_buses)
 assert can_num in BUS_NAME_MAPPINGS, f"Not enough can: {can_itfs}"
+can_buses = list_to_nested_tuples(can_itfs)
+can_group_num = len(can_buses)
 
 logger.info(f"CAN interfaces: {can_buses}")
 if hw_uuid not in BUS_NAME_MAPPINGS[can_num]:
