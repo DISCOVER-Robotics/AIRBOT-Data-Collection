@@ -106,7 +106,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                 bcolors.OKCYAN
                 + f"Will upload to task id: {self.config.task_info.task_id}"
             )
-        return super().on_configure()
+        return True
 
     def save(self, path: str, data: dict) -> str:
         """Save the data to a MCAP file."""
