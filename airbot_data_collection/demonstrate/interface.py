@@ -472,7 +472,9 @@ class DemonstrateInterface:
                 return False
         self.sample_info.round += 1
         self._clear()
-        return self._post_action(DemonstrateAction.save)
+        success = self._post_action(DemonstrateAction.save)
+        self.get_logger().info(bcolors.OKBLUE + "Action finished")
+        return success
 
     def remove(self) -> bool:
         """Remove the last round saved sample."""
