@@ -1,97 +1,52 @@
 import os
 from abc import abstractmethod
-from collections import defaultdict
-from typing import Any, Dict, Protocol, runtime_checkable, DefaultDict, List
-
+from typing import Any, Dict, Optional
 from airbot_data_collection.basis import ConfigBasis
-from time import time_ns
 
 
-@runtime_checkable
-class DataSampler(Protocol):
-    """Data sampler for sampling one episode of data."""
-
-    def configure(self) -> bool: ...
-    def on_configure(self) -> bool: ...
-    def append(self, data) -> None: ...
-    def clear(self) -> None: ...
-    def save(self, path: str) -> bool: ...
-    def remove(self, path: str) -> bool: ...
-    def compose_path(self, directory: str, round: int) -> str: ...
-    def set_info(self, info: Dict[str, Any]) -> None: ...
-
-
-class DictDataSampler(ConfigBasis):
-    """Data sampler for sampling dict-like data."""
-
-    def on_configure(self) -> bool:
-        self._data: DefaultDict[str, list] = defaultdict(list)
-        self._log_stamps: List[int] = []
-        return True
-
-    def append(self, data: dict[str, list]) -> None:
-        """Append one sample point to the data collector."""
-        for key, value in data.items():
-            self._data[key].append(value)
-        self._log_stamps.append(time_ns())
+class DataSampler(ConfigBasis):
+    """Data sampler for sampling kinds of data."""
 
     def clear(self) -> None:
-        """Clear the data collector."""
-        self._data.clear()
-        self._log_stamps.clear()
+        """Clear the inner data buffer if any.
+        Please be careful to avoid asynchronous saving
+        exceptions caused by asynchronous clearing of data"""
 
-    def pop(self, index: int = -1) -> Any:
-        """Pop the data by the given index."""
-        popd = {}
-        for key, value in self._data.items():
-            popd[key] = value.pop(index)
-        self._log_stamps.pop(index)
-        return popd
+    def update(self, data: Any) -> Any:
+        """Process the data and return.
+        If the return value is not None,
+        it will be append to the data buffer
+        of the demonstrate interface."""
+        return data
 
-    def remove(self, path: str) -> bool:
-        """Remove the data from the given or last saved path."""
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-                return True
-            except OSError as e:
-                self.get_logger().error(e.strerror)
-                return False
-        else:
-            self.get_logger().warning(f"Path {path} does not exist.")
-            return False
+    def remove(self, path: str) -> Optional[bool]:
+        """Remove the data from the given or last saved path.
+        If the return value is None, the demonstrate
+        interface will try to remove the path."""
 
     def set_info(self, info: Dict[str, Any]) -> None:
-        """Set the info of the data collector."""
+        """Set the info of the data collector.
+        The info is a dict that contains the information
+        of the data collector, such as the name, type, etc."""
         self._info = info
 
     @abstractmethod
-    def save(self, path: str) -> bool:
-        """Save the data by the given number."""
+    def save(self, path: str, data: Any) -> bool:
+        """Save the data by the given path.
+        If the return value of the `update` is None,
+        the value of the data arg will also be None."""
 
     @abstractmethod
-    def compose_path(self, directory: str, round: int) -> str: ...
+    def compose_path(self, directory: str, round: int) -> str:
+        """Compose the path for saving the data.
+        The directory is the directory to save the data,
+        and the round is the round number of the data."""
 
 
-class MockDataSampler:
+class MockDataSampler(DataSampler):
     """Mock data sampler for testing purpose."""
 
-    def configure(self) -> bool:
-        return True
-
-    def on_configure(self) -> bool:
-        return True
-
-    def append(self, data) -> None:
-        pass
-
-    def extend(self, data) -> None:
-        pass
-
-    def clear(self) -> None:
-        pass
-
-    def pop(self, index: int = -1) -> Any:
+    def update(self, data) -> None:
         return None
 
     def save(self, path: str) -> bool:

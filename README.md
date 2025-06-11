@@ -7,6 +7,18 @@ pip install airbot_py-5.1.2-py3-none-any.whl -i https://mirrors.huaweicloud.com/
 bash install.sh
 ```
 
+<!-- ```bash
+CUDA_ROOT=/usr/local/cuda
+CUDA_TARG=$CUDA_ROOT/targets/x86_64-linux/
+export CPATH=$CUDA_TARG/include:$CPATH
+# export LD_LIBRARY_PATH=$CUDA_TARG/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$CUDA_TARG/lib:$LD_LIBRARY_PATH
+export PATH=$CUDA_ROOT/bin:$PATH
+pip install ./PyNvVideoCodec_2.0.0.zip -i https://mirrors.aliyun.com/pypi/simple
+pip install pycuda -i https://mirrors.aliyun.com/pypi/simple
+pip install torch -i https://mirrors.aliyun.com/pypi/simple
+``` -->
+
 # Setup
 
 ```bash

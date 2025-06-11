@@ -1,5 +1,5 @@
 import time
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Future
 from logging import getLogger
 from threading import Event, Lock, Thread
 from typing import Any, List, Union, Callable
@@ -33,6 +33,7 @@ from airbot_data_collection.utils import (
 )
 from airbot_data_collection.tools.system_info import SystemInfo
 import os
+from collections import defaultdict
 
 
 Component = Union[System, Sensor]
@@ -149,17 +150,19 @@ class DemonstrateInterface:
             )
             self.config.sample_limit.start_round = start_round
         self.sample_info = SampleInfo(round=start_round)
+        max_workers = self.config.async_save_max_workers
         if config.async_save == AsyncMode.thread:
-            self.save_executor = ThreadPoolExecutor(1, "save_thread")
+            self.save_executor = ThreadPoolExecutor(max_workers, "save_thread")
         elif config.async_save == AsyncMode.process:
-            self.save_executor = ProcessPoolExecutor(1)
+            self.save_executor = ProcessPoolExecutor(max_workers)
         else:
             self.save_executor = None
-        self.save_future = None
+        self._save_futures: List[Future] = []
         self._deactivated = False
         self._auto_control_event = Event()
         self._role_mode_set = {}
         self._auto_control_thread: Thread | None = None
+        self._round_data = defaultdict(list)
 
     def get_logger(self):
         """
@@ -435,7 +438,10 @@ class DemonstrateInterface:
             return False
         else:
             data = self.capture()
-            self.sampler.append(data)
+            if self.sampler.update(data) is not None:
+                for key, value in data.items():
+                    self._round_data[key].append(value)
+                self._round_data["log_stamps"].append(time.time_ns())
             info.index += 1
             self._bar.update(info.index)
             return True
@@ -454,17 +460,18 @@ class DemonstrateInterface:
             self.config.dataset.absolute_directory, self.sample_info.round
         )
         if async_save != AsyncMode.none:
-            self.save_future = self.save_executor.submit(self.sampler.save, path)
-            self.save_future.add_done_callback(
-                lambda f: self._show_save_info(path, f.result())
+            future = self.save_executor.submit(
+                self.sampler.save, path, self._round_data
             )
+            future.add_done_callback(lambda f: self._show_save_info(path, f.result()))
+            self._save_futures.append(future)
         else:
-            if not self._show_save_info(path, self.sampler.save(path)):
+            if not self._show_save_info(
+                path, self.sampler.save(path, self._round_data)
+            ):
                 return False
-        self.sampler.clear()
         self.sample_info.round += 1
-        self.sample_info.index = 0
-        self._bar.reset(desc=f"Round {self.sample_info.round}")
+        self._clear()
         return self._post_action(DemonstrateAction.save)
 
     def remove(self) -> bool:
@@ -474,24 +481,49 @@ class DemonstrateInterface:
             path = self.sampler.compose_path(
                 self.config.dataset.absolute_directory, last_round
             )
-            if self.save_future is not None:
-                if not self.save_future.done():
-                    if not self.save_future.cancel():
-                        self.get_logger().error("Failed to cancel the saving task")
-            self.sampler.remove(path)
+            if self._save_futures:
+                future = self._save_futures.pop()
+                if not future.done():
+                    self.get_logger().info(
+                        bcolors.OKBLUE + "Waiting for the last async saving"
+                    )
+                    future.result()
+            removed = self.sampler.remove(path)
+            if removed is None:
+                if not self._remove(path):
+                    return False
+            elif not removed:
+                return False
             self.sample_info.round -= 1
-            self.sample_info.index = 0
-            self._bar.reset(desc=f"Round {self.sample_info.round}")
+            self._clear()
             self.get_logger().info(bcolors.OKGREEN + f"Removed {path}")
         else:
             self.get_logger().warning("Not ever saved yet")
         return True
 
-    def abandon(self) -> bool:
-        """Abandon the current round of sampling."""
+    def _remove(self, path: str) -> bool:
+        """Remove the data from the given or last saved path."""
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                return True
+            except OSError as e:
+                # e.g. permission denied
+                self.get_logger().error(e.strerror)
+                return False
+        else:
+            self.get_logger().warning(f"Path {path} does not exist.")
+            return True
+
+    def _clear(self) -> None:
+        self._round_data = defaultdict(list)
         self.sampler.clear()
         self.sample_info.index = 0
         self._bar.reset(desc=f"Round {self.sample_info.round}")
+
+    def abandon(self) -> bool:
+        """Abandon the current round of sampling."""
+        self._clear()
         self.get_logger().info(
             bcolors.OKGREEN + f"Abandoned the current round: {self.sample_info.round}"
         )
