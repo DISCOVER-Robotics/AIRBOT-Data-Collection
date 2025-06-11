@@ -46,6 +46,7 @@ managers:
 sample_limit:
   size: 1000
   start_round: -1
+async_save: thread
 sampler:
   name: airbot_mcap_sampler
   param:
