@@ -90,12 +90,12 @@ def create_float_array_message(builder, values):
     for value in reversed(values):
         builder.PrependFloat32(value)
     values_vector = builder.EndVector()
-    
+
     FloatArray.Start(builder)
     FloatArray.AddValues(builder, values_vector)
     float_array = FloatArray.End(builder)
     builder.Finish(float_array)
-    
+
     return bytes(builder.Output())
 
 
@@ -140,10 +140,10 @@ def main():
             stream, compression=CompressionType.ZSTD, index_types=IndexType.ALL
         )
         writer.start(profile="airbot")
-        
+
         # 创建 FlatBuffers builder
         builder = flatbuffers.Builder(1024)
-        
+
         # 注册 FloatArray schema
         float_array_schema_id = writer.register_schema(
             name="airbot_fbs.FloatArray",
@@ -224,13 +224,13 @@ def main():
                 for value in values:
                     timestamp_ms = value["t"]
                     t = convert_timestamp_to_mcap(timestamp_ms, base_timestamp)
-                    
+
                     # 处理每个字段 (pos, vel, eff)
                     for field, field_values in value["data"].items():
                         if field in joint_channels[topic]:
                             builder.Clear()
                             msg_data = create_float_array_message(builder, field_values)
-                            
+
                             writer.add_message(
                                 channel_id=joint_channels[topic][field],
                                 log_time=t,

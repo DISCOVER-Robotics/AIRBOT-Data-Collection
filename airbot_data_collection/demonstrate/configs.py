@@ -312,6 +312,7 @@ class DemonstrateConfig(BaseModel):
     # TODO: should use a dict to set the async mode for
     # other actions, such as remove, abandon, etc?
     async_save: AsyncMode = AsyncMode.none
+    async_save_max_workers: NonNegativeInt = 1
     # the directories where the config files are stored
     search_dirs: set[str] = {"."}
 

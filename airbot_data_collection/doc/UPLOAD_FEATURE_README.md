@@ -62,11 +62,11 @@ sampler:
    ```python
    def save(self, path: str) -> str:
        # ... 原有保存逻辑 ...
-       
+
        # Upload to cloud after saving
        if self.config.upload.enabled:
            self._upload_to_cloud(path)
-       
+
        return path
    ```
 
@@ -76,22 +76,22 @@ sampler:
        """Upload the saved file to cloud storage."""
        try:
            from dataloop import DataLoopClient
-           
+
            # Initialize DataLoop client
            dataloop = DataLoopClient(
                endpoint=self.config.upload.endpoint,
                username=self.config.upload.username,
                password=self.config.upload.password
            )
-           
+
            # Generate unique sample ID
            uid = str(uuid.uuid4())
-           
+
            # Convert task_id to int if it's a string
            project_id = self.config.task_info.task_id
            if isinstance(project_id, str):
                project_id = int(project_id)
-           
+
            # Upload the file
            self.get_logger().info(f"开始上传文件到云端: {file_path}")
            message = dataloop.samples.upload_sample(
@@ -100,10 +100,10 @@ sampler:
                sample_type="Sequential",
                file_path=file_path
            )
-           
+
            self.get_logger().info(f"文件上传成功: {message}")
            return True
-           
+
        except ImportError:
            self.get_logger().error("dataloop 模块未安装，无法上传到云端")
            return False
@@ -180,4 +180,4 @@ python test_upload.py
 ```yaml
 upload:
   enabled: false
-``` 
+```

@@ -50,6 +50,7 @@ class ConfigBasis(ABC):
     @abstractmethod
     def on_configure(self) -> bool:
         """Callback to be called when configuring"""
+        raise NotImplementedError
 
     def get_logger(self):
         return getLogger(self.__class__.__name__)

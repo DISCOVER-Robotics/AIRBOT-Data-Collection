@@ -1,6 +1,6 @@
 import os
 from pydantic import BaseModel, PositiveInt
-from airbot_data_collection.common.samplers.basis import DictDataSampler
+from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from airbot_data_collection import __version__ as collector_version
 from typing import Literal, Dict, Union, List
@@ -13,18 +13,25 @@ from importlib.resources import read_binary
 from flatten_dict import flatten
 import json
 from time import time_ns
-from airbot_data_collection.tools.av_coder import encode_h264
+from airbot_data_collection.tools.av_coder import AvCoder
+from airbot_data_collection.utils import bcolors
 import uuid
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# 条件导入dataloop模块
 try:
     from dataloop import DataLoopClient
+
     DATALOOP_AVAILABLE = True
 except ImportError:
     DATALOOP_AVAILABLE = False
     import warnings
-    warnings.warn("dataloop模块未安装，云端上传功能将不可用。如需使用上传功能，请联系求之安装dataloop", 
-                  UserWarning, stacklevel=2)
+
+    warnings.warn(
+        "It is detected that the `UPLOAD` package is not installed, and the cloud upload function will not be available. If you need to use the upload function, please contact us to install it.",
+        UserWarning,
+        stacklevel=2,
+    )
 
 
 class Subtask(BaseModel):
@@ -32,7 +39,7 @@ class Subtask(BaseModel):
     skill: str
     # English description of the subtask
     description: str
-    # Chinese description of the subtask  
+    # Chinese description of the subtask
     description_zh: str
 
 
@@ -58,10 +65,10 @@ class TaskInfo(BaseModel):
 
 
 class UploadConfig(BaseModel):
-    enabled: bool = True
-    endpoint: str = '192.168.215.80'
-    username: str = 'admin'
-    password: str = '123456'
+    enabled: bool = False
+    endpoint: str = "192.168.215.80"
+    username: str = "admin"
+    password: str = "123456"
 
 
 class SaveType(BaseModel):
@@ -82,58 +89,40 @@ class AIRBOTMcapDataSamplerConfig(BaseModel):
     initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
 
 
-class AIRBOTMcapDataSampler(DictDataSampler):
+class AIRBOTMcapDataSampler(DataSampler):
     config: AIRBOTMcapDataSamplerConfig
     _info: Dict[str, Dict[str, str]]
 
     def on_configure(self):
         """Configure the mcap data sampler."""
         self.builder = flatbuffers.Builder(self.config.initial_builder_size)
-        
-        # Initialize DataLoop client if upload is enabled
-        self.dataloop_client = None
         if self.config.upload.enabled:
-            self._init_dataloop_client()
-        
-        return super().on_configure()
+            assert DATALOOP_AVAILABLE, "DataLoopClient is not available"
+            self.dataloop_client = DataLoopClient(
+                endpoint=self.config.upload.endpoint,
+                username=self.config.upload.username,
+                password=self.config.upload.password,
+            )
+            self.get_logger().info(
+                bcolors.OKCYAN
+                + f"Will upload to task id: {self.config.task_info.task_id}"
+            )
+        self._coders = defaultdict(AvCoder)
+        self._executor = ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="mcap_h264_coder"
+        )
+        return True
 
-    def _init_dataloop_client(self):
-        """Initialize DataLoop client for file upload."""
-        try:
-            # 首先检查dataloop模块是否可用
-            if not DATALOOP_AVAILABLE:
-                self.get_logger().warning("dataloop模块未安装，无法使用云端上传功能")
-                self.get_logger().info("如需使用上传功能，请联系求之安装dataloop")
-                self.config.upload.enabled = False
-                return
-            
-            self.get_logger().info("正在初始化DataLoop客户端...")
-            self.get_logger().info(f"服务器地址: {self.config.upload.endpoint}")
-            
-            try:
-                dataloop = DataLoopClient(
-                    endpoint=self.config.upload.endpoint,
-                    username=self.config.upload.username,
-                    password=self.config.upload.password
-                )
-                self.get_logger().info("使用endpoint参数成功初始化DataLoop客户端")
-            except Exception as e:
-                self.get_logger().warning(f"endpoint参数方式失败: {e}")
-            
-            if dataloop is not None:
-                self.dataloop_client = dataloop
-                self.get_logger().info("DataLoop客户端初始化成功")
-            else:
-                self.get_logger().error("DataLoop客户端初始化失败，将禁用上传功能")
-                self.config.upload.enabled = False
-                
-        except Exception as e:
-            self.get_logger().error(f"DataLoop客户端初始化失败: {str(e)}，将禁用上传功能")
-            self.config.upload.enabled = False
+    def update(self, data: dict):
+        for key in list(data.keys()):
+            if "color" in key:
+                frame = data.pop(key)
+                self._coders[key].encode_frame(frame["data"], frame["t"])
+        return data
 
-    def save(self, path: str) -> str:
+    def save(self, path: str, data: dict) -> str:
         """Save the data to a MCAP file."""
-        # self.get_logger().info(f"data keys: {list(self._data.keys())}")
+        # self.get_logger().info(f"data keys: {list(data.keys())}")
         with open(path, "wb") as f:
             writer = Writer(f)
             writer.start()
@@ -141,13 +130,15 @@ class AIRBOTMcapDataSampler(DictDataSampler):
             # add metadata
             config_dict = self.config.model_dump()
             config_dict.pop("initial_builder_size")
-            # print(f"Saving config: {config_dict}")
 
             for key, value in config_dict.items():
                 # Convert all values in dict to strings for MCAP metadata
                 # MCAP add_metadata expects dict with string values
                 if isinstance(value, dict):
-                    string_dict = {k: json.dumps(v) if not isinstance(v, str) else v for k, v in value.items()}
+                    string_dict = {
+                        k: json.dumps(v) if not isinstance(v, str) else v
+                        for k, v in value.items()
+                    }
                 else:
                     string_dict = {"value": json.dumps(value)}
                 writer.add_metadata(name=key, data=string_dict)
@@ -158,7 +149,10 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                 for key, value in system_info.items():
                     flattened_value = flatten(value, "path")
                     # Convert all values to strings
-                    string_dict = {k: json.dumps(v) if not isinstance(v, str) else v for k, v in flattened_value.items()}
+                    string_dict = {
+                        k: json.dumps(v) if not isinstance(v, str) else v
+                        for k, v in flattened_value.items()
+                    }
                     writer.add_metadata(name=key, data=string_dict)
 
             # add attachments
@@ -194,7 +188,8 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                     encoding=SchemaEncoding.Flatbuffer,
                     data=get_schema("CompressedImage"),
                 )
-            for key, values in self._data.items():
+            log_stamps = data.pop("log_stamps")
+            for key, values in data.items():
                 if "color" in key:
                     if save_type == "jpeg":
                         data_type = "compressed_image"
@@ -239,64 +234,69 @@ class AIRBOTMcapDataSampler(DictDataSampler):
                             channel_id=channel_id,
                             data=value["data"],
                             publish_time=value["t"],
-                            log_time=self._log_stamps[i],
+                            log_time=log_stamps[i],
                             **kwargs,
                         )
                         for i, value in enumerate(values)
                     ]
-
-            for key in image_keys:
-                writer.add_attachment(
-                    time_ns(),
-                    time_ns(),
-                    name=key,
-                    media_type="video/mp4",
-                    data=encode_h264(self._data[key]),
+            futures = []
+            for key, coder in self._coders.items():
+                futures.append(
+                    self._executor.submit(
+                        self._add_video_attachment, writer, key, coder
+                    )
                 )
+                # self._add_video_attachment(writer, key, coder)
+
+            [_ for _ in as_completed(futures)]
+
             writer.finish()
-        
+
         # Upload to cloud after saving
         if self.config.upload.enabled:
             self._upload_to_cloud(path)
-        
+
         return path
 
     def _upload_to_cloud(self, file_path: str) -> bool:
         """Upload the saved file to cloud storage."""
-        try:
-            # Check if client is available
-            if self.dataloop_client is None:
-                self.get_logger().error("DataLoop客户端未初始化，无法上传")
-                return False
-            
-            # Convert task_id to int if it's a string
-            project_id = self.config.task_info.task_id
-            if isinstance(project_id, str):
-                project_id = int(project_id)
-            
-            # Generate unique sample ID
-            uid = str(uuid.uuid4())
-            
-            # Upload the file
-            self.get_logger().info(f"开始上传文件到云端: {file_path}")
-            self.get_logger().info(f"项目ID: {project_id}, 样本ID: {uid}")
-            
-            message = self.dataloop_client.samples.upload_sample(
-                project_id=project_id,
-                sample_id=uid,
-                sample_type="Sequential",
-                file_path=file_path
-            )
-            
-            self.get_logger().info(f"文件上传成功: {message}")
-            return True
-            
-        except Exception as e:
-            self.get_logger().error(f"上传到云端失败: {str(e)}")
-            return False
+        # Convert task_id to int if it's a string
+        project_id = self.config.task_info.task_id
+        if isinstance(project_id, str):
+            project_id = int(project_id)
+
+        # Generate unique sample ID
+        uid = str(uuid.uuid4())
+
+        # Upload the file
+        # self.get_logger().info(
+        #     f"Starting to upload file to cloud. Project ID: {project_id}; Sample ID: {uid}"
+        # )
+
+        message = self.dataloop_client.samples.upload_sample(
+            project_id=project_id,
+            sample_id=uid,
+            sample_type="Sequential",
+            file_path=file_path,
+        )
+
+        self.get_logger().info(bcolors.OKGREEN + f"{message}")
+        return True
 
     def compose_path(self, directory, round) -> str:
         return os.path.join(directory, f"{round}.mcap")
+
+    def _add_video_attachment(self, writer: Writer, key: str, coder: AvCoder):
+        writer.add_attachment(
+            time_ns(),
+            time_ns(),
+            key,
+            "video/mp4",
+            coder.end(),
+        )
+        # self.get_logger().info(
+        #     bcolors.OKGREEN + f"Added video attachment for {key} to MCAP."
+        # )
 
     def _add_message(
         self,
