@@ -197,7 +197,8 @@ class AvCoder:
                 indices.pop(0)
                 if not indices:
                     break
-        container.close()
+        # do not close since it will block the code
+        # container.close()
         assert (
             len(frames) == exp_cnt
         ), f"Frame count mismatch: {len(frames)} != {exp_cnt}"
