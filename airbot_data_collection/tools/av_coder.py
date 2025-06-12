@@ -114,7 +114,7 @@ class AvCoder:
             self.get_logger().warning(
                 f"Frame timestamp {timestamp} is not greater than last timestamp {last_time}. Adjusting."
             )
-            timestamp = last_time + 1
+            timestamp = last_time + 1000
         self._last_time = timestamp
         video_frame.pts = timestamp - self._start_time
         video_frame.time_base = self._time_base
