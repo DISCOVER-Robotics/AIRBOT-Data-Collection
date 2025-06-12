@@ -162,12 +162,13 @@ class AvCoder:
         """
         return getLogger(self.__class__.__name__)
 
-    @staticmethod
     def decode(
+        self,
         video: Union[str, bytes],
         indices: Optional[List[int]] = None,
         frame_format: str = "bgr24",
         thread_type: str = "AUTO",
+        mismatch_tolerance: int = 0,
     ) -> Union[List[np.ndarray], Dict[int, np.ndarray]]:
         """
         Reads all frames from a video file using PyAV.
@@ -201,6 +202,22 @@ class AvCoder:
                 indices.pop(0)
                 if not indices:
                     break
+        if mismatch_tolerance:
+            if indices is None:
+                missing_cnt = frame_cnt - len(frames)
+                if missing_cnt > 0 and missing_cnt <= mismatch_tolerance:
+                    self.get_logger().warning(
+                        f"Missing {missing_cnt} frames in video. Filling with last frame."
+                    )
+                    for _ in range(missing_cnt):
+                        frames.append(frame_arr)
+            elif indices:
+                if len(indices) <= mismatch_tolerance:
+                    self.get_logger().warning(
+                        f"Frame indices {indices} not found in video. Filling with last frame."
+                    )
+                    for index in indices:
+                        frames[index] = frame_arr
         # do not close since it will block the code
         # container.close()
         assert (
