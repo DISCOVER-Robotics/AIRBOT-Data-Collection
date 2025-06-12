@@ -6,7 +6,7 @@ from typing import List, Union, Literal
 from turbojpeg import TurboJPEG
 from logging import getLogger
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 
 class AvCoder:
