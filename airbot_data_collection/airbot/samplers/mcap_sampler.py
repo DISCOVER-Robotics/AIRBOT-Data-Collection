@@ -16,7 +16,8 @@ from time import time_ns
 from airbot_data_collection.tools.av_coder import AvCoder
 from airbot_data_collection.utils import bcolors
 import uuid
-
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from dataloop import DataLoopClient
@@ -106,14 +107,17 @@ class AIRBOTMcapDataSampler(DataSampler):
                 bcolors.OKCYAN
                 + f"Will upload to task id: {self.config.task_info.task_id}"
             )
-        self._coder = AvCoder()
+        self._coders = defaultdict(AvCoder)
+        self._executor = ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="mcap_h264_coder"
+        )
         return True
 
     def update(self, data: dict):
         for key in list(data.keys()):
             if "color" in key:
                 frame = data.pop(key)
-                self._coder.encode_frame(frame["data"], frame["t"])
+                self._coders[key].encode_frame(frame["data"], frame["t"])
         return data
 
     def save(self, path: str, data: dict) -> str:
@@ -235,15 +239,17 @@ class AIRBOTMcapDataSampler(DataSampler):
                         )
                         for i, value in enumerate(values)
                     ]
-
-            for key in image_keys:
-                writer.add_attachment(
-                    time_ns(),
-                    time_ns(),
-                    name=key,
-                    media_type="video/mp4",
-                    data=self._coder.end(),
+            futures = []
+            for key, coder in self._coders.items():
+                futures.append(
+                    self._executor.submit(
+                        self._add_video_attachment, writer, key, coder
+                    )
                 )
+                # self._add_video_attachment(writer, key, coder)
+
+            [_ for _ in as_completed(futures)]
+
             writer.finish()
 
         # Upload to cloud after saving
@@ -279,6 +285,18 @@ class AIRBOTMcapDataSampler(DataSampler):
 
     def compose_path(self, directory, round) -> str:
         return os.path.join(directory, f"{round}.mcap")
+
+    def _add_video_attachment(self, writer: Writer, key: str, coder: AvCoder):
+        writer.add_attachment(
+            time_ns(),
+            time_ns(),
+            key,
+            "video/mp4",
+            coder.end(),
+        )
+        # self.get_logger().info(
+        #     bcolors.OKGREEN + f"Added video attachment for {key} to MCAP."
+        # )
 
     def _add_message(
         self,
