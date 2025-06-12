@@ -201,7 +201,7 @@ class AvCoder:
         # container.close()
         assert (
             len(frames) == exp_cnt
-        ), f"Frame count mismatch: {len(frames)} != {exp_cnt}"
+        ), f"Frame count mismatch: {len(frames)} != {exp_cnt}; indices: {indices} frame_cnt: {frame_cnt}"
         return frames
 
 
