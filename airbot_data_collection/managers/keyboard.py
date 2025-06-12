@@ -117,7 +117,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
                 self.fsm.act(action)
                 self.print_round()
             else:
-                self.get_logger().info(f"Invalid key pressed: {key}")
+                self.get_logger().warning(f"Invalid key pressed: {key}")
 
     def on_shutdown(self) -> bool:
         self.listener.stop()
@@ -134,9 +134,11 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         else:
             try:
                 key_char = key.char
-                assert (
-                    key_char is not None
-                ), "Unknown key pressed. There may be a situation where the number keys on the numeric keypad cannot be recognized properly."
+                if key_char is None:
+                    self.get_logger().warning(
+                        "Unknown key pressed. There may be a situation where the number keys on the numeric keypad cannot be recognized properly."
+                    )
+                    key_char = str(key)
             except AttributeError:
                 key_char = str(key)
             return key_char
