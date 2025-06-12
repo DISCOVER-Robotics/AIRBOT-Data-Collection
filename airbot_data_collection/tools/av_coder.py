@@ -197,7 +197,6 @@ class AvCoder:
                 indices.pop(0)
                 if not indices:
                     break
-        assert index > 0, "No frames decoded"
         container.close()
         assert (
             len(frames) == exp_cnt
