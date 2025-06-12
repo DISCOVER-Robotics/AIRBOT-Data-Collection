@@ -7,6 +7,7 @@ from turbojpeg import TurboJPEG
 from logging import getLogger
 import time
 from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 
 class AvCoder:
@@ -34,6 +35,7 @@ class AvCoder:
         else:
             self._executor = None
         self._last_future = None
+        self._encode_lock = Lock()
 
     def _reset(self):
         """
@@ -131,26 +133,28 @@ class AvCoder:
             frame (Union[np.ndarray, bytes]): The video frame to encode.
             timestamp (int): The timestamp for the frame in nanoseconds.
         """
-        if self._executor is not None:
-            self._last_future = self._executor.submit(
-                self._encode_frame, frame, timestamp
-            )
-        else:
-            self._encode_frame(frame, timestamp)
+        with self._encode_lock:
+            if self._executor is not None:
+                self._last_future = self._executor.submit(
+                    self._encode_frame, frame, timestamp
+                )
+            else:
+                self._encode_frame(frame, timestamp)
 
     def end(self) -> bytes:
         """
         Finalize the encoding process and return the encoded data bytes.
         """
-        if self._last_future:
-            self._last_future.result()
-        for packet in self.stream.encode():
-            self._container.mux(packet)
-        self._container.close()
-        value = self._outbuf.getvalue()
-        self._outbuf.close()
-        self._reset()
-        return value
+        with self._encode_lock:
+            if self._last_future:
+                self._last_future.result()
+            for packet in self.stream.encode():
+                self._container.mux(packet)
+            self._container.close()
+            value = self._outbuf.getvalue()
+            self._outbuf.close()
+            self._reset()
+            return value
 
     def get_logger(self):
         """
