@@ -13,7 +13,7 @@ from importlib.resources import read_binary
 from flatten_dict import flatten
 import json
 from time import time_ns
-from airbot_data_collection.tools.av_coder import encode_h264
+from airbot_data_collection.tools.av_coder import AvCoder
 from airbot_data_collection.utils import bcolors
 import uuid
 
@@ -106,7 +106,15 @@ class AIRBOTMcapDataSampler(DataSampler):
                 bcolors.OKCYAN
                 + f"Will upload to task id: {self.config.task_info.task_id}"
             )
+        self._coder = AvCoder()
         return True
+
+    def update(self, data: dict):
+        for key in list(data.keys()):
+            if "color" in key:
+                frame = data.pop(key)
+                self._coder.encode_frame(frame["data"], frame["t"])
+        return data
 
     def save(self, path: str, data: dict) -> str:
         """Save the data to a MCAP file."""
@@ -234,7 +242,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                     time_ns(),
                     name=key,
                     media_type="video/mp4",
-                    data=encode_h264(data[key]),
+                    data=self._coder.end(),
                 )
             writer.finish()
 
