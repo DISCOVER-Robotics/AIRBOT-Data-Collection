@@ -65,7 +65,7 @@ class TaskInfo(BaseModel):
 
 
 class UploadConfig(BaseModel):
-    enabled: bool = True
+    enabled: bool = False
     endpoint: str = "192.168.215.80"
     username: str = "admin"
     password: str = "123456"
