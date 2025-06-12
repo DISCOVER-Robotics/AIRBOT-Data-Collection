@@ -2,7 +2,7 @@ import av
 import numpy as np
 from io import BytesIO
 import fractions
-from typing import List, Union, Literal
+from typing import List, Optional, Union, Literal, Dict
 from turbojpeg import TurboJPEG
 from logging import getLogger
 import time
@@ -160,27 +160,48 @@ class AvCoder:
 
     @staticmethod
     def decode(
-        video: Union[str, bytes], frame_format: str = "bgr24", thread_type: str = "AUTO"
-    ) -> List[np.ndarray]:
+        video: Union[str, bytes],
+        indices: Optional[List[int]] = None,
+        frame_format: str = "bgr24",
+        thread_type: str = "AUTO",
+    ) -> Union[List[np.ndarray], Dict[int, np.ndarray]]:
         """
         Reads all frames from a video file using PyAV.
         Args:
-            video_path (str): Path to the video file.
+            video_path (str): Path to the video file or the encoded video bytes.
         Returns:
             List[np.ndarray]: A list of frames, each represented as a NumPy array.
         """
         if isinstance(video, bytes):
             container = av.open(BytesIO(video))
         else:
-            container = av.open(video)
+            container = av.open(video, "r")
         # Enable multithreading for decoding
         container.streams.video[0].thread_type = thread_type
         frame_cnt = container.streams.video[0].frames
-        frames = []
-        for frame in container.decode(video=0):
-            frames.append(frame.to_ndarray(format=frame_format))
+        if indices is not None:
+            indices = sorted(set(indices))
+            end_index = indices[-1]
+            assert 0 <= end_index < frame_cnt, f"{end_index} out of bounds"
+            frames = {}
+            exp_cnt = len(indices)
+        else:
+            frames = []
+            exp_cnt = frame_cnt
+        for index, frame in enumerate(container.decode(video=0)):
+            frame_arr = frame.to_ndarray(format=frame_format)
+            if indices is None:
+                frames.append(frame_arr)
+            elif index == indices[0]:
+                frames[index] = frame_arr
+                indices.pop(0)
+                if not indices:
+                    break
+        assert index > 0, "No frames decoded"
         container.close()
-        assert len(frames) == frame_cnt, "Frame count mismatch"
+        assert (
+            len(frames) == exp_cnt
+        ), f"Frame count mismatch: {len(frames)} != {exp_cnt}"
         return frames
 
 
@@ -188,19 +209,16 @@ if __name__ == "__main__":
 
     av_coder = AvCoder(async_encode=False)
 
-    def test_decode(video):
+    def test_decode(video, indices=None):
         """
         Test encoding a single frame.
         """
         start = time.monotonic()
-        frames = av_coder.decode(video)
+        frames = av_coder.decode(video, indices)
         print(f"Frame resolution: {frames[0].shape}")
-        print(
-            f"Decode cost time: {time.monotonic() - start:.2f} seconds for {len(frames)} frames"
-        )
-        print(
-            f"Time cost per frame: {(time.monotonic() - start) / len(frames):.4f} seconds"
-        )
+        cost_time = time.monotonic() - start
+        print(f"Decode cost time: {cost_time:.2f} seconds for {len(frames)} frames")
+        print(f"Time cost decoding per frame: {cost_time / len(frames):.4f} seconds")
         return frames
 
     frames = test_decode("/home/ghz/视频/示教器问题.mp4")
@@ -221,3 +239,4 @@ if __name__ == "__main__":
 
     # Test decoding the encoded data
     frames = test_decode(encoded_data)
+    test_decode(encoded_data, [0, 2, 4]).keys()
