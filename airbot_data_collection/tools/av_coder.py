@@ -31,6 +31,8 @@ class AvCoder:
         if async_encode:
             # set max_workers to 1 to ensure frames are processed in order
             self._executor = ThreadPoolExecutor(1, "av_coder")
+        else:
+            self._executor = None
         self._last_future = None
 
     def _reset(self):
@@ -93,8 +95,9 @@ class AvCoder:
             frame (Union[np.ndarray, bytes]): The video frame to encode.
             timestamp (int): The timestamp for the frame in nanoseconds.
         """
-        start = time.monotonic()
+        # start = time.monotonic()
         if self._start_time == 0:
+            assert timestamp > 0, "Timestamp must be greater than 0"
             self._start_time = timestamp
         if self._preprocess is None:
             self._set_frame_type(frame)
@@ -156,8 +159,8 @@ class AvCoder:
         return getLogger(self.__class__.__name__)
 
     @staticmethod
-    def read_all_frames_pyav(
-        video_path: str, frame_format: str = "bgr24", thread_type: str = "AUTO"
+    def decode(
+        video: Union[str, bytes], frame_format: str = "bgr24", thread_type: str = "AUTO"
     ) -> List[np.ndarray]:
         """
         Reads all frames from a video file using PyAV.
@@ -166,11 +169,55 @@ class AvCoder:
         Returns:
             List[np.ndarray]: A list of frames, each represented as a NumPy array.
         """
-        container = av.open(video_path)
+        if isinstance(video, bytes):
+            container = av.open(BytesIO(video))
+        else:
+            container = av.open(video)
         # Enable multithreading for decoding
         container.streams.video[0].thread_type = thread_type
+        frame_cnt = container.streams.video[0].frames
         frames = []
         for frame in container.decode(video=0):
             frames.append(frame.to_ndarray(format=frame_format))
         container.close()
+        assert len(frames) == frame_cnt, "Frame count mismatch"
         return frames
+
+
+if __name__ == "__main__":
+
+    av_coder = AvCoder(async_encode=False)
+
+    def test_decode(video):
+        """
+        Test encoding a single frame.
+        """
+        start = time.monotonic()
+        frames = av_coder.decode(video)
+        print(f"Frame resolution: {frames[0].shape}")
+        print(
+            f"Decode cost time: {time.monotonic() - start:.2f} seconds for {len(frames)} frames"
+        )
+        print(
+            f"Time cost per frame: {(time.monotonic() - start) / len(frames):.4f} seconds"
+        )
+        return frames
+
+    frames = test_decode("/home/ghz/视频/示教器问题.mp4")
+    start = time.monotonic()
+    init_stamp = time.time_ns()
+    for i, frame in enumerate(frames):
+        stamp = init_stamp + i * 1e9 // 30
+        # print(
+        #     f"Encoding frame {i} with shape {frame.shape} and dtype {frame.dtype} and timestamp {stamp}"
+        # )
+        av_coder.encode_frame(frame, stamp)
+    encoded_data = av_coder.end()
+    print(f"Encoded data size: {len(encoded_data)} bytes")
+    print(f"Encoding cost time: {time.monotonic() - start:.2f} seconds")
+    print(
+        f"Time cost encoding per frame: {(time.monotonic() - start) / len(frames):.4f} seconds"
+    )
+
+    # Test decoding the encoded data
+    frames = test_decode(encoded_data)
