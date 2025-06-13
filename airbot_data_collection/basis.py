@@ -3,8 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, replace
 from enum import Enum, auto
 from logging import getLogger
-from typing import Any, Dict, Optional, Protocol, final, runtime_checkable
-
+from typing import Any, Dict, Protocol, Union, List, Tuple, final, runtime_checkable
 from pydantic import BaseModel
 
 
@@ -12,6 +11,21 @@ class SystemMode(Enum):
     PASSIVE = auto()  # gravity compensation
     RESETTING = auto()  # mode for resetting
     SAMPLING = auto()  # mode for sampling
+
+
+RangeConifg = Dict[Union[str, int], Tuple[float, float]]
+
+
+class PostCaptureConfig(BaseModel):
+    """The post capture config for the group leader."""
+
+    # The keys of the leader observation data to be processed,
+    # e.g. ["arm/joint_state/position", "eef/joint_state/velocity"]
+    keys: List[str] = []
+    # Target ranges (min, max) used for linear mapping for each index/name/id of data.
+    # e.g. {0: (0.0, 1.0), 1: (0.0, 1.0)}. The original range or the limit should
+    # be provided by the leader itself.
+    target_ranges: List[RangeConifg] = {}
 
 
 class ConfigBasis(ABC):
@@ -59,11 +73,24 @@ class ConfigBasis(ABC):
 class Sensor(ConfigBasis):
 
     @abstractmethod
-    def capture_observation(self) -> Dict[str, Any]: ...
+    def capture_observation(self) -> Dict[str, Any]:
+        """Capture observation from the sensor"""
+        raise NotImplementedError
+
     @abstractmethod
-    def shutdown(self) -> None: ...
+    def shutdown(self) -> None:
+        """Shutdown"""
+        raise NotImplementedError
+
     @abstractmethod
-    def get_info(self) -> Dict[str, Any]: ...
+    def get_info(self) -> Dict[str, Any]:
+        """Get information"""
+        raise NotImplementedError
+
+    def set_post_capture(self, config: PostCaptureConfig) -> None:
+        """Set post capture process"""
+        # This method can be overridden by subclasses to set post capture processing
+        pass
 
 
 class System(Sensor):

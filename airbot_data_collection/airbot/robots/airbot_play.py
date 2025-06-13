@@ -1,16 +1,20 @@
-from typing import List, Union
+from typing import List, Union, Dict, Tuple
 
 from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from pydantic import BaseModel, PositiveInt
 
-from airbot_data_collection.basis import System, SystemMode
+from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
 from time import time_ns
+from collections import defaultdict
+from airbot_data_collection.utils import linear_map
+from functools import partial
 
 
 class AIRBOTPlayConfig(BaseModel):
     url: str = "localhost"
     port: PositiveInt = 50050
     speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
+    limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
@@ -44,34 +48,53 @@ class AIRBOTPlay(System):
         return True
 
     def on_configure(self) -> bool:
-        self.get_logger().info(
-            f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
-        )
+        self._init_args()
         if self.interface.connect():
             self.interface.set_speed_profile(self.config.speed_profile)
             return True
         return False
 
+    def _init_args(self):
+        self.get_logger().info(
+            f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
+        )
+        self._js_fields = {"position", "velocity", "effort"}
+        self._components = {"arm", "eef"}
+        self._post_capture = defaultdict(dict)
+        self._default_limit = {
+            "replay": {"eef/joint_state/position": {0: (0, 0.0471)}},
+            "play": {"eef/joint_state/position": {0: (0, 0.0725)}},
+        }
+
     def capture_observation(self) -> dict[str, dict[str, Union[float, List[float]]]]:
         """key: component_name/data_type"""
-        return {
-            "arm/joint_state": {
+        obs = {}
+        for component in self._components:
+            obs[f"{component}/joint_state"] = {
                 "t": time_ns(),
                 "data": {
-                    "position": self.interface.get_joint_pos(),
-                    "velocity": self.interface.get_joint_vel(),
-                    "effort": self.interface.get_joint_eff(),
+                    field: self._get_joint_state(component, field)
+                    for field in self._js_fields
                 },
-            },
-            "eef/joint_state": {
-                "t": time_ns(),
-                "data": {
-                    "position": self.interface.get_eef_pos(),
-                    "velocity": [0.0] * 6,
-                    "effort": self.interface.get_eef_eff(),
-                },
-            },
-        }
+            }
+        return obs
+
+    def _get_joint_state(self, component: str, field: str) -> List[float]:
+        if component == "eef" and field == "velocity":
+            return [0.0] * 6
+        else:
+            data = getattr(
+                self.interface, f"get_{component.replace('arm', 'joint')}_{field[:3]}"
+            )()
+            for index, process in self._post_capture.get(
+                f"{component}/joint_state/{field}", {}
+            ).items():
+                # self.get_logger().info(
+                #     f"Processing {component}/joint_state/{field} at index {index}: {data[index]}"
+                # )
+                data[index] = process(data[index])
+                # self.get_logger().info(f"Post value: {data[index]}")
+            return data
 
     def shutdown(self) -> bool:
         return self.interface.disconnect()
@@ -82,18 +105,35 @@ class AIRBOTPlay(System):
             for key, value in self.interface.get_product_info().items()
         } | {
             "arm/joint_names": [f"joint{i}" for i in range(1, 7)],
-            "arm_eef/joint_names": ["arm_eef_gripper_joint"],
+            "eef/joint_names": ["arm_eef_gripper_joint"],
         }
 
     def observation_to_action(self, obs: dict) -> list[float]:
         """Convert the observation to final action"""
         action = []
-        for component in ["arm", "eef"]:
+        for component in self._components:
             action.extend(obs[f"{component}/joint_state"]["data"]["position"])
         return action
 
+    def set_post_capture(self, config: PostCaptureConfig) -> None:
+        product_type = self.interface.get_product_info()["product_type"]
+        default_limits = self._default_limit.get(product_type, {})
+        for key, value in zip(config.keys, config.target_ranges):
+            # e.g. key = "arm/joint_state/position"
+            limit = self.config.limit.get(key, {})
+            default_limit = default_limits.get(key, {})
+            default_limit.update(limit)
+            for index, target_range in value.items():
+                self._post_capture[key][int(index)] = partial(
+                    linear_map,
+                    raw_range=default_limit[index],
+                    target_range=target_range,
+                )
+                # self.get_logger().info(
+                #     f"Post capture config set: {target_range=}"
+                # )
+
 
 if __name__ == "__main__":
-
     player = AIRBOTPlay(AIRBOTPlayConfig())
     assert player.configure()

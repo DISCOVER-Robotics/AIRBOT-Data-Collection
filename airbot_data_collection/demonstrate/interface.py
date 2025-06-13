@@ -188,6 +188,12 @@ class DemonstrateInterface:
                         f"Failed to configure {n} of role: {role} in group {group.name}"
                     )
                     return False
+        for group_name, post_capture in self.config.post_capture.items():
+            group = self.group_map.get(group_name, None)
+            self.get_logger().info(
+                f"Setting post capture for group {group_name}: {post_capture}"
+            )
+            group.leader[0].set_post_capture(post_capture)
         # set info before configuring the sampler
         # so that the sampler can use it for configuring
         names = list(self.visualizers.keys())
@@ -230,18 +236,10 @@ class DemonstrateInterface:
         """Control the followers to follow the leader."""
         for group_name in self.config.auto_control.groups:
             group = self.group_map[group_name]
-            if self.config.playback_mode:
-                # 播放模式：从播放器(leader)获取数据
-                if group.leader:
-                    obs = group.leader[0].capture_observation()
-                    # 如果播放器有数据，则发送给从臂
-                    if obs:
-                        for follower in group.followers:
-                            follower.send_action(obs)
-            else:
-                # 实时模式：从真实的主臂获取数据
-                if group.leader:
-                    obs = group.leader[0].capture_observation()
+            if group.leader:
+                leader = group.leader[0]
+                obs = leader.capture_observation()
+                if obs:
                     for follower in group.followers:
                         follower.send_action(obs)
 

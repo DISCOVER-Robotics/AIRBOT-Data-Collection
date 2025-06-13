@@ -428,11 +428,21 @@ def get_can_interfaces():
         return []
 
 
+def linear_map(
+    x, raw_range: tuple[float, float], target_range: tuple[float, float]
+) -> float:
+    a, b = raw_range
+    c, d = target_range
+    return (x - a) * (d - c) / (b - a) + c
+
+
 if __name__ == "__main__":
 
-    bar = ProgressBar(100, "Round 0")
-    for rd in range(10):
-        for i in range(5):
-            input("Press Enter to continue...")
-            bar.update(i + 1)
-        bar.reset(desc=f"Round {rd + 1}")
+    # bar = ProgressBar(100, "Round 0")
+    # for rd in range(10):
+    #     for i in range(5):
+    #         input("Press Enter to continue...")
+    #         bar.update(i + 1)
+    #     bar.reset(desc=f"Round {rd + 1}")
+
+    print(linear_map(-0.1, (0, 1), (0, 100)))

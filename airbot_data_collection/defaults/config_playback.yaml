@@ -18,6 +18,3 @@ managers:
   params:
     - _target_: airbot_data_collection.managers.basis.SelfManager
     - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
-
-# 启用播放模式
-playback_mode: true

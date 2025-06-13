@@ -1,7 +1,8 @@
 from airbot_data_collection.airbot.robots.airbot_play import (
-    AIRBOTPlay,
+    AIRBOTPlay as AIRBOTPlayReal,
     AIRBOTPlayConfig,
 )
+from numpy import random
 
 
 class AIRBOTArmMock:
@@ -19,19 +20,20 @@ class AIRBOTArmMock:
         return self.value
 
     def get_eef_pos(self):
-        return [0.0]
+        return [random.uniform(0.0, 0.0471)]
+        # return [0.0471 / 2]
 
-    def get_eef_vel(self):
-        return [0.0]
+    # def get_eef_vel(self):
+    #     return [0.0]
 
     def get_eef_eff(self):
         return [0.0]
 
     def get_product_info(self):
-        return {}
+        return {"product_type": "replay"}
 
 
-class AIRBOTPlay(AIRBOTPlay):
+class AIRBOTPlay(AIRBOTPlayReal):
     """
     A mock class for AIRBOTPlay.
     """
@@ -46,6 +48,7 @@ class AIRBOTPlay(AIRBOTPlay):
         return True
 
     def on_configure(self):
+        self._init_args()
         return True
 
     def shutdown(self):
