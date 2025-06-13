@@ -31,7 +31,12 @@ class AIRBOTPlay(System):
         if isinstance(action, dict):
             for key, value in action.items():
                 component = key.split("/", 1)[0]
-                self._comp_act[component][mode](value["data"]["position"])
+                act_cfg = self._comp_act[component]
+                target = value["data"]["position"]
+                if callable(act_cfg):
+                    act_cfg(target)
+                else:
+                    act_cfg[mode](target)
         else:
             self._comp_act["arm"][mode](action[:6])
             if len(action) == 7:
