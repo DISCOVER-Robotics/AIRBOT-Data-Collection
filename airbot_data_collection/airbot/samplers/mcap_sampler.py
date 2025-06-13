@@ -170,6 +170,14 @@ class AIRBOTMcapDataSampler(DataSampler):
                 data=json.dumps(info).encode("utf-8"),
                 media_type="application/json",
             )
+            log_stamps: list[int] = data.pop("log_stamps")
+            writer.add_attachment(
+                time_ns(),
+                time_ns(),
+                name="log_stamps",
+                data=bytes(str(log_stamps), "utf-8"),
+                media_type="application/octet-stream",
+            )
             # add schemas
             float_array_schema_id = writer.register_schema(
                 name="airbot_fbs.FloatArray",
@@ -188,7 +196,6 @@ class AIRBOTMcapDataSampler(DataSampler):
                     encoding=SchemaEncoding.Flatbuffer,
                     data=get_schema("CompressedImage"),
                 )
-            log_stamps = data.pop("log_stamps")
             for key, values in data.items():
                 if "color" in key:
                     if save_type == "jpeg":
