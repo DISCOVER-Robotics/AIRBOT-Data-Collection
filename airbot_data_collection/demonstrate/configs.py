@@ -2,11 +2,11 @@ import os
 from ast import literal_eval
 from collections import Counter
 from enum import auto
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
 
-from airbot_data_collection.basis import SystemMode
+from airbot_data_collection.basis import SystemMode, PostCaptureConfig
 from airbot_data_collection.utils import StrEnum
 
 
@@ -298,12 +298,10 @@ class DemonstrateConfig(BaseModel):
     dataset: DatasetConfig
     sample_limit: SampleLimit = SampleLimit()
     auto_control: AutoControlConfig = AutoControlConfig()
-    # 是否启用播放模式 (从 bson 文件播放数据而不是实时控制)
-    playback_mode: bool = False
     # what the leaders / followers to act when
     # performing an actions for each group
     # if None, no action values will be sent
-    send_actions: dict[DemonstrateAction, GroupsSendActionConfig] = {}
+    send_actions: Dict[DemonstrateAction, GroupsSendActionConfig] = {}
     # the sampler to be used to collect and save the data
     # if None, a mock sampler will be used
     sampler: ComponentConfig | None = None
@@ -315,6 +313,8 @@ class DemonstrateConfig(BaseModel):
     async_save_max_workers: NonNegativeInt = 1
     # the directories where the config files are stored
     search_dirs: set[str] = {"."}
+    # the post capture config for each group leader
+    post_capture: Dict[str, PostCaptureConfig] = {}
 
     def model_post_init(self, context):
         if self.auto_control.groups is None:
