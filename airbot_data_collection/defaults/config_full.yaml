@@ -69,7 +69,7 @@ sampler:
           description: pick the wooden blocks from the bowl with the gripper
           description_zh: 用夹爪从碗中拾取木制积木
     upload:
-      enabled: true
+      enabled: false
       endpoint: 192.168.215.80
       username: admin
       password: "123456"
