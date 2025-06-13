@@ -250,7 +250,7 @@ while True:
         if can_group_num == 1:
             groups = ["/"] * (len(can_itfs) + len(camera_indices))
         elif can_group_num == 2:
-            groups = ["/left"] * 2 + ["/right"] * 2 + ["/"] * len(camera_indices)
+            groups = ["left"] * 2 + ["right"] * 2 + ["/"] * len(camera_indices)
         else:
             raise NotImplementedError
         components = {
