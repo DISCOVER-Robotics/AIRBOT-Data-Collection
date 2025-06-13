@@ -189,7 +189,7 @@ class DemonstrateInterface:
                     )
                     return False
         for group_name, post_capture in self.config.post_capture.items():
-            group = self.group_map.get(group_name, None)
+            group = self.group_map[group_name]
             self.get_logger().info(
                 f"Setting post capture for group {group_name}: {post_capture}"
             )

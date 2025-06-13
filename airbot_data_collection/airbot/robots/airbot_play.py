@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Tuple
+from typing import List, Union, Dict, Tuple, Any
 
 from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from pydantic import BaseModel, PositiveInt
@@ -26,17 +26,16 @@ class AIRBOTPlay(System):
     config: AIRBOTPlayConfig
     interface: AIRBOTArm
 
-    def send_action(self, action: list[float] | dict) -> None:
-        if isinstance(action, dict):
-            # TODO: should make this a abs method?
-            action = self.observation_to_action(action)
+    def send_action(self, action: List[float] | Dict[str, Any]) -> None:
         mode = self.interface.get_control_mode()
-        if mode is RobotMode.SERVO_JOINT_POS:
-            self.interface.servo_joint_pos(action[:6])
-        elif mode is RobotMode.PLANNING_POS:
-            self.interface.move_to_joint_pos(action[:6])
-        if len(action) == 7:
-            self.interface.servo_eef_pos(action[-1:])
+        if isinstance(action, dict):
+            for key, value in action.items():
+                component = key.split("/", 1)[0]
+                self._comp_act[component][mode](value["data"]["position"])
+        else:
+            self._comp_act["arm"][mode](action[:6])
+            if len(action) == 7:
+                self.interface.servo_eef_pos(action[-1:])
 
     def on_switch_mode(self, mode: SystemMode) -> bool:
         if mode is SystemMode.PASSIVE:
@@ -49,6 +48,13 @@ class AIRBOTPlay(System):
 
     def on_configure(self) -> bool:
         self._init_args()
+        self._comp_act = {
+            "arm": {
+                RobotMode.SERVO_JOINT_POS: self.interface.servo_joint_pos,
+                RobotMode.PLANNING_POS: self.interface.move_to_joint_pos,
+            },
+            "eef": self.interface.servo_eef_pos,
+        }
         if self.interface.connect():
             self.interface.set_speed_profile(self.config.speed_profile)
             return True
@@ -107,13 +113,6 @@ class AIRBOTPlay(System):
             "arm/joint_names": [f"joint{i}" for i in range(1, 7)],
             "eef/joint_names": ["arm_eef_gripper_joint"],
         }
-
-    def observation_to_action(self, obs: dict) -> list[float]:
-        """Convert the observation to final action"""
-        action = []
-        for component in self._components:
-            action.extend(obs[f"{component}/joint_state"]["data"]["position"])
-        return action
 
     def set_post_capture(self, config: PostCaptureConfig) -> None:
         product_type = self.interface.get_product_info()["product_type"]
