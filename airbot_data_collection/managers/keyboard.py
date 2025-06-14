@@ -29,6 +29,8 @@ class KeyboardCallbackConfig(BaseModel):
     # TODO: auto add mapped keys to the instruction
     key_mapping: dict[str, str] = {
         keyboard.Key.esc.name: "z",
+        keyboard.Key.enter.name: "s",
+        keyboard.Key.shift.name: "q",
     }
 
     def model_post_init(self, context):
