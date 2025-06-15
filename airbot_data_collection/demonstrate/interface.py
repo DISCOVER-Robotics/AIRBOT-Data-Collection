@@ -1,5 +1,6 @@
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Future
+import multiprocessing as mp
 from logging import getLogger
 from threading import Event, Lock, Thread
 from typing import Any, List, Union, Callable
@@ -158,10 +159,22 @@ class DemonstrateInterface:
         else:
             self.save_executor = None
         self._save_futures: List[Future] = []
-        self._deactivated = False
-        self._auto_control_event = Event()
+        auto_control = self.config.auto_control
+        self._use_auto_control = bool(auto_control.groups)
+        if self._use_auto_control:
+            assert (
+                auto_control.mode is not AsyncMode.none
+            ), "Auto control mode must be set"
+            if auto_control.mode is AsyncMode.thread:
+                event_cls = Event
+                self._auto_control_tp_cls = Thread
+            else:
+                event_cls = mp.Event
+                self._auto_control_tp_cls = mp.Process
+            self._auto_control_stop_event = event_cls()
+            self._auto_control_pause_event = event_cls()
+            self._auto_control_tp: Thread | mp.Process | None = None
         self._role_mode_set = {}
-        self._auto_control_thread: Thread | None = None
         self._round_data = defaultdict(list)
 
     def get_logger(self):
@@ -215,25 +228,21 @@ class DemonstrateInterface:
                 self.get_logger().error(f"Failed to configure {tp}: {name}")
                 return False
 
-    def _auto_control_loop(self):
-        """Control the followers to follow the leader."""
+    def _auto_control_loop(self) -> None:
+        """Control the followers to follow the leader in a loop."""
         rate = self.config.auto_control.rate
         assert rate, "Auto control rate must be set"
         period = 1 / rate[0]
-        while not self._deactivated:
-            self._auto_control_event.wait()
-            start = time.perf_counter()
-            self._auto_control()
-            sleep_time = period - (time.perf_counter() - start)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            # else:
-            #     self.get_logger().warning(
-            #         f"Auto control loop is too slow: exceeds {-sleep_time}s"
-            #     )
+        while not self._auto_control_stop_event.is_set():
+            # if not self._auto_control_pause_event.is_set():
+            #     self.get_logger().info("Auto control stopped")
+            self._auto_control_pause_event.wait()
+            self._auto_control(period)
+        self.get_logger().info(bcolors.OKBLUE + "Auto control loop stopped")
 
-    def _auto_control(self):
+    def _auto_control(self, period: float = 0) -> float:
         """Control the followers to follow the leader."""
+        start = time.monotonic()
         for group_name in self.config.auto_control.groups:
             group = self.group_map[group_name]
             if group.leader:
@@ -242,6 +251,10 @@ class DemonstrateInterface:
                 if obs:
                     for follower in group.followers:
                         follower.send_action(obs)
+        sleep_time = period - (time.monotonic() - start)
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        return sleep_time
 
     def _post_action(self, action: DemonstrateAction) -> bool:
         """Control the leaders after some demonstrate action"""
@@ -271,21 +284,19 @@ class DemonstrateInterface:
 
     def set_auto_control(self, start: bool | None = True) -> bool:
         """Start/Stop the auto control loop."""
-        if not self.config.auto_control:
-            self.get_logger().error("Auto control is not enabled")
-            return False
+        event = self._auto_control_pause_event
         if start is None:
-            start = not self._auto_control_event.is_set()
+            start = not event.is_set()
         if start:
             # set the followers to resetting mode to move smoothly
             if self.set_role_mode(ComponentRole.f, SystemMode.RESETTING):
                 # TODO: control until the joint positions are near the leader
                 self._auto_control()
                 if self.set_role_mode(ComponentRole.f, SystemMode.SAMPLING):
-                    self._auto_control_event.set()
+                    event.set()
                     return True
         else:
-            self._auto_control_event.clear()
+            event.clear()
             return True
         self.get_logger().error("Failed to start auto control")
         return False
@@ -309,16 +320,18 @@ class DemonstrateInterface:
 
     def activate(self) -> bool:
         # start the auto control loop
-        # TODO: should choose to use a process?
-        if self.config.auto_control.groups:
-            self.get_logger().info(bcolors.OKBLUE + "Starting auto control loop")
-            self._deactivated = False
-            self._auto_control_thread = Thread(
+        auto_control = self.config.auto_control
+        if self._use_auto_control:
+            mode = auto_control.mode
+            self.get_logger().info(
+                bcolors.OKBLUE + f"Starting auto control loop in {mode} mode"
+            )
+            self._auto_control_tp = self._auto_control_tp_cls(
                 target=self._auto_control_loop,
                 name="auto_control_loop",
-                daemon=True,
+                daemon=False,
             )
-            self._auto_control_thread.start()
+            self._auto_control_tp.start()
             # start auto control by default
             if not self.set_auto_control():
                 return False
@@ -336,12 +349,14 @@ class DemonstrateInterface:
         return False
 
     def deactivate(self) -> bool:
-        self._deactivated = True
-        self._auto_control_event.set()
-        act = self._auto_control_thread
-        if act:
-            act.join(5.0)
-            if act.is_alive():
+        if self._use_auto_control:
+            self.get_logger().info(bcolors.OKBLUE + "Stopping auto control loop")
+            self._auto_control_stop_event.set()
+            self._auto_control_pause_event.set()
+            # set to let the loop stop in the next iteration
+            ac_tp = self._auto_control_tp
+            ac_tp.join(5.0)
+            if ac_tp.is_alive():
                 self.get_logger().error(
                     "Failed to stop the auto control thread after 5 seconds"
                 )
