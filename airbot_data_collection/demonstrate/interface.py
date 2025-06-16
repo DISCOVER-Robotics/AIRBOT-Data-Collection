@@ -106,9 +106,6 @@ class DemonstrateInterface:
     def __init__(self, config: DemonstrateConfig):
         self.config = config
         self.instancer = ComponentsInstancer(config.search_dirs)
-        self.groups: list[DemonstrateGroup] = []
-        self.group_component_names: list[GroupComponentNames] = []
-        self.group_map: dict[str, DemonstrateGroup] = {}
         if config.sampler is not None:
             self.sampler: DataSampler = self.instancer.instance(config.sampler)
         else:
@@ -116,28 +113,7 @@ class DemonstrateInterface:
         self.visualizers: dict[str, Visualizer] = self.instancer.instance(
             config.visualizers, True
         )
-        for group in config.components.grouped_config:
-            leader = [self.instancer.instance(leader) for leader in group.leader]
-            followers = [
-                self.instancer.instance(follower) for follower in group.followers
-            ]
-            others = [self.instancer.instance(other) for other in group.others]
-            self.groups.append(
-                DemonstrateGroup(
-                    name=group.name,
-                    leader=leader,
-                    followers=followers,
-                    others=others,
-                )
-            )
-            self.group_component_names.append(
-                GroupComponentNames(
-                    leader=[leader.name for leader in group.leader],
-                    followers=[follower.name for follower in group.followers],
-                    others=[other.name for other in group.others],
-                )
-            )
-            self.group_map[group.name] = self.groups[-1]
+        self._instance_groups()
         self.control_lock = Lock()
         self.finished = False
         start_round = self.config.sample_limit.start_round
@@ -177,6 +153,36 @@ class DemonstrateInterface:
         self._role_mode_set = {}
         self._round_data = defaultdict(list)
 
+    def _instance_groups(self, other: bool = True):
+        self.groups: list[DemonstrateGroup] = []
+        self.group_component_names: list[GroupComponentNames] = []
+        self.group_map: dict[str, DemonstrateGroup] = {}
+        for group in self.config.components.grouped_config:
+            leader = [self.instancer.instance(leader) for leader in group.leader]
+            followers = [
+                self.instancer.instance(follower) for follower in group.followers
+            ]
+            if other:
+                others = [self.instancer.instance(other) for other in group.others]
+            else:
+                others = []
+            self.groups.append(
+                DemonstrateGroup(
+                    name=group.name,
+                    leader=leader,
+                    followers=followers,
+                    others=others,
+                )
+            )
+            self.group_component_names.append(
+                GroupComponentNames(
+                    leader=[leader.name for leader in group.leader],
+                    followers=[follower.name for follower in group.followers],
+                    others=[other.name for other in group.others],
+                )
+            )
+            self.group_map[group.name] = self.groups[-1]
+
     def get_logger(self):
         """
         Get the logger for the demonstration.
@@ -187,6 +193,18 @@ class DemonstrateInterface:
         """
         Configure all the components.
         """
+        self._configure_groups()
+        # set info before configuring the sampler
+        # so that the sampler can use it for configuring
+        names = list(self.visualizers.keys())
+        components = list(self.visualizers.values())
+        types = ["visualizer"] * len(self.visualizers)
+        self._configure_components(names, components, types)
+        self._set_info()
+        self._configure_components(["sampler"], [self.sampler], ["sampler"])
+        return True
+
+    def _configure_groups(self):
         for group, name in zip(self.groups, self.group_component_names):
             roles = (
                 [ComponentRole.l] * len(group.leader)
@@ -207,15 +225,6 @@ class DemonstrateInterface:
                 f"Setting post capture for group {group_name}: {post_capture}"
             )
             group.leader[0].set_post_capture(post_capture)
-        # set info before configuring the sampler
-        # so that the sampler can use it for configuring
-        names = list(self.visualizers.keys())
-        components = list(self.visualizers.values())
-        types = ["visualizer"] * len(self.visualizers)
-        self._configure_components(names, components, types)
-        self._set_info()
-        self._configure_components(["sampler"], [self.sampler], ["sampler"])
-        return True
 
     def _configure_components(
         self,
@@ -233,6 +242,13 @@ class DemonstrateInterface:
         rate = self.config.auto_control.rate
         assert rate, "Auto control rate must be set"
         period = 1 / rate[0]
+        if self.config.auto_control.mode is AsyncMode.process:
+            self.get_logger().info(
+                bcolors.OKCYAN
+                + "Instancing and configuring groups in the separate process"
+            )
+            self._instance_groups(other=False)
+            self._configure_groups()
         while not self._auto_control_stop_event.is_set():
             # if not self._auto_control_pause_event.is_set():
             #     self.get_logger().info("Auto control stopped")
