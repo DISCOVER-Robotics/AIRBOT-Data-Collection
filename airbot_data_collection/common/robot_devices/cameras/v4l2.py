@@ -80,6 +80,8 @@ class V4L2Camera(Sensor):
         else:
             if self.config.pixel_format is PixelFormat.MJPEG:
                 image = self._jpeg.decode(frame_bytes)
+                if image.shape[0] == 0 or image.shape[1] == 0:
+                    raise ValueError("Received empty image from camera.")
             elif self.config.pixel_format is PixelFormat.YUYV:
                 image = ImageCoder.yuyv2bgr(
                     frame_bytes, self.config.width, self.config.height

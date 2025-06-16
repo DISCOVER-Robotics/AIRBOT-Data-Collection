@@ -92,6 +92,11 @@ class OpenCVisualizer(VisualizerBasis):
                 value = decode_image(value, self.config.pixel_format)
             if self.config.swap_rgb_bgr:
                 value = value[..., ::-1]
+            if value.shape[0] == 0 or value.shape[1] == 0:
+                self.get_logger().warning(
+                    f"Received empty image for key {key}, skipping imshow"
+                )
+                continue
             cv2.imshow(key, value)
         if not self.config.ignore_info:
             image = self._put_info(self.info_image.copy(), info)
