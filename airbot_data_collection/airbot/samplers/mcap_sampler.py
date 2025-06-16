@@ -175,8 +175,8 @@ class AIRBOTMcapDataSampler(DataSampler):
                 time_ns(),
                 time_ns(),
                 name="log_stamps",
-                data=bytes(str(log_stamps), "utf-8"),
-                media_type="application/octet-stream",
+                data=json.dumps(log_stamps).encode("utf-8"),
+                media_type="application/json",
             )
             # add schemas
             float_array_schema_id = writer.register_schema(
