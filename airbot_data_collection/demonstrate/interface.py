@@ -246,6 +246,7 @@ class DemonstrateInterface:
         assert rate, "Auto control rate must be set"
         period = 1 / rate[0]
         if self.config.auto_control.mode is AsyncMode.process:
+            self._auto_control_pause_event.wait()
             self.get_logger().info(
                 bcolors.OKCYAN
                 + "Instancing and configuring groups in the separate process"
@@ -254,6 +255,7 @@ class DemonstrateInterface:
             if not self._configure_groups():
                 self.get_logger().error("Failed to start auto control loop")
                 return False
+        self.get_logger().info(bcolors.OKGREEN + "Auto control loop started")
         while not self._auto_control_stop_event.is_set():
             # if not self._auto_control_pause_event.is_set():
             #     self.get_logger().info("Auto control stopped")
