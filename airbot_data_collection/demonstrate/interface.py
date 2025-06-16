@@ -345,7 +345,7 @@ class DemonstrateInterface:
             self._auto_control_tp = self._auto_control_tp_cls(
                 target=self._auto_control_loop,
                 name="auto_control_loop",
-                daemon=False,
+                daemon=True,
             )
             self._auto_control_tp.start()
             # start auto control by default
@@ -371,12 +371,13 @@ class DemonstrateInterface:
             self._auto_control_pause_event.set()
             # set to let the loop stop in the next iteration
             ac_tp = self._auto_control_tp
-            ac_tp.join(5.0)
-            if ac_tp.is_alive():
-                self.get_logger().error(
-                    "Failed to stop the auto control thread after 5 seconds"
-                )
-                return False
+            if isinstance(ac_tp, Thread) or not ac_tp.daemon:
+                ac_tp.join(5.0)
+                if ac_tp.is_alive():
+                    self.get_logger().error(
+                        "Failed to stop the auto control thread after 5 seconds"
+                    )
+                    return False
         return True
 
     def _set_leaders_mode(self, mode: SystemMode) -> bool:
