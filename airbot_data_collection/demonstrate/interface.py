@@ -372,10 +372,11 @@ class DemonstrateInterface:
             # set to let the loop stop in the next iteration
             ac_tp = self._auto_control_tp
             if isinstance(ac_tp, Thread) or not ac_tp.daemon:
-                ac_tp.join(5.0)
+                wait_time = 5.0
+                ac_tp.join(wait_time)
                 if ac_tp.is_alive():
                     self.get_logger().error(
-                        "Failed to stop the auto control thread after 5 seconds"
+                        f"Failed to stop the auto control loop after {wait_time} seconds"
                     )
                     return False
         return True
