@@ -10,3 +10,4 @@ build/
 *.log
 test.py
 config_mcap.yaml
+config_setup.yaml
