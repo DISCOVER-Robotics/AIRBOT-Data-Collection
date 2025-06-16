@@ -73,8 +73,16 @@ class AIRBOTPlay(System):
         self._components = {"arm", "eef"}
         self._post_capture = defaultdict(dict)
         self._default_limit = {
-            "replay": {"eef/joint_state/position": {0: (0, 0.0471)}},
-            "play": {"eef/joint_state/position": {0: (0, 0.0725)}},
+            "PE2": {"eef/joint_state/position": {0: (0, 0.0471)}},
+            "G2": {
+                "eef/joint_state/position": {0: (0, 0.0720)},
+            },
+            "play_pro": {
+                "arm/joint_state/position": {0: (-2.74, 2.74)},
+            },
+            "play": {
+                "arm/joint_state/position": {0: (-3.151, 2.080)},
+            },
         }
 
     def capture_observation(self) -> dict[str, dict[str, Union[float, List[float]]]]:
@@ -120,8 +128,12 @@ class AIRBOTPlay(System):
         }
 
     def set_post_capture(self, config: PostCaptureConfig) -> None:
-        product_type = self.interface.get_product_info()["product_type"]
-        default_limits = self._default_limit.get(product_type, {})
+        product_info = self.interface.get_product_info()
+        product_type = product_info["product_type"]
+        eef_type = product_info["eef_types"][0]
+        default_limits = self._default_limit.get(
+            product_type, {}
+        ) | self._default_limit.get(eef_type, {})
         for key, value in zip(config.keys, config.target_ranges):
             # e.g. key = "arm/joint_state/position"
             limit = self.config.limit.get(key, {})

@@ -30,7 +30,7 @@ class AIRBOTArmMock:
         return [0.0]
 
     def get_product_info(self):
-        return {"product_type": "replay"}
+        return {"product_type": "replay", "eef_types": ["PE2"]}
 
 
 class AIRBOTPlay(AIRBOTPlayReal):
