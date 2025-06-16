@@ -73,11 +73,15 @@ class AIRBOTPlay(System):
         self._components = {"arm", "eef"}
         self._post_capture = defaultdict(dict)
         self._default_limit = {
+            "E2B": {"eef/joint_state/position": {0: (0, 0.0471)}},
             "PE2": {"eef/joint_state/position": {0: (0, 0.0471)}},
             "G2": {
                 "eef/joint_state/position": {0: (0, 0.0720)},
             },
             "play_pro": {
+                "arm/joint_state/position": {0: (-2.74, 2.74)},
+            },
+            "play_lite": {
                 "arm/joint_state/position": {0: (-2.74, 2.74)},
             },
             "play": {
