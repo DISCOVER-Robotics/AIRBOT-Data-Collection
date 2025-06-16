@@ -193,18 +193,19 @@ class DemonstrateInterface:
         """
         Configure all the components.
         """
-        self._configure_groups()
-        # set info before configuring the sampler
-        # so that the sampler can use it for configuring
-        names = list(self.visualizers.keys())
-        components = list(self.visualizers.values())
-        types = ["visualizer"] * len(self.visualizers)
-        self._configure_components(names, components, types)
-        self._set_info()
-        self._configure_components(["sampler"], [self.sampler], ["sampler"])
-        return True
+        if self._configure_groups():
+            # set info before configuring the sampler
+            # so that the sampler can use it for configuring
+            names = list(self.visualizers.keys())
+            components = list(self.visualizers.values())
+            types = ["visualizer"] * len(self.visualizers)
+            if self._configure_components(names, components, types):
+                self._set_info()
+                if self._configure_components(["sampler"], [self.sampler], ["sampler"]):
+                    return True
+        return False
 
-    def _configure_groups(self):
+    def _configure_groups(self) -> bool:
         for group, name in zip(self.groups, self.group_component_names):
             roles = (
                 [ComponentRole.l] * len(group.leader)
@@ -225,6 +226,7 @@ class DemonstrateInterface:
                 f"Setting post capture for group {group_name}: {post_capture}"
             )
             group.leader[0].set_post_capture(post_capture)
+        return True
 
     def _configure_components(
         self,
@@ -236,6 +238,7 @@ class DemonstrateInterface:
             if not component.configure():
                 self.get_logger().error(f"Failed to configure {tp}: {name}")
                 return False
+        return True
 
     def _auto_control_loop(self) -> None:
         """Control the followers to follow the leader in a loop."""
@@ -248,7 +251,9 @@ class DemonstrateInterface:
                 + "Instancing and configuring groups in the separate process"
             )
             self._instance_groups(other=False)
-            self._configure_groups()
+            if not self._configure_groups():
+                self.get_logger().error("Failed to start auto control loop")
+                return False
         while not self._auto_control_stop_event.is_set():
             # if not self._auto_control_pause_event.is_set():
             #     self.get_logger().info("Auto control stopped")
