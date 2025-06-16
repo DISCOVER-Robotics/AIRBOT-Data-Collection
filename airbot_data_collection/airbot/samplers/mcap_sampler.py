@@ -248,12 +248,12 @@ class AIRBOTMcapDataSampler(DataSampler):
                     ]
             futures = []
             for key, coder in self._coders.items():
-                futures.append(
-                    self._executor.submit(
-                        self._add_video_attachment, writer, key, coder
-                    )
-                )
-                # self._add_video_attachment(writer, key, coder)
+                # futures.append(
+                #     self._executor.submit(
+                #         self._add_video_attachment, writer, key, coder
+                #     )
+                # )
+                self._add_video_attachment(writer, key, coder)
 
             [_ for _ in as_completed(futures)]
 
