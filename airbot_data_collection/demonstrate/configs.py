@@ -252,7 +252,7 @@ class AutoControlConfig(BaseModel):
     rate: list[NonNegativeInt] = []
     # the mode of the auto control loop for each group
     # can not be none
-    mode: AsyncMode = AsyncMode.process
+    mode: AsyncMode = AsyncMode.thread
 
 
 class GroupsSendActionConfig(BaseModel):
