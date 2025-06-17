@@ -90,7 +90,7 @@ CAN_NAME_MAPPINGS = {
 
 can_itfs = sorted(get_can_interfaces())
 can_num = len(can_itfs)
-assert can_num in BUS_NAME_MAPPINGS, f"Not enough can: {can_itfs}"
+assert can_num in BUS_NAME_MAPPINGS, f"Not correct can number: {can_itfs}"
 can_buses = list_to_nested_tuples(can_itfs)
 can_group_num = len(can_buses)
 
@@ -267,6 +267,10 @@ while True:
         with open(input_file_path) as f:
             config = yaml.safe_load(f)
             config["components"] = components
+        post_capture_path = f"{cur_dir}/../defaults/post_capture.yaml"
+        with open(post_capture_path) as f:
+            post_capture_config = yaml.safe_load(f)
+            config["post_capture"] = post_capture_config["post_capture"][can_num]
         file_path = input_file_path.replace("full", "setup")
         with open(file_path, "w") as f:
             yaml.dump(
