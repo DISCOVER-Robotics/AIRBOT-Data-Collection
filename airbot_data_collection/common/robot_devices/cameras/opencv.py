@@ -2,8 +2,6 @@
 This file contains utilities for recording frames from cameras. For more info look at `OpenCVCamera` docstring.
 """
 
-
-
 import math
 import platform
 import threading
@@ -16,9 +14,13 @@ import cv2
 import numpy as np
 
 from airbot_data_collection.common.robot_devices.cameras.utils import (
-    CameraRGBConfig, find_camera_indices)
+    CameraRGBConfig,
+    find_camera_indices,
+)
 from airbot_data_collection.common.robot_devices.utils import (
-    RobotDeviceAlreadyConnectedError, RobotDeviceNotConnectedError)
+    RobotDeviceAlreadyConnectedError,
+    RobotDeviceNotConnectedError,
+)
 from airbot_data_collection.common.utils.utils import capture_timestamp_utc
 
 
@@ -30,35 +32,6 @@ class OpenCVCamera:
     An OpenCVCamera instance requires a camera index (e.g. `OpenCVCamera(camera_index=0)`). When you only have one camera
     like a webcam of a laptop, the camera index is expected to be 0, but it might also be very different, and the camera index
     might change if you reboot your computer or re-plug your camera. This behavior depends on your operation system.
-
-    To find the camera indices of your cameras, you can run our utility script that will be save a few frames for each camera:
-    ```bash
-    python lerobot/common/robot_devices/cameras/opencv.py --images-dir outputs/images_from_opencv_cameras
-    ```
-
-    When an OpenCVCamera is instantiated, if no specific config is provided, the default fps, width, height and color_mode
-    of the given camera will be used.
-
-    Example of usage:
-    ```python
-    camera = OpenCVCamera(camera_index=0)
-    camera.connect()
-    color_image = camera.read()
-    # when done using the camera, consider disconnecting
-    camera.disconnect()
-    ```
-
-    Example of changing default fps, width, height and color_mode:
-    ```python
-    camera = OpenCVCamera(0, fps=30, width=1280, height=720)
-    camera = connect()  # applies the settings, might error out if these settings are not compatible with the camera
-
-    camera = OpenCVCamera(0, fps=90, width=640, height=480)
-    camera = connect()
-
-    camera = OpenCVCamera(0, fps=90, width=640, height=480, color_mode="bgr")
-    camera = connect()
-    ```
     """
 
     def __init__(
@@ -98,12 +71,22 @@ class OpenCVCamera:
         fourcc = None
         if self.mock:
             from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
-                CAP_PROP_FOURCC, CAP_PROP_FPS, CAP_PROP_FRAME_HEIGHT,
-                CAP_PROP_FRAME_WIDTH, VideoCapture)
+                CAP_PROP_FOURCC,
+                CAP_PROP_FPS,
+                CAP_PROP_FRAME_HEIGHT,
+                CAP_PROP_FRAME_WIDTH,
+                VideoCapture,
+            )
         else:
-            from cv2 import (CAP_PROP_FOURCC, CAP_PROP_FPS,
-                             CAP_PROP_FRAME_HEIGHT, CAP_PROP_FRAME_WIDTH,
-                             VideoCapture, VideoWriter_fourcc, setNumThreads)
+            from cv2 import (
+                CAP_PROP_FOURCC,
+                CAP_PROP_FPS,
+                CAP_PROP_FRAME_HEIGHT,
+                CAP_PROP_FRAME_WIDTH,
+                VideoCapture,
+                VideoWriter_fourcc,
+                setNumThreads,
+            )
 
             if self.pixel_format is not None:
                 fourcc = VideoWriter_fourcc(*self.pixel_format)
@@ -210,13 +193,7 @@ class OpenCVCamera:
         # However, Deep Learning framework such as LeRobot uses RGB format as default to train neural networks,
         # so we convert the image color from BGR to RGB.
         if requested_color_mode == "rgb":
-            if self.mock:
-                from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
-                    COLOR_BGR2RGB, cvtColor)
-            else:
-                from cv2 import COLOR_BGR2RGB, cvtColor
-
-            color_image = cvtColor(color_image, COLOR_BGR2RGB)
+            color_image = color_image[..., ::-1]
 
         h, w, _ = color_image.shape
         if h != self.height or w != self.width:

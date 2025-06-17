@@ -18,7 +18,12 @@ class RSConfig:
         self.device_enabled = device_id
 
     def enable_stream(
-        self, stream_type: RSStream, width=None, height=None, color_format: RSFormat = None, fps=None
+        self,
+        stream_type: RSStream,
+        width=None,
+        height=None,
+        color_format: RSFormat = None,
+        fps=None,
     ):
         self.stream_type = stream_type
         # Overwrite default values when possible
@@ -132,3 +137,16 @@ class RSCameraInfo:
     def __init__(self, serial_number):
         del serial_number
         pass
+
+
+class RSAlign:
+    def __init__(self, stream_type: RSStream):
+        self.stream_type = stream_type
+
+    def process(self, frames: RSFrames):
+        if self.stream_type == RSStream.depth:
+            return frames.get_depth_frame()
+        elif self.stream_type == RSStream.color:
+            return frames.get_color_frame()
+        else:
+            raise ValueError("Unsupported stream type")

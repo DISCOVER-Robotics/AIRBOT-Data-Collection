@@ -1,4 +1,4 @@
-_target_: airbot_data_collection.airbot.sensors.cameras.realsense.BsonRealSense
+_target_: airbot_data_collection.airbot.sensors.cameras.realsense.RealSense
 camera_index: null
 fps: 30
 width: 640

@@ -1,14 +1,12 @@
 from airbot_data_collection.basis import Sensor
 from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
-    IntelRealSenseCamera, IntelRealSenseCameraConfig)
-from airbot_data_collection.utils import get_stamp_ms
+    IntelRealSenseCamera,
+    IntelRealSenseCameraConfig,
+)
+from time import time_ns
 
 
-class BsonRealSense(Sensor):
-    """
-    A class to represent a USB camera using OpenCV.
-    """
-
+class RealSense(Sensor):
     config: IntelRealSenseCameraConfig
     interface: IntelRealSenseCamera
 
@@ -19,17 +17,30 @@ class BsonRealSense(Sensor):
     def capture_observation(self):
         obs = {}
         output = self.interface.read()
-        if self.config.use_depth:
-            obs["camera/color_image"] = output[0]
-            obs["camera/depth_map"] = output[1]
+        if self.config.enable_depth:
+            if self.config.enable_color:
+                obs["color/image_raw"] = self._get_value(output[0])
+            if self.config.align_depth:
+                key = "aligned_depth_to_color/image_raw"
+            else:
+                key = "depth/image_rect_raw"
+            obs[key] = self._get_value(output[1])
+        elif self.config.enable_color:
+            obs["color/image_raw"] = self._get_value(output)
         else:
-            obs["camera/color_image"] = output
-        for key, value in obs.items():
-            obs[key] = {
-                "t": get_stamp_ms(),
-                "data": value,
-            }
+            raise ValueError(
+                "At least one of color or depth must be enabled in the config."
+            )
         return obs
+
+    def _get_value(self, data) -> dict:
+        return {
+            "t": time_ns(),
+            "data": data,
+        }
+
+    def get_info(self):
+        return self.interface.get_info()
 
     def shutdown(self) -> bool:
         self.interface.disconnect()

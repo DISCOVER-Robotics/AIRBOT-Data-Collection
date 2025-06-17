@@ -18,7 +18,7 @@ components:
     - port: 50051
     - port: 50052
     - port: 50053
-    - camera_index: usb-0000:00:14.0-5
+    - camera_index: null
   paths:
     - airbot_play_mock
     - airbot_play_mock

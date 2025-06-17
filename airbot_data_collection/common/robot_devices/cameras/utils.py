@@ -30,8 +30,9 @@ class CameraRGBConfig(BaseModel):
 
 
 class CameraRGBDConfig(CameraRGBConfig):
-    use_depth: bool = False
-
+    enable_depth: bool = False
+    enable_color: bool = True
+    align_depth: bool = True
 
 class RegionOfInterest(BaseModel):
     x_offset: NonNegativeInt = 0
