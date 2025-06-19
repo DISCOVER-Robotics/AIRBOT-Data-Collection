@@ -1,20 +1,19 @@
 import os
 from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.common.samplers.basis import DataSampler
-from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from airbot_data_collection import __version__ as collector_version
 from typing import Literal, Dict, Union, List
-import flatbuffers
 from mcap.writer import Writer
-from mcap.well_known import SchemaEncoding, MessageEncoding
-import foxglove_schemas_flatbuffer.CompressedImage as CompressedImage
-from foxglove_schemas_flatbuffer import get_schema
-from importlib.resources import read_binary
+from mcap.well_known import MessageEncoding
 from flatten_dict import flatten
 import json
 from time import time_ns
-from airbot_data_collection.tools.av_coder import AvCoder
 from airbot_data_collection.utils import bcolors
+from airbot_data_collection.tools.av_coder import AvCoder
+from airbot_data_collection.tools.mcap_utils import (
+    McapFlatbufferWriter,
+    FlatbufferSchemas,
+)
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -95,7 +94,7 @@ class AIRBOTMcapDataSampler(DataSampler):
 
     def on_configure(self):
         """Configure the mcap data sampler."""
-        self.builder = flatbuffers.Builder(self.config.initial_builder_size)
+        self._mf_writer = McapFlatbufferWriter(self.config.initial_builder_size)
         if self.config.upload.enabled:
             assert DATALOOP_AVAILABLE, "DataLoopClient is not available"
             self.dataloop_client = DataLoopClient(
@@ -178,30 +177,21 @@ class AIRBOTMcapDataSampler(DataSampler):
                 data=json.dumps(log_stamps).encode("utf-8"),
                 media_type="application/json",
             )
-            # add schemas
-            float_array_schema_id = writer.register_schema(
-                name="airbot_fbs.FloatArray",
-                encoding=SchemaEncoding.Flatbuffer,
-                data=read_binary(
-                    "airbot_data_collection.airbot.schemas.airbot_fbs.bfbs",
-                    "FloatArray.bfbs",
-                ),
-            )
+            # register schemas
+            save_type = self.config.save_type.image
+            schemas = set(FlatbufferSchemas)
+            if save_type != "jpeg":
+                schemas.remove(FlatbufferSchemas.COMPRESSED_IMAGE)
+            smapping = self._mf_writer.register_schemas(writer, schemas)
+
             # register channels and add messages
             image_keys = set()
-            save_type = self.config.save_type.image
-            if save_type == "jpeg":
-                compressed_image_schema_id = writer.register_schema(
-                    name="foxglove.CompressedImage",
-                    encoding=SchemaEncoding.Flatbuffer,
-                    data=get_schema("CompressedImage"),
-                )
             for key, values in data.items():
                 if "color" in key:
                     if save_type == "jpeg":
                         data_type = "compressed_image"
                         channel_id = writer.register_channel(
-                            schema_id=compressed_image_schema_id,
+                            schema_id=smapping[FlatbufferSchemas.COMPRESSED_IMAGE],
                             topic=key,
                             message_encoding=MessageEncoding.Flatbuffer,
                         )
@@ -222,7 +212,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                     channel_id = {}
                     for field in fields:
                         channel_id[field] = writer.register_channel(
-                            schema_id=float_array_schema_id,
+                            schema_id=smapping[FlatbufferSchemas.FLOAT_ARRAY],
                             topic=f"{key}/{field}",
                             message_encoding=MessageEncoding.Flatbuffer,
                         )
@@ -235,7 +225,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                     )
                 if data_type:
                     _ = [
-                        self._add_message(
+                        self._mf_writer.add_message(
                             data_type,
                             writer=writer,
                             channel_id=channel_id,
@@ -272,17 +262,9 @@ class AIRBOTMcapDataSampler(DataSampler):
         if isinstance(project_id, str):
             project_id = int(project_id)
 
-        # Generate unique sample ID
-        uid = str(uuid.uuid4())
-
-        # Upload the file
-        # self.get_logger().info(
-        #     f"Starting to upload file to cloud. Project ID: {project_id}; Sample ID: {uid}"
-        # )
-
         message = self.dataloop_client.samples.upload_sample(
             project_id=project_id,
-            sample_id=uid,
+            sample_id=str(uuid.uuid4()),
             sample_type="Sequential",
             file_path=file_path,
         )
@@ -301,77 +283,3 @@ class AIRBOTMcapDataSampler(DataSampler):
             "video/mp4",
             coder.end(),
         )
-        # self.get_logger().info(
-        #     bcolors.OKGREEN + f"Added video attachment for {key} to MCAP."
-        # )
-
-    def _add_message(
-        self,
-        data_type: str,
-        *args,
-        **kwargs,
-    ):
-        """Add a message to the MCAP data sampler."""
-        return getattr(self, f"_add_{data_type}")(
-            *args,
-            **kwargs,
-        )
-
-    def _add_compressed_image(
-        self,
-        writer: Writer,
-        channel_id: int,
-        data: bytes,
-        publish_time: int,
-        log_time: int,
-        format: str,
-        frame_id: str,
-    ):
-        """Add a compressed image message to the MCAP writer."""
-
-        fmt_str = self.builder.CreateString(format)
-        frame_id_str = self.builder.CreateString(frame_id)
-        data_vec = self.builder.CreateByteVector(data)
-        CompressedImage.Start(self.builder)
-        CompressedImage.AddFormat(self.builder, fmt_str)
-        CompressedImage.AddFrameId(self.builder, frame_id_str)
-        CompressedImage.AddData(self.builder, data_vec)
-        end_data = CompressedImage.End(self.builder)
-        self.builder.Finish(end_data)
-        msg_data = self.builder.Output()
-        writer.add_message(
-            channel_id=channel_id,
-            data=bytes(msg_data),
-            publish_time=publish_time,
-            log_time=log_time,
-        )
-        self.builder.Clear()
-
-    def _add_joint_state(
-        self,
-        writer: Writer,
-        channel_id: Dict[str, int],
-        data: dict[str, list[float]],
-        publish_time: int,
-        log_time: int,
-        fields: list[str],
-    ):
-        """Add a joint state message to the MCAP writer."""
-        for field in fields:
-            raw_data = data[field]
-            FloatArray.StartValuesVector(self.builder, len(raw_data))
-            for d in reversed(raw_data):
-                self.builder.PrependFloat32(d)
-            vec_data = self.builder.EndVector()
-            FloatArray.Start(self.builder)
-            FloatArray.AddValues(self.builder, vec_data)
-            end_data = FloatArray.End(self.builder)
-            self.builder.Finish(end_data)
-            msg_data = self.builder.Output()
-            writer.add_message(
-                channel_id=channel_id[field],
-                data=bytes(msg_data),
-                publish_time=publish_time,
-                log_time=log_time,
-            )
-            self.builder.Clear()

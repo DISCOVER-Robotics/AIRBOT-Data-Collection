@@ -1,0 +1,230 @@
+from mcap.reader import make_reader
+from mcap.writer import Writer
+from mcap.well_known import SchemaEncoding, MessageEncoding
+from turbojpeg import TurboJPEG
+from typing import Dict, IO, Set, Optional
+from foxglove_schemas_flatbuffer import CompressedImage, Time
+from foxglove_schemas_flatbuffer import get_schema
+from importlib.resources import read_binary
+import flatbuffers
+from time import time_ns
+from airbot_data_collection.tools.av_coder import AvCoder
+from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
+from enum import Enum
+import os
+
+
+class FlatbufferSchemas(Enum):
+    """Enum for Flatbuffer schemas used in MCAP files."""
+
+    COMPRESSED_IMAGE = ("foxglove.CompressedImage", get_schema("CompressedImage"))
+    FLOAT_ARRAY = (
+        "airbot_fbs.FloatArray",
+        read_binary(
+            "airbot_data_collection.airbot.schemas.airbot_fbs.bfbs",
+            "FloatArray.bfbs",
+        ),
+    )
+
+
+class McapFlatbufferWriter:
+    """Class to handle writing MCAP files with Flatbuffer schemas."""
+
+    def __init__(self, initial_builder_size: int = 1024 * 1024):
+        self.builder = flatbuffers.Builder(initial_builder_size)
+        self._smapping = {}
+
+    def register_schemas(
+        self,
+        writer: Writer,
+        types: Optional[Set[FlatbufferSchemas]],
+    ) -> dict:
+        if types is None:
+            types = set(FlatbufferSchemas)
+        for stype in types:
+            self._smapping[stype] = writer.register_schema(
+                stype.value[0],
+                SchemaEncoding.Flatbuffer,
+                stype.value[1],
+            )
+        return self._smapping
+
+    def add_message(
+        self,
+        data_type: str,
+        *args,
+        **kwargs,
+    ):
+        """Add a message to the MCAP data sampler."""
+        return getattr(self, f"_add_{data_type}")(
+            *args,
+            **kwargs,
+        )
+
+    def add_compressed_image(
+        self,
+        writer: Writer,
+        channel_id: int,
+        data: bytes,
+        publish_time: int,
+        log_time: int,
+        format: str = "jpeg",
+        frame_id: str = "",
+    ):
+        """Add a compressed image message to the MCAP writer."""
+
+        fmt_str = self.builder.CreateString(format)
+        frame_id_str = self.builder.CreateString(frame_id)
+        data_vec = self.builder.CreateByteVector(data)
+        sec, nsec = divmod(publish_time, 1_000_000_000)
+        CompressedImage.Start(self.builder)
+        CompressedImage.AddFormat(self.builder, fmt_str)
+        CompressedImage.AddFrameId(self.builder, frame_id_str)
+        CompressedImage.AddData(self.builder, data_vec)
+        CompressedImage.AddTimestamp(
+            self.builder, Time.CreateTime(self.builder, sec, nsec)
+        )
+        end_data = CompressedImage.End(self.builder)
+        self.builder.Finish(end_data)
+        msg_data = self.builder.Output()
+        writer.add_message(
+            channel_id=channel_id,
+            data=bytes(msg_data),
+            publish_time=publish_time,
+            log_time=log_time,
+        )
+        self.builder.Clear()
+
+    def add_joint_state(
+        self,
+        writer: Writer,
+        channel_id: Dict[str, int],
+        data: dict[str, list[float]],
+        publish_time: int,
+        log_time: int,
+        fields: list[str],
+    ):
+        """Add a joint state message to the MCAP writer in separate field channel as FloatArray schema."""
+        for field in fields:
+            raw_data = data[field]
+            FloatArray.StartValuesVector(self.builder, len(raw_data))
+            for d in reversed(raw_data):
+                self.builder.PrependFloat32(d)
+            vec_data = self.builder.EndVector()
+            FloatArray.Start(self.builder)
+            FloatArray.AddValues(self.builder, vec_data)
+            end_data = FloatArray.End(self.builder)
+            self.builder.Finish(end_data)
+            msg_data = self.builder.Output()
+            writer.add_message(
+                channel_id=channel_id[field],
+                data=bytes(msg_data),
+                publish_time=publish_time,
+                log_time=log_time,
+            )
+            self.builder.Clear()
+
+
+def h264_attachment_to_compressed_images(
+    file: IO[bytes], output_path: str, quality: int = 85, finish: bool = True
+) -> Writer:
+    """
+    Convert H.264 attachments in an MCAP file to compressed images.
+
+    Args:
+        file (str | IO[bytes]): Path to the MCAP file or a file-like object.
+        output_path (str): Path to save the output MCAP file with compressed images.
+
+    Returns:
+        Writer: An instance of Writer for the output MCAP file.
+    """
+
+    jpeg = TurboJPEG()
+    av_coder = AvCoder()
+    reader = make_reader(file)
+    mfb_writer = McapFlatbufferWriter()
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    writer = Writer(output_path)
+    writer.start()
+
+    for metadata in reader.iter_metadata():
+        writer.add_metadata(metadata.name, metadata.metadata)
+
+    summary = reader.get_summary()
+    for schema in summary.schemas.values():
+        writer.register_schema(
+            schema.name,
+            schema.encoding,
+            schema.data,
+        )
+    for channel in summary.channels.values():
+        writer.register_channel(
+            channel.topic,
+            channel.message_encoding,
+            channel.schema_id,
+            channel.metadata,
+        )
+    smapping = mfb_writer.register_schemas(writer, {FlatbufferSchemas.COMPRESSED_IMAGE})
+    for schema, channel, message in reader.iter_messages():
+        writer.add_message(
+            message.channel_id,
+            message.log_time,
+            message.data,
+            message.publish_time,
+            message.sequence,
+        )
+    for attachment in reader.iter_attachments():
+        if attachment.media_type == "video/mp4":
+            c_id = writer.register_channel(
+                topic=attachment.name,
+                message_encoding=MessageEncoding.Flatbuffer,
+                schema_id=smapping[FlatbufferSchemas.COMPRESSED_IMAGE],
+            )
+            for frame, pts in av_coder.iter_decode(
+                attachment.data, mismatch_tolerance=0, ensure_base_stamp=True
+            ):
+                mfb_writer.add_compressed_image(
+                    writer,
+                    c_id,
+                    jpeg.encode(frame, quality=quality),
+                    pts,
+                    # TODO: use the actual log time
+                    pts,
+                )
+        else:
+            writer.add_attachment(
+                attachment.create_time,
+                attachment.log_time,
+                attachment.name,
+                attachment.media_type,
+                attachment.data,
+            )
+    if finish:
+        writer.finish()
+    return writer
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Convert H.264 attachments in an MCAP file to compressed images."
+    )
+    parser.add_argument("input_file", type=str, help="Path to the input MCAP file.")
+    parser.add_argument(
+        "output_file", type=str, help="Path to save the output MCAP file."
+    )
+    parser.add_argument(
+        "--quality",
+        type=int,
+        default=85,
+        help="JPEG compression quality (default: 85).",
+    )
+    args = parser.parse_args()
+
+    with open(args.input_file, "rb") as input_file:
+        h264_attachment_to_compressed_images(input_file, args.output_file, args.quality)
+        print(
+            f"Converted {args.input_file} to {args.output_file} with quality {args.quality}."
+        )
