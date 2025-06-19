@@ -7,7 +7,6 @@ from foxglove_schemas_flatbuffer import CompressedImage, Time
 from foxglove_schemas_flatbuffer import get_schema
 from importlib.resources import read_binary
 import flatbuffers
-from time import time_ns
 from airbot_data_collection.tools.av_coder import AvCoder
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from enum import Enum
@@ -134,6 +133,8 @@ def h264_attachment_to_compressed_images(
     Args:
         file (str | IO[bytes]): Path to the MCAP file or a file-like object.
         output_path (str): Path to save the output MCAP file with compressed images.
+        quality (int): JPEG compression quality (default: 85).
+        finish (bool): Whether to finalize the writer after processing (default: True).
 
     Returns:
         Writer: An instance of Writer for the output MCAP file.
