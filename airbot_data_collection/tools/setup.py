@@ -8,6 +8,7 @@ from airbot_data_collection.common.visualizers.opencv import (
 )
 from airbot_data_collection.common.robot_devices.cameras.utils import (
     find_camera_indices,
+    find_device_ids_by_keyword,
 )
 from airbot_data_collection.utils import (
     init_logging,
@@ -24,6 +25,23 @@ import os
 from pprint import pformat
 import subprocess
 import time
+
+
+init_logging(logging.INFO)
+logger = logging.getLogger("data_collection_setup")
+
+
+try:
+    from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
+        IntelRealSenseCamera,
+        IntelRealSenseCameraConfig,
+        find_camera_device_ids,
+    )
+
+    USE_REALSENSE = True
+except ImportError as e:
+    logger.warning(e)
+    USE_REALSENSE = False
 
 
 def list_to_nested_tuples(lst):
@@ -58,13 +76,19 @@ parser.add_argument(
     type=int,
     help="Camera indices to ignore (default: [0]).",
 )
+parser.add_argument(
+    "-i",
+    "--can_interfaces",
+    nargs="+",
+    # default=[],
+    default=["can_lead", "can_follow"],
+    type=str,
+    help="List of CAN interfaces to use (default: all detected).",
+)
 args = parser.parse_args()
 
 
-init_logging(logging.INFO)
-logger = logging.getLogger("data_collection_setup")
-
-
+logger.info("Getting system information...")
 hw_uuid = SystemInfo.get_product(True)["uuid"]
 logger.info(f"Hardware uuid: {hw_uuid}")
 
@@ -88,13 +112,13 @@ CAN_NAME_MAPPINGS = {
     },
 }
 
-can_itfs = sorted(get_can_interfaces())
+can_itfs = args.can_interfaces or sorted(get_can_interfaces())
 can_num = len(can_itfs)
 assert can_num in BUS_NAME_MAPPINGS, f"Not correct can number: {can_itfs}"
 can_buses = list_to_nested_tuples(can_itfs)
 can_group_num = len(can_buses)
-
 logger.info(f"CAN interfaces: {can_buses}")
+
 if hw_uuid not in BUS_NAME_MAPPINGS[can_num]:
     BUS_NAME_MAPPINGS[can_num][hw_uuid] = {}
 bus_name_mapping: dict = BUS_NAME_MAPPINGS[can_num][hw_uuid]
@@ -122,8 +146,7 @@ if set(new_can) != set(can_itfs):
     time.sleep(4)
     if check_can_interfaces(new_can):
         logger.info(
-            bcolors.OKGREEN
-            + f"Successfully bound CAN group {can_itfs} to {new_can}."
+            bcolors.OKGREEN + f"Successfully bound CAN group {can_itfs} to {new_can}."
         )
     else:
         logger.error(
@@ -139,47 +162,74 @@ found_camera_indices = find_camera_indices()
 ignore_cameras: list = args.ignore_cameras
 if -1 in ignore_cameras:
     ignore_cameras.remove(-1)
+# ignore realsense camera device ids
+if USE_REALSENSE:
+    realsense_cams = find_camera_device_ids()
+else:
+    realsense_cams = find_device_ids_by_keyword("RealSense")
+    logger.info(f"Found RealSense cameras: {realsense_cams}")
+for rs_ids in realsense_cams.values():
+    ignore_cameras.extend(rs_ids)
 for index in ignore_cameras:
     if index in found_camera_indices:
         found_camera_indices.remove(index)
         logger.info(f"Removed camera index: {index}")
     else:
         logger.info(f"Device {index} not found")
-
+# add realsene camera serial numbers
+if USE_REALSENSE:
+    found_camera_indices.extend(realsense_cams.keys())
 logger.info(f"Found camera indices: {found_camera_indices}")
 
 cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []
-camera_buses: list[str] = []
+camera_bus_serials: list[str] = []
 visualizers: list[OpenCVisualizer] = []
+camera_types: list[str] = []
 
 camera_indices = []
 cfged_indices = []
-cfged_buses = []
+cfged_bus_serials = []
 cfged_names = []
 no_cfg_buses_indexes: list[int] = []
 for i, index in enumerate(list(found_camera_indices)):
-    config = V4L2CameraConfig(camera_index=index, pixel_format="MJPEG", decode=False)
-    camera = V4L2Camera(config)
+    is_realsense = index in realsense_cams
+    if is_realsense:
+        config = IntelRealSenseCameraConfig(camera_index=index, enable_depth=False)
+        camera = IntelRealSenseCamera(config)
+        camera_type = "realsense"
+    else:
+        config = V4L2CameraConfig(
+            camera_index=index, pixel_format="MJPEG", decode=False
+        )
+        camera = V4L2Camera(config)
+        camera_type = "v4l2"
+    camera_types.append(camera_type)
     visualizer = OpenCVisualizer(OpenCVisualizerConfig(ignore_info=True, wait_key=-1))
     if camera.configure():
         if visualizer.configure():
-            bus = camera.device.info.bus_info
-            logger.info(f"Camera {index} bus info: {bus}")
+            if is_realsense:
+                bus = index
+                file_name = camera_type
+            else:
+                bus = camera.device.info.bus_info
+                file_name = camera.device.filename
+            logger.info(f"Camera {index} bus/serial info: {bus}")
             prefix = bus_name_mapping.get(bus, "None")
             if prefix == "None":
-                logger.error(
-                    f"Camera {index} bus info {bus} not found in bus name mapping."
+                logger.info(
+                    bcolors.OKBLUE
+                    + f"Camera {index} bus/serial info {bus} not found in bus name mapping."
                 )
                 no_cfg_buses_indexes.append(i)
             else:
-                cfged_buses.append(bus)
+                cfged_bus_serials.append(bus)
                 cfged_names.append(prefix)
                 cfged_indices.append(index)
-            vis_key = f"{prefix} : {str(camera.device.filename)} : {camera.device.info.bus_info}"
+            vis_key = f"{prefix} : {file_name} : {bus}"
             cameras.append(camera)
             camera_vis_keys.append(vis_key)
-            camera_buses.append(bus)
+            camera_bus_serials.append(bus)
             visualizers.append(visualizer)
             camera_indices.append(index)
         else:
@@ -216,28 +266,33 @@ while True:
                 "No need to configure since all usb buses are mapped to their names"
             )
             continue
-        logger.info(f"Configuring cameras {name_choices=} {cfged_names=}...")
-        left_name = list(set(name_choices) - set(cfged_names))
+        unused_name = list(set(name_choices) - set(cfged_names))
+        if len(unused_name) < len(no_cfg_buses_indexes):
+            logger.error(
+                f"Not enough names to configure cameras: {unused_name=} {no_cfg_buses_indexes=}"
+            )
+            break
+        logger.info(f"Configuring cameras {unused_name=} {cfged_names=}...")
         old_vis_keys = set()
         for bus_index in no_cfg_buses_indexes:
-            bus = camera_buses[bus_index]
-            if len(left_name) == 1:
-                final_name = left_name[0]
+            bus = camera_bus_serials[bus_index]
+            if len(unused_name) == 1:
+                final_name = unused_name[0]
             else:
                 hint_str = ""
-                for i, name in enumerate(left_name):
+                for i, name in enumerate(unused_name):
                     hint_str += f"{name}[{i}] | "
                 logger.info(
                     bcolors.OKCYAN
                     + f"Name the camera on {bus} (press the digital number in []): {hint_str.removesuffix('| ')}"
                 )
                 index = cv2.waitKey(0) & 0xFF - ord("0")
-                final_name = left_name.pop(index)
+                final_name = unused_name.pop(index)
             old_vis_key = camera_vis_keys[bus_index]
             old_vis_keys.add(old_vis_key)
             camera_vis_keys[bus_index] = old_vis_key.replace("None", final_name)
             cfged_names.append(final_name)
-            cfged_buses.append(bus)
+            cfged_bus_serials.append(bus)
             cfged_indices.append(camera_indices[bus_index])
             bus_name_mapping[bus] = final_name
             logger.info(bcolors.OKGREEN + f"Camera {bus} renamed to {final_name}")
@@ -254,9 +309,9 @@ while True:
         else:
             raise NotImplementedError
         components = {
-            "paths": ["airbot_play"] * len(can_itfs) + ["v4l2"] * len(cfged_indices),
+            "paths": ["airbot_play"] * len(can_itfs) + camera_types,
             "params": [{"port": 50050 + i} for i in range(len(can_itfs))]
-            + [{"camera_index": bus} for bus in cfged_buses],
+            + [{"camera_index": bus} for bus in cfged_bus_serials],
             "names": ["lead", "follow"] * can_group_num + cfged_names,
             "roles": ["l", "f"] * can_group_num + ["o"] * len(cfged_indices),
             "groups": groups,
@@ -280,4 +335,10 @@ while True:
             )
         break
 cv2.destroyAllWindows()
+
+# disconnect all cameras,
+# or the realsense camera may not be able to connect again1
+logger.info("Shutting down cameras...")
+for camera in cameras:
+    camera.shutdown()
 logger.info("Setup script completed successfully.")

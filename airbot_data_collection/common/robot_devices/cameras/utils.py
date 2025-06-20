@@ -7,6 +7,7 @@ import numpy as np
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 import subprocess
 import re
+from collections import defaultdict
 
 
 @runtime_checkable
@@ -33,6 +34,7 @@ class CameraRGBDConfig(CameraRGBConfig):
     enable_depth: bool = False
     enable_color: bool = True
     align_depth: bool = True
+
 
 class RegionOfInterest(BaseModel):
     x_offset: NonNegativeInt = 0
@@ -163,11 +165,61 @@ def get_camera_index_by_bus_info(
     return devices
 
 
-if __name__ == "__main__":
-    # Example usage
-    print("Available camera indices:", find_camera_indices())
-    print("Video device bus info:", get_video_device_bus_info())
-    print(
-        "Camera index by bus info:",
-        get_camera_index_by_bus_info("usb-0000:00:14.0-5"),
+def get_v4l2_devices() -> dict[str, list[str]]:
+    result = subprocess.run(
+        ["v4l2-ctl", "--list-devices"], stdout=subprocess.PIPE, text=True
     )
+    output = result.stdout
+
+    devices = {}
+    lines = output.splitlines()
+    current_name = None
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        if "(" in line and ":" in line:
+            current_name = line
+            usb_match = re.search(r"usb-[^)]+", current_name)
+            if usb_match:
+                usb_id = usb_match.group(0).split("-")[-1]
+                devices[usb_id] = []
+        elif line.startswith("/dev/"):
+            devices[usb_id].append(line)
+    return devices
+
+
+def find_device_ids_by_keyword(
+    keyword: str, only_video: bool = True, return_int: bool = True
+) -> dict[str, list[str]]:
+    result = subprocess.run(
+        ["v4l2-ctl", "--list-devices"], capture_output=True, text=True
+    )
+    output = result.stdout
+
+    devices = defaultdict(list)
+    lines = output.splitlines()
+    current_name = None
+
+    for line in lines:
+        if line.strip() == "":
+            current_name = None
+            continue
+        if not line.startswith("\t"):
+            current_name = line.strip()
+        elif current_name and keyword.lower() in current_name.lower():
+            device = line.strip()
+            if only_video:
+                if not device.startswith("/dev/video"):
+                    continue
+                if return_int:
+                    device = int(device.replace("/dev/video", ""))
+            devices[current_name].append(device)
+    return dict(devices)
+
+
+if __name__ == "__main__":
+    print("RealSense cameras:", find_device_ids_by_keyword("RealSense"))
+    print("LRCP cameras:", find_device_ids_by_keyword("LRCP"))
+    print("Webcam cameras:", find_device_ids_by_keyword("Webcam"))

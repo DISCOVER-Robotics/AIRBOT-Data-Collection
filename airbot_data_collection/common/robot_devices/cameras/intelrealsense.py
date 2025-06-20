@@ -5,11 +5,15 @@ This file contains utilities for recording frames from Intel Realsense cameras.
 import math
 import time
 import traceback
+import re
 from threading import Event, Thread
 
 import numpy as np
 
-from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBDConfig
+from airbot_data_collection.common.robot_devices.cameras.utils import (
+    CameraRGBDConfig,
+    get_v4l2_devices,
+)
 from airbot_data_collection.common.robot_devices.utils import (
     RobotDeviceAlreadyConnectedError,
     RobotDeviceNotConnectedError,
@@ -49,6 +53,32 @@ def find_camera_indices(
     return camera_ids
 
 
+def find_camera_device_ids(
+    only_video: bool = True, return_int: bool = True
+) -> dict[str, list[str | int]]:
+    ctx = RSContext()
+    devices = get_v4l2_devices()
+
+    serial_to_video = {}
+
+    for dev in ctx.devices:
+        serial = dev.get_info(RSCameraInfo.serial_number)
+        physical_port = dev.get_info(RSCameraInfo.physical_port)
+        match = re.search(r"usb\d+/(\d-\d+)", physical_port)
+        if match:
+            usb_port = match.group(1).split("-")[-1]
+            if usb_port in devices:
+                port_devs = devices[usb_port]
+                if only_video:
+                    for d in port_devs.copy():
+                        port_devs.remove(d)
+                        if d.startswith("/dev/video") and return_int:
+                            port_devs.append(int(d.replace("/dev/video", "")))
+                serial_to_video[serial] = port_devs
+
+    return serial_to_video
+
+
 class IntelRealSenseCameraConfig(CameraRGBDConfig):
     force_hardware_reset: bool = True
     align_depth: bool = False
@@ -65,6 +95,9 @@ class IntelRealSenseCameraConfig(CameraRGBDConfig):
                 "For `fps`, `width` and `height`, either all of them need to be set, or none of them, "
                 f"but {self.fps=}, {self.width=}, {self.height=} were provided."
             )
+        self.camera_index = (
+            str(self.camera_index) if self.camera_index is not None else None
+        )
 
 
 class IntelRealSenseCamera:
@@ -113,7 +146,7 @@ class IntelRealSenseCamera:
         #     )
 
         config = RSConfig()
-        config.enable_device(str(self.camera_index))
+        config.enable_device(self.camera_index)
 
         use_full_config = self.fps and self.width and self.height
 
@@ -187,6 +220,10 @@ class IntelRealSenseCamera:
         self.height = round(actual_height)
 
         self.is_connected = True
+
+    def configure(self) -> bool:
+        self.connect()
+        return self.is_connected
 
     def read(
         self, temporary_color: str | None = None
@@ -267,6 +304,9 @@ class IntelRealSenseCamera:
         else:
             return color_image
 
+    def capture_observation(self) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        return self.read()
+
     def read_loop(self):
         while not self.stop_event.is_set():
             if self.use_depth:
@@ -332,6 +372,10 @@ class IntelRealSenseCamera:
         self.camera = None
 
         self.is_connected = False
+
+    def shutdown(self) -> bool:
+        self.disconnect()
+        return not self.is_connected
 
     def __del__(self):
         if getattr(self, "is_connected", False):
