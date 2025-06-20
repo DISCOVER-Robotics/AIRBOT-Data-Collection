@@ -55,7 +55,7 @@ class McapFlatbufferWriter:
         **kwargs,
     ):
         """Add a message to the MCAP data sampler."""
-        return getattr(self, f"_add_{data_type}")(
+        return getattr(self, f"add_{data_type}")(
             *args,
             **kwargs,
         )
