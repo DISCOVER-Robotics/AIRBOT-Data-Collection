@@ -4,7 +4,8 @@ import time
 path = "/home/ghz/视频/20230611094314-葛海洲预定的会议-视频-1.mp4"
 
 container = av.open(path)
-video_stream = next(s for s in container.streams if s.type == "video")
+video_stream = container.streams.video[0]
+video_stream.thread_type = "AUTO"
 total_frame_count = video_stream.frames
 
 start_time = video_stream.start_time
@@ -26,9 +27,7 @@ print(
 )
 
 start = time.monotonic()
-current_frame = None
 last_frame = None
-target_frame = None
 frame_cnt = 0
 for packet in container.demux(video_stream):
     for frame in packet.decode():
@@ -54,6 +53,7 @@ for packet in container.demux(video_stream):
         continue
     break
 else:
+    target_frame = None
     print(
         "No frame found after seeking to target timestamp. The last frame pts is:",
         frame.pts,
