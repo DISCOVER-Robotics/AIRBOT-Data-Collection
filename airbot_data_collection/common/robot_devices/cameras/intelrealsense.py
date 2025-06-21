@@ -111,7 +111,7 @@ class IntelRealSenseCamera:
         # Overwrite config arguments using kwargs
         config = config.model_copy(update=kwargs)
 
-        self.camera_index = config.camera_index or find_camera_indices()[0]
+        self.camera_index = config.camera_index
         self.fps = config.fps
         self.width = config.width
         self.height = config.height
@@ -146,7 +146,8 @@ class IntelRealSenseCamera:
         #     )
 
         config = RSConfig()
-        config.enable_device(self.camera_index)
+        if self.camera_index:
+            config.enable_device(self.camera_index)
 
         use_full_config = self.fps and self.width and self.height
 
