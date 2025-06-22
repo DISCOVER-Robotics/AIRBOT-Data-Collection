@@ -144,7 +144,7 @@ class AvCoder:
             else:
                 self._encode_frame(frame, timestamp)
 
-    def end(self) -> bytes:
+    def end(self, file_path: str = "") -> bytes:
         """
         Finalize the encoding process and return the encoded data bytes.
         """
@@ -157,6 +157,9 @@ class AvCoder:
             value = self._outbuf.getvalue()
             self._outbuf.close()
             self._reset()
+            if file_path:
+                with open(file_path, "wb") as f:
+                    f.write(value)
             return value
 
     @classmethod
