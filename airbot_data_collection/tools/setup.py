@@ -17,6 +17,7 @@ from airbot_data_collection.utils import (
 )
 from airbot_data_collection.tools.system_info import SystemInfo
 from airbot_data_collection.utils import bcolors
+from collections import defaultdict
 import logging
 import argparse
 import yaml
@@ -185,13 +186,15 @@ cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []
 camera_bus_serials: list[str] = []
 visualizers: list[OpenCVisualizer] = []
-camera_types: list[str] = []
+camera_types: dict[str, str] = {}
 
 camera_indices = []
 cfged_indices = []
 cfged_bus_serials = []
 cfged_names = []
+cfged_camera_types = []
 no_cfg_buses_indexes: list[int] = []
+camera_params = defaultdict(dict)
 for i, index in enumerate(list(found_camera_indices)):
     is_realsense = index in realsense_cams
     if is_realsense:
@@ -204,34 +207,44 @@ for i, index in enumerate(list(found_camera_indices)):
         )
         camera = V4L2Camera(config)
         camera_type = "v4l2"
-    camera_types.append(camera_type)
     visualizer = OpenCVisualizer(OpenCVisualizerConfig(ignore_info=True, wait_key=-1))
     if camera.configure():
         if visualizer.configure():
             if is_realsense:
                 bus = index
                 file_name = camera_type
+                camera_params[bus] = {
+                    "fps": 30,
+                }
             else:
                 bus = camera.device.info.bus_info
                 file_name = camera.device.filename
+            camera_params[bus].update(
+                {
+                    "width": 640,
+                    "height": 480,
+                }
+            )
             logger.info(f"Camera {index} bus/serial info: {bus}")
             prefix = bus_name_mapping.get(bus, "None")
             if prefix == "None":
                 logger.info(
                     bcolors.OKBLUE
-                    + f"Camera {index} bus/serial info {bus} not found in bus name mapping."
+                    + f"Camera {index} bus/serial info {bus} not found in bus/serial name mapping."
                 )
                 no_cfg_buses_indexes.append(i)
             else:
                 cfged_bus_serials.append(bus)
                 cfged_names.append(prefix)
                 cfged_indices.append(index)
+                cfged_camera_types.append(camera_type)
             vis_key = f"{prefix} : {file_name} : {bus}"
             cameras.append(camera)
             camera_vis_keys.append(vis_key)
             camera_bus_serials.append(bus)
             visualizers.append(visualizer)
             camera_indices.append(index)
+            camera_types[bus] = camera_type
         else:
             logger.error(f"Failed to configure visualizer for camera index {index}.")
 
@@ -294,6 +307,7 @@ while True:
             cfged_names.append(final_name)
             cfged_bus_serials.append(bus)
             cfged_indices.append(camera_indices[bus_index])
+            cfged_camera_types.append(camera_types[bus])
             bus_name_mapping[bus] = final_name
             logger.info(bcolors.OKGREEN + f"Camera {bus} renamed to {final_name}")
         with open(station_config_path, "w") as f:
@@ -303,15 +317,18 @@ while True:
             cv2.destroyWindow(win_name)
     elif key == ord("s"):
         if can_group_num == 1:
-            groups = ["/"] * (len(can_itfs) + len(camera_indices))
+            groups = ["/"] * (len(can_itfs) + len(cfged_camera_types))
         elif can_group_num == 2:
-            groups = ["left"] * 2 + ["right"] * 2 + ["/"] * len(camera_indices)
+            groups = ["left"] * 2 + ["right"] * 2 + ["/"] * len(cfged_camera_types)
         else:
             raise NotImplementedError
         components = {
-            "paths": ["airbot_play"] * len(can_itfs) + camera_types,
+            "paths": ["airbot_play"] * len(can_itfs) + cfged_camera_types,
             "params": [{"port": 50050 + i} for i in range(len(can_itfs))]
-            + [{"camera_index": bus} for bus in cfged_bus_serials],
+            + [
+                {"camera_index": bus} | camera_params.get(bus, {})
+                for bus in cfged_bus_serials
+            ],
             "names": ["lead", "follow"] * can_group_num + cfged_names,
             "roles": ["l", "f"] * can_group_num + ["o"] * len(cfged_indices),
             "groups": groups,

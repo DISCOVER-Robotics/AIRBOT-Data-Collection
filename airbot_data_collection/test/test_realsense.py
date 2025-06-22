@@ -5,6 +5,7 @@ from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
 import cv2
 import argparse
 from pprint import pprint
+import time
 
 
 parser = argparse.ArgumentParser(description="Intel RealSense Camera Test")
@@ -27,9 +28,9 @@ args = parser.parse_args()
 cam = IntelRealSenseCamera(
     IntelRealSenseCameraConfig(
         camera_index=args.camera_index,
-        enable_color=True,
-        enable_depth=False,
-        align_depth=False,
+        width=640,
+        height=480,
+        fps=30,
     )
 )
 cam.connect()
