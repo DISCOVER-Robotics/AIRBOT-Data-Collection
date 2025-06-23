@@ -1,0 +1,11 @@
+post_capture:
+  left:
+    keys:
+      - "eef/joint_state/position"
+    target_ranges:
+      - 0: [0, 0.072]
+  right:
+    keys:
+      - "eef/joint_state/position"
+    target_ranges:
+      - 0: [0, 0.072]

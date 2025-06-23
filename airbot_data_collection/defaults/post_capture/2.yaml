@@ -1,0 +1,10 @@
+post_capture:
+  /:
+    keys:
+      - "eef/joint_state/position"
+      # - "arm/joint_state/position"
+      # - "arm/joint_state/position"
+    target_ranges:
+      - 0: [0, 0.072] # G2
+      # - 0: [-3.151, 2.080]  # play
+      # - 0: [-2.74, 2.74]  # play_pro

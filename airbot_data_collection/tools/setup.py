@@ -333,14 +333,14 @@ while True:
         }
         logger.info(f"Components: {pformat(components)}")
 
-        input_file_path = f"{cur_dir}/../defaults/config_full.yaml"
+        defaults_dir = f"{cur_dir}/../defaults"
+        input_file_path = f"{defaults_dir}/config_full.yaml"
         with open(input_file_path) as f:
-            config = yaml.safe_load(f)
+            config: dict = yaml.safe_load(f)
             config["components"] = components
-        post_capture_path = f"{cur_dir}/../defaults/post_capture.yaml"
+        post_capture_path = f"{defaults_dir}/post_capture/{can_num}.yaml"
         with open(post_capture_path) as f:
-            post_capture_config = yaml.safe_load(f)
-            config["post_capture"] = post_capture_config["post_capture"][can_num]
+            config.update(yaml.safe_load(f))
         file_path = input_file_path.replace("full", "setup")
         with open(file_path, "w") as f:
             yaml.dump(
