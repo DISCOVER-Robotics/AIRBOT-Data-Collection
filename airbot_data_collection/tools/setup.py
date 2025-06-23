@@ -75,14 +75,12 @@ parser.add_argument(
     nargs="+",
     default=[],
     type=int,
-    help="Camera indices to ignore (default: [0]).",
+    help="Camera indices to ignore (default: []).",
 )
 parser.add_argument(
     "-i",
     "--can_interfaces",
     nargs="+",
-    # default=[],
-    default=["can_lead", "can_follow"],
     type=str,
     help="List of CAN interfaces to use (default: all detected).",
 )
