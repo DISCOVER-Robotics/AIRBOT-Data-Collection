@@ -185,14 +185,15 @@ camera_vis_keys: list[str] = []
 camera_bus_serials: list[str] = []
 visualizers: list[OpenCVisualizer] = []
 camera_types: dict[str, str] = {}
-
 camera_indices = []
+camera_filenames = []
+camera_params = defaultdict(dict)
+
 cfged_indices = []
 cfged_bus_serials = []
 cfged_names = []
 cfged_camera_types = []
 no_cfg_buses_indexes: list[int] = []
-camera_params = defaultdict(dict)
 for i, index in enumerate(list(found_camera_indices)):
     is_realsense = index in realsense_cams
     if is_realsense:
@@ -243,6 +244,7 @@ for i, index in enumerate(list(found_camera_indices)):
             visualizers.append(visualizer)
             camera_indices.append(index)
             camera_types[bus] = camera_type
+            camera_filenames.append(file_name)
         else:
             logger.error(f"Failed to configure visualizer for camera index {index}.")
 
@@ -274,9 +276,24 @@ while True:
     elif key == ord("c"):
         if not no_cfg_buses_indexes:
             logger.warning(
-                "No need to configure since all usb buses are mapped to their names"
+                "No need to configure since all cameras are mapped to their names"
             )
-            continue
+            logger.info(bcolors.OKBLUE + "Do you want to re-configue? (y/n)")
+            if cv2.waitKey(0) & 0xFF == ord("y"):
+                no_cfg_buses_indexes = list(range(len(camera_bus_serials)))
+                # clear the previous configuration
+                cfged_names.clear()
+                cfged_bus_serials.clear()
+                cfged_indices.clear()
+                cfged_camera_types.clear()
+                camera_vis_keys.clear()
+                for cam_fn, cam_bus_ser in zip(
+                    camera_filenames,
+                    camera_bus_serials,
+                ):
+                    camera_vis_keys.append(f"None : {cam_fn} : {cam_bus_ser}")
+            else:
+                continue
         unused_name = list(set(name_choices) - set(cfged_names))
         if len(unused_name) < len(no_cfg_buses_indexes):
             logger.error(
@@ -300,7 +317,7 @@ while True:
                 index = cv2.waitKey(0) & 0xFF - ord("0")
                 final_name = unused_name.pop(index)
             old_vis_key = camera_vis_keys[bus_index]
-            old_vis_keys.add(old_vis_key)
+            # old_vis_keys.add(old_vis_key)
             camera_vis_keys[bus_index] = old_vis_key.replace("None", final_name)
             cfged_names.append(final_name)
             cfged_bus_serials.append(bus)
@@ -311,8 +328,8 @@ while True:
         with open(station_config_path, "w") as f:
             yaml.dump(station_config, f, default_flow_style=False)
         logger.info(f"Updated station config: {station_config_path}")
-        for win_name in old_vis_keys:
-            cv2.destroyWindow(win_name)
+        cv2.destroyAllWindows()
+        no_cfg_buses_indexes.clear()
     elif key == ord("s"):
         if can_group_num == 1:
             groups = ["/"] * (len(can_itfs) + len(cfged_camera_types))

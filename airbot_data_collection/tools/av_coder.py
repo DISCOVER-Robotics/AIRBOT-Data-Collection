@@ -206,6 +206,7 @@ class AvCoder:
         frame_format: str = "bgr24",
         thread_type: str = "AUTO",
         mismatch_tolerance: int = 0,
+        ensure_base_stamp: bool = True,
     ) -> Union[List[np.ndarray], Dict[int, np.ndarray]]:
         """
         Reads all frames from a video file using PyAV.
@@ -215,7 +216,7 @@ class AvCoder:
             List[np.ndarray]: A list of frames, each represented as a NumPy array.
         """
         container, video_stream, base_stamp, frame_cnt = cls._init_decode(
-            video, thread_type, ensure_base_stamp=True
+            video, thread_type, ensure_base_stamp=ensure_base_stamp
         )
         if indices is not None:
             indices = sorted(set(indices))
