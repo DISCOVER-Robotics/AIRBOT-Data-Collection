@@ -1,6 +1,4 @@
 from typing import List, Union, Dict, Tuple, Any
-
-from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
 from pydantic import BaseModel, PositiveInt
 
 from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
@@ -9,17 +7,35 @@ from collections import defaultdict
 from airbot_data_collection.utils import linear_map
 from functools import partial
 
+AVAILABLE_BACKEND = set()
+try:
+    from airbot_py.arm import AIRBOTArm, RobotMode, SpeedProfile
+
+    AVAILABLE_BACKEND.add("grpc")
+except ImportError:
+    from airbot_data_collection.airbot.robots.airbot_play_thin import (
+        AIRBOTArm,
+        RobotMode,
+        SpeedProfile,
+    )
+
+    AVAILABLE_BACKEND.add("thin")
+
 
 class AIRBOTPlayConfig(BaseModel):
     url: str = "localhost"
     port: PositiveInt = 50050
     speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
+    backend: str = "grpc"  # grpc or thin
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
             self.speed_profile = SpeedProfile[self.speed_profile]
-        assert 5000 < self.port < 500000, f"Please choose a correct port: {self.port}"
+        assert self.backend in AVAILABLE_BACKEND, (
+            f"Backend is not available: {self.backend}, "
+            f"available backends: {AVAILABLE_BACKEND}"
+        )
 
 
 class AIRBOTPlay(System):
@@ -72,7 +88,7 @@ class AIRBOTPlay(System):
         self._js_fields = {"position", "velocity", "effort"}
         self._components = {"arm", "eef"}
         self._post_capture = defaultdict(dict)
-        self._default_limit = {
+        self._default_limit: Dict[str, Dict[str, Dict[int, Tuple]]] = {
             "E2B": {"eef/joint_state/position": {0: (0, 0.0471)}},
             "PE2": {"eef/joint_state/position": {0: (0, 0.0471)}},
             "G2": {
@@ -89,7 +105,9 @@ class AIRBOTPlay(System):
             },
         }
 
-    def capture_observation(self) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
+    def capture_observation(
+        self,
+    ) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}
         for component in self._components:
