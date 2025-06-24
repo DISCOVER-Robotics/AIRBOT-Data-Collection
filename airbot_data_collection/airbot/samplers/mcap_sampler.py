@@ -113,6 +113,8 @@ class AIRBOTMcapDataSampler(DataSampler):
         return True
 
     def update(self, data: dict):
+        """Update the data with the latest frames."""
+        # TODO: add message immediately
         for key in list(data.keys()):
             if "color" in key:
                 frame = data.pop(key)
@@ -121,27 +123,13 @@ class AIRBOTMcapDataSampler(DataSampler):
 
     def save(self, path: str, data: dict) -> str:
         """Save the data to a MCAP file."""
-        # self.get_logger().info(f"data keys: {list(data.keys())}")
         with open(path, "wb") as f:
             writer = Writer(f)
             writer.start()
+            self._mf_writer.set_writter(writer)
             info = self._info.copy()
             # add metadata
-            config_dict = self.config.model_dump()
-            config_dict.pop("initial_builder_size")
-
-            for key, value in config_dict.items():
-                # Convert all values in dict to strings for MCAP metadata
-                # MCAP add_metadata expects dict with string values
-                if isinstance(value, dict):
-                    string_dict = {
-                        k: json.dumps(v) if not isinstance(v, str) else v
-                        for k, v in value.items()
-                    }
-                else:
-                    string_dict = {"value": json.dumps(value)}
-                writer.add_metadata(name=key, data=string_dict)
-
+            self.add_config_metadata(writer, self.config)
             # Handle system info safely
             system_info = info.pop("system", {})
             if isinstance(system_info, dict):
@@ -169,20 +157,14 @@ class AIRBOTMcapDataSampler(DataSampler):
                 data=json.dumps(info).encode("utf-8"),
                 media_type="application/json",
             )
-            log_stamps: list[int] = data.pop("log_stamps")
-            writer.add_attachment(
-                time_ns(),
-                time_ns(),
-                name="log_stamps",
-                data=json.dumps(log_stamps).encode("utf-8"),
-                media_type="application/json",
-            )
+            log_stamps = data.pop("log_stamps")
+            self.add_log_stamps_attachment(writer, log_stamps)
             # register schemas
             save_type = self.config.save_type.image
             schemas = set(FlatbufferSchemas)
             if save_type != "jpeg":
                 schemas.remove(FlatbufferSchemas.COMPRESSED_IMAGE)
-            smapping = self._mf_writer.register_schemas(writer, schemas)
+            self._mf_writer.register_schemas(schemas)
 
             # register channels and add messages
             image_keys = set()
@@ -190,10 +172,9 @@ class AIRBOTMcapDataSampler(DataSampler):
                 if "color" in key:
                     if save_type == "jpeg":
                         data_type = "compressed_image"
-                        channel_id = writer.register_channel(
-                            schema_id=smapping[FlatbufferSchemas.COMPRESSED_IMAGE],
-                            topic=key,
-                            message_encoding=MessageEncoding.Flatbuffer,
+                        topics = key
+                        self._mf_writer.register_channel(
+                            key, FlatbufferSchemas.COMPRESSED_IMAGE
                         )
                         kwargs = {
                             "format": self.config.save_type.image,
@@ -209,13 +190,13 @@ class AIRBOTMcapDataSampler(DataSampler):
                 elif "joint_state" in key:
                     data_type = "joint_state"
                     fields = values[0]["data"].keys()
-                    channel_id = {}
+                    topics = {}
                     for field in fields:
-                        channel_id[field] = writer.register_channel(
-                            schema_id=smapping[FlatbufferSchemas.FLOAT_ARRAY],
-                            topic=f"{key}/{field}",
-                            message_encoding=MessageEncoding.Flatbuffer,
+                        topic = f"{key}/{field}"
+                        self._mf_writer.register_channel(
+                            topic, FlatbufferSchemas.FLOAT_ARRAY
                         )
+                        topics[field] = topic
                     kwargs = {
                         "fields": fields,
                     }
@@ -227,8 +208,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                     _ = [
                         self._mf_writer.add_message(
                             data_type,
-                            writer=writer,
-                            channel_id=channel_id,
+                            topics,
                             data=value["data"],
                             publish_time=value["t"],
                             log_time=log_stamps[i],
@@ -243,7 +223,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                 #         self._add_video_attachment, writer, key, coder
                 #     )
                 # )
-                self._add_video_attachment(writer, key, coder)
+                self.add_video_attachment(writer, key, coder.end())
 
             [_ for _ in as_completed(futures)]
 
@@ -275,11 +255,38 @@ class AIRBOTMcapDataSampler(DataSampler):
     def compose_path(self, directory, round) -> str:
         return os.path.join(directory, f"{round}.mcap")
 
-    def _add_video_attachment(self, writer: Writer, key: str, coder: AvCoder):
+    @classmethod
+    def add_video_attachment(cls, writer: Writer, key: str, data: bytes):
         writer.add_attachment(
             time_ns(),
             time_ns(),
             key,
             "video/mp4",
-            coder.end(),
+            data,
         )
+
+    @classmethod
+    def add_log_stamps_attachment(cls, writer: Writer, log_stamps: List[int]):
+        writer.add_attachment(
+            time_ns(),
+            time_ns(),
+            "log_stamps",
+            "application/json",
+            json.dumps(log_stamps).encode("utf-8"),
+        )
+
+    @classmethod
+    def add_config_metadata(cls, writer: Writer, config: AIRBOTMcapDataSamplerConfig):
+        config_dict = config.model_dump()
+        config_dict.pop("initial_builder_size")
+        for key, value in config_dict.items():
+            # Convert all values in dict to strings for MCAP metadata
+            # MCAP add_metadata expects dict with string values
+            if isinstance(value, dict):
+                string_dict = {
+                    k: json.dumps(v) if not isinstance(v, str) else v
+                    for k, v in value.items()
+                }
+            else:
+                string_dict = {"value": json.dumps(value)}
+            writer.add_metadata(name=key, data=string_dict)

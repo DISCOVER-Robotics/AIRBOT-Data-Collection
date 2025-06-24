@@ -89,7 +89,7 @@ class AIRBOTPlay(System):
             },
         }
 
-    def capture_observation(self) -> dict[str, dict[str, Union[float, List[float]]]]:
+    def capture_observation(self) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}
         for component in self._components:

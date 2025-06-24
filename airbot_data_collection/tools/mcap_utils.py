@@ -32,21 +32,36 @@ class McapFlatbufferWriter:
     def __init__(self, initial_builder_size: int = 1024 * 1024):
         self.builder = flatbuffers.Builder(initial_builder_size)
         self._smapping = {}
+        self._cmapping = {}
+        self._writer = None
+
+    def set_writter(self, writer: Writer):
+        """Set the MCAP writer for this instance."""
+        self._writer = writer
 
     def register_schemas(
         self,
-        writer: Writer,
-        types: Optional[Set[FlatbufferSchemas]],
-    ) -> dict:
+        types: Optional[Set[FlatbufferSchemas]] = None,
+    ) -> Dict[FlatbufferSchemas, int]:
         if types is None:
             types = set(FlatbufferSchemas)
         for stype in types:
-            self._smapping[stype] = writer.register_schema(
+            self._smapping[stype] = self._writer.register_schema(
                 stype.value[0],
                 SchemaEncoding.Flatbuffer,
                 stype.value[1],
             )
         return self._smapping
+
+    def register_channel(self, topic: str, schema_type: str) -> int:
+        """Register a channel with the given topic and schema type in the MCAP writer."""
+        c_id = self._writer.register_channel(
+            topic,
+            MessageEncoding.Flatbuffer,
+            self._smapping[schema_type],
+        )
+        self._cmapping[topic] = c_id
+        return c_id
 
     def add_message(
         self,
@@ -62,8 +77,7 @@ class McapFlatbufferWriter:
 
     def add_compressed_image(
         self,
-        writer: Writer,
-        channel_id: int,
+        topic: str,
         data: bytes,
         publish_time: int,
         log_time: int,
@@ -86,8 +100,8 @@ class McapFlatbufferWriter:
         end_data = CompressedImage.End(self.builder)
         self.builder.Finish(end_data)
         msg_data = self.builder.Output()
-        writer.add_message(
-            channel_id=channel_id,
+        self._writer.add_message(
+            channel_id=self._cmapping[topic],
             data=bytes(msg_data),
             publish_time=publish_time,
             log_time=log_time,
@@ -96,14 +110,14 @@ class McapFlatbufferWriter:
 
     def add_joint_state(
         self,
-        writer: Writer,
-        channel_id: Dict[str, int],
+        topics: Dict[str, str],
         data: dict[str, list[float]],
         publish_time: int,
         log_time: int,
-        fields: list[str],
+        fields: Optional[list[str]] = None,
     ):
         """Add a joint state message to the MCAP writer in separate field channel as FloatArray schema."""
+        fields = fields or list(topics.keys())
         for field in fields:
             raw_data = data[field]
             FloatArray.StartValuesVector(self.builder, len(raw_data))
@@ -115,8 +129,8 @@ class McapFlatbufferWriter:
             end_data = FloatArray.End(self.builder)
             self.builder.Finish(end_data)
             msg_data = self.builder.Output()
-            writer.add_message(
-                channel_id=channel_id[field],
+            self._writer.add_message(
+                channel_id=self._cmapping[topics[field]],
                 data=bytes(msg_data),
                 publish_time=publish_time,
                 log_time=log_time,
