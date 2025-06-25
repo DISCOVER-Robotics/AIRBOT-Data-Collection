@@ -289,7 +289,6 @@ class Interpolate:
         """
         if not isinstance(way_points, np.ndarray):
             way_points = np.vstack(way_points)
-        input(f"{way_points} ")
         execute_time_array = cls.time_clip(0, time_points[-1], 1 / freq)
         interpolate = functools.partial(
             Interpolate.spline, t=time_points, t_i=execute_time_array, k=k
