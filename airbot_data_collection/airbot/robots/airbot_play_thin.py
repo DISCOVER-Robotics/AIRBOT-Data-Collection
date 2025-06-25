@@ -1,6 +1,9 @@
 import airbot_hardware_py
-from typing import Dict, List, Union, Tuple, Optional
+from typing import List, Optional
 from enum import Enum
+from airbot_data_collection.common.utils.interpolate import Interpolate
+import numpy as np
+import time
 
 
 class MotorControlMode(int, Enum):
@@ -32,12 +35,15 @@ class AIRBOTArm:
         self._motors = []
         for index, motor_type in enumerate(motor_types):
             executor = airbot_hardware_py.create_asio_executor(1)
-            motor = airbot_hardware_py.Motor.create_motor_runtime(motor_type, index)
+            motor = airbot_hardware_py.Motor.create_motor_runtime(
+                getattr(airbot_hardware_py.MotorType, motor_type), index
+            )
             assert (
                 motor is not None
             ), f"Motor type {motor_type} is not supported in index {index}."
             motor.init(executor.get_io_context(), f"{url}{port}", frequency)
             self._motors.append(motor)
+        self._freq = frequency
 
     def connect(self) -> bool:
         for motor in self._motors:
@@ -66,7 +72,18 @@ class AIRBOTArm:
         return self._perform_state("arm", "pvt", position)
 
     def move_to_joint_pos(self, position):
-        raise NotImplementedError
+        duration = 2  # seconds
+        way_points = Interpolate.way_points_interpolate(
+            (self.get_joint_pos(), position), np.array([0, duration]), freq=self._freq
+        )
+        start = time.monotonic()
+        period = 1 / self._freq
+        for way_point in way_points:
+            self.servo_joint_pos(way_point)
+            sleep_time = period - (time.monotonic() - start)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+        print(f"Move to joint position completed in {time.monotonic() - start}s.")
 
     def servo_eef_pos(self, position):
         return self._perform_state("eef", "pvt", position)
@@ -114,3 +131,39 @@ class AIRBOTArm:
                         pos=cmd,
                     )
                 )
+
+
+if __name__ == "__main__":
+    arm = AIRBOTArm(
+        url="can",
+        port=0,
+        motor_types=["OD"] * 3 + ["DM"] * 4,
+        frequency=1000,
+    )
+    # connect to the arm
+    if not arm.connect():
+        raise RuntimeError("Failed to connect to the AIRBOT arm.")
+
+    # get current state
+    arm.get_joint_pos()
+    arm.get_joint_vel()
+    arm.get_joint_eff()
+    arm.get_eef_pos()
+    arm.get_eef_vel()
+    arm.get_eef_eff()
+
+    # set speed profile
+    arm.set_speed_profile(SpeedProfile.FAST)
+
+    # set servo cmd position
+    arm.switch_mode(RobotMode.SERVO_JOINT_POS)
+    arm.servo_joint_pos([0.0] * 6)
+    arm.servo_eef_pos([0.0])
+
+    # switch mode
+    arm.switch_mode(RobotMode.PLANNING_POS)
+    arm.move_to_joint_pos([0.0] * 6)
+
+    # disconnect from the arm
+    arm.disconnect()
+    print("Disconnected from the AIRBOT arm.")
