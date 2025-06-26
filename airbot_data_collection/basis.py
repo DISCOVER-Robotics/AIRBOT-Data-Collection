@@ -41,6 +41,7 @@ class ConfigBasis(ABC):
                 else:  # dataclass
                     config = replace(config, **kwargs)
         self.config = config
+        self._configured = False
 
     @final
     def configure(self) -> bool:
@@ -59,7 +60,8 @@ class ConfigBasis(ABC):
                 self.interface = class_type(**{key: cfg_dict[key] for key in com_keys})
         else:
             self.interface = None
-        return self.on_configure()
+        self._configured = self.on_configure()
+        return self._configured
 
     @abstractmethod
     def on_configure(self) -> bool:
@@ -68,6 +70,11 @@ class ConfigBasis(ABC):
 
     def get_logger(self):
         return getLogger(self.__class__.__name__)
+
+    @final
+    @property
+    def configured(self) -> bool:
+        return self._configured
 
 
 class Sensor(ConfigBasis):

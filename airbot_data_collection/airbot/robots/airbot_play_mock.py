@@ -32,6 +32,21 @@ class AIRBOTArmMock:
     def get_end_pose(self):
         return [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
 
+    def connect(self):
+        return True
+
+    def set_speed_profile(self, speed_profile):
+        pass
+
+    def servo_joint_pos(self, joint_pos, speed_profile=None):
+        pass
+
+    def servo_eef_pos(self, eef_pos, speed_profile=None):
+        pass
+
+    def move_to_joint_pos(self, joint_pos, speed_profile=None):
+        pass
+
     def get_product_info(self):
         return {"product_type": "replay", "eef_types": ["PE2"]}
 
@@ -50,9 +65,13 @@ class AIRBOTPlay(AIRBOTPlayReal):
     def on_switch_mode(self, mode):
         return True
 
-    def on_configure(self):
-        self._init_args()
-        return True
-
     def shutdown(self):
         return True
+
+
+if __name__ == "__main__":
+    # Test the mock class
+    robot = AIRBOTPlay()
+    assert robot.configure()
+    assert robot.capture_observation()
+    # robot.send_action
