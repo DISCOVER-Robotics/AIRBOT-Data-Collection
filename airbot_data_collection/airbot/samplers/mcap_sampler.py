@@ -1,12 +1,12 @@
 import os
+import json
+import uuid
 from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection import __version__ as collector_version
 from typing import Literal, Dict, Union, List
 from mcap.writer import Writer
-from mcap.well_known import MessageEncoding
 from flatten_dict import flatten
-import json
 from time import time_ns
 from airbot_data_collection.utils import bcolors
 from airbot_data_collection.tools.av_coder import AvCoder
@@ -14,7 +14,6 @@ from airbot_data_collection.tools.mcap_utils import (
     McapFlatbufferWriter,
     FlatbufferSchemas,
 )
-import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
