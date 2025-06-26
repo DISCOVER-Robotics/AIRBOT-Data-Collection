@@ -80,14 +80,17 @@ class AIRBOTArm:
         return True
 
     def _set_control_mode(self, motor, mode: str) -> bool:
+        mode_value = getattr(airbot_hardware_py.MotorControlMode, mode.upper()).value
         if not motor.set_param(
             "control_mode",
             airbot_hardware_py.ParamValue(
                 airbot_hardware_py.ParamType.UINT16_LE,
-                getattr(airbot_hardware_py.MotorControlMode, mode.upper()).value,
+                mode_value,
             ),
         ):
-            self.get_logger().error(f"Failed to set control mode {mode}.")
+            self.get_logger().error(
+                f"Failed to set control mode {mode} ({mode_value})."
+            )
             return False
         return True
 
@@ -217,7 +220,7 @@ if __name__ == "__main__":
     arm = AIRBOTArm(
         url="can",
         port=0,
-        motor_types=["OD"] * 3 + ["DM"] * 4,
+        motor_types=["OD"] * 3 + ["ODM"] * 4,
         frequency=1000,
     )
     # connect to the arm

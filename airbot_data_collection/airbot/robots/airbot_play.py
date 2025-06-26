@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Tuple, Any
+from typing import List, Union, Dict, Tuple, Any, Iterable
 from pydantic import BaseModel, PositiveInt
 
 from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
@@ -28,6 +28,7 @@ class AIRBOTPlayConfig(BaseModel):
     speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
+    use_pose: bool = False
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
@@ -54,25 +55,37 @@ class AIRBOTPlay(System):
                 else:
                     act_cfg[mode](target)
         else:
-            self._comp_act["arm"][mode](action[:6])
-            if len(action) == 7:
-                self.interface.servo_eef_pos(action[-1:])
+            if self.config.use_pose:
+                arm_end_index = 7
+            else:
+                arm_end_index = 6
+            self._comp_act["arm"][mode](action[:arm_end_index])
+            if eef_action := action[arm_end_index:]:
+                self.interface.servo_eef_pos(eef_action)
 
     def on_switch_mode(self, mode: SystemMode) -> bool:
         if mode is SystemMode.PASSIVE:
-            return self.interface.switch_mode(RobotMode.GRAVITY_COMP)
+            m = RobotMode.GRAVITY_COMP
         elif mode is SystemMode.RESETTING:
-            self.interface.switch_mode(RobotMode.PLANNING_POS)
+            m = RobotMode.PLANNING_POS
         elif mode is SystemMode.SAMPLING:
-            self.interface.switch_mode(RobotMode.SERVO_JOINT_POS)
-        return True
+            if self.config.use_pose:
+                m = RobotMode.SERVO_CART_POSE
+            else:
+                m = RobotMode.SERVO_JOINT_POS
+        return self.interface.switch_mode(m)
 
     def on_configure(self) -> bool:
         self._init_args()
         self._comp_act = {
             "arm": {
                 RobotMode.SERVO_JOINT_POS: self.interface.servo_joint_pos,
-                RobotMode.PLANNING_POS: self.interface.move_to_joint_pos,
+                RobotMode.SERVO_CART_POSE: self._servo_pose,
+                RobotMode.PLANNING_POS: (
+                    self.interface.move_to_joint_pos
+                    if not self.config.use_pose
+                    else self._move_pose
+                ),
             },
             "eef": self.interface.servo_eef_pos,
         }
@@ -86,6 +99,7 @@ class AIRBOTPlay(System):
             f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
         )
         self._js_fields = {"position", "velocity", "effort"}
+        self._pose_fields = {"position", "orientation"}
         self._components = {"arm", "eef"}
         self._post_capture = defaultdict(dict)
         self._default_limit: Dict[str, Dict[str, Dict[int, Tuple]]] = {
@@ -105,19 +119,39 @@ class AIRBOTPlay(System):
             },
         }
 
+    def _move_pose(self, target: Union[List[float], List[list[float]]]):
+        if not isinstance(target[0], Iterable):
+            target = [target[:3], target[3:7]]
+        return self.interface.move_to_cart_pose(target)
+
+    def _servo_pose(self, target: Union[List[float], List[list[float]]]):
+        if not isinstance(target[0], Iterable):
+            target = [target[:3], target[3:7]]
+        return self.interface.servo_cart_pose(target)
+
     def capture_observation(
         self,
     ) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}
-        for component in self._components:
-            obs[f"{component}/joint_state"] = {
+        if self.config.use_pose:
+            pose = self.interface.get_end_pose()
+            obs["arm/pose"] = {
                 "t": time_ns(),
                 "data": {
-                    field: self._get_joint_state(component, field)
-                    for field in self._js_fields
+                    "position": pose[0],
+                    "orientation": pose[1],
                 },
             }
+        else:
+            for component in self._components:
+                obs[f"{component}/joint_state"] = {
+                    "t": time_ns(),
+                    "data": {
+                        field: self._get_joint_state(component, field)
+                        for field in self._js_fields
+                    },
+                }
         return obs
 
     def _get_joint_state(self, component: str, field: str) -> List[float]:
@@ -173,5 +207,27 @@ class AIRBOTPlay(System):
 
 
 if __name__ == "__main__":
-    player = AIRBOTPlay(AIRBOTPlayConfig())
+    from pprint import pprint
+
+    player = AIRBOTPlay(AIRBOTPlayConfig(use_pose=True))
     assert player.configure()
+    current_pose = player.capture_observation()["arm/pose"]["data"]
+    pprint(current_pose)
+
+    player.switch_mode(SystemMode.RESETTING)
+    delta_y = 0.1
+    current_pose["position"][1] += delta_y
+    player.send_action(current_pose["position"] + current_pose["orientation"] + [0.0])
+    input("Press Enter to continue...")
+    player.switch_mode(SystemMode.SAMPLING)
+    steps = 10
+    step_z = delta_y / steps
+    for i in range(steps):
+        current_pose["position"][1] -= step_z
+        player.send_action(
+            current_pose["position"]
+            + current_pose["orientation"]
+            + [0.07 / steps * (i + 1)]
+        )
+        input("Press Enter to continue...")
+    assert player.shutdown()
