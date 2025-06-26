@@ -160,7 +160,7 @@ class AIRBOTPlay(System):
         if self.config.use_pose:
             pose = self.interface.get_end_pose()
             if self.config.relative_observation:
-                pose = self.rela_act_ctrl.to_relative(*pose)
+                pose = self.rela_obs_ctrl.to_relative(*pose)
             obs["arm/pose"] = {
                 "t": time_ns(),
                 "data": {
