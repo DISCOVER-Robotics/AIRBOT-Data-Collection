@@ -143,15 +143,17 @@ class AIRBOTPlay(System):
                     "orientation": pose[1],
                 },
             }
+            components = {"eef"}
         else:
-            for component in self._components:
-                obs[f"{component}/joint_state"] = {
-                    "t": time_ns(),
-                    "data": {
-                        field: self._get_joint_state(component, field)
-                        for field in self._js_fields
-                    },
-                }
+            components = self._components
+        for component in components:
+            obs[f"{component}/joint_state"] = {
+                "t": time_ns(),
+                "data": {
+                    field: self._get_joint_state(component, field)
+                    for field in self._js_fields
+                },
+            }
         return obs
 
     def _get_joint_state(self, component: str, field: str) -> List[float]:

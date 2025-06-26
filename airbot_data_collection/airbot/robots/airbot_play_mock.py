@@ -29,6 +29,9 @@ class AIRBOTArmMock:
     def get_eef_eff(self):
         return [0.0]
 
+    def get_end_pose(self):
+        return [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+
     def get_product_info(self):
         return {"product_type": "replay", "eef_types": ["PE2"]}
 
