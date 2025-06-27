@@ -584,6 +584,11 @@ class DemonstrateInterface:
             return True
         return False
 
+    def log_round(self):
+        self.get_logger().info(
+            bcolors.OKCYAN + f"Current sample round: {self.sample_info.round}"
+        )
+
     def _set_info(self):
         """
         Set the component info for the sampler.

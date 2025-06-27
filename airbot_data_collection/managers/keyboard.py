@@ -57,7 +57,6 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
     config: KeyboardCallbackConfig
 
     def on_configure(self):
-        self.print_round()
         self.show_instruction()
         self.listener = keyboard.Listener(on_press=self.keypress_callback)
         self.listener.start()
@@ -76,9 +75,6 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         self.get_logger().info(
             bcolors.OKCYAN + f" \n{pformat(self.config.instruction)}"
         )
-
-    def print_round(self):
-        self.get_logger().info(f"Current sample round: {self.fsm.sample_info.round}")
 
     def keypress_callback(self, key: keyboard.Key) -> None:
         """Handles key press events and triggers the appropriate actions.
@@ -117,7 +113,6 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             if action is not None:
                 self.get_logger().info(f"Executing action: {action.name}")
                 self.fsm.act(action)
-                self.print_round()
             else:
                 self.get_logger().warning(f"Invalid key pressed: {key}")
 

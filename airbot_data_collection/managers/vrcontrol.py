@@ -1,75 +1,54 @@
 from typing import Dict
 import time
-
-from pydantic import BaseModel
 import rclpy
-from rclpy.node import Node
 from std_srvs.srv import SetBool
-from std_msgs.msg import Float32MultiArray
-
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
+from airbot_data_collection.common.robot_devices.vr.quest import (
+    VRQuest,
+    VRQuestConfig,
+    VRControllerEvent,
+)
 
 
-class VRCallbackConfig(BaseModel):
+class VRConfig(VRQuestConfig):
     service_names: Dict[Action, str] = {
         Action.sample: "rec_srv",  # 开始录制服务名
         Action.save: "stop_rec_srv",  # 停止录制服务名
     }
 
 
-class VRCallbackManager(DemonstrateManagerBasis):
-    config: VRCallbackConfig
+class VRManager(DemonstrateManagerBasis):
+    config: VRConfig
+    interface: VRQuest
 
     def on_configure(self):
-        self._init_ros2()
-        self.print_round()
-        self.show_instruction()
-        return True
+        if self.interface.configure():
+            self.interface.register_callback(self._vr_control_callback)
+            self._init_ros2()
+            self.show_instruction()
+            return True
+        return False
 
     def _init_ros2(self):
-        rclpy.init()
-        self._ros_initialized = True
-        self._node = Node("service_based_manager")
-
+        self._node = self.interface.node
         self.rec_service = self._node.create_service(
             SetBool, "rec_srv", self._handle_rec_service  # 开始录制回调
         )
         self.stop_rec_service = self._node.create_service(
             SetBool, "stop_rec_srv", self._handle_stop_service  # 停止录制回调
         )
-        self.vr_sub = self._node.create_subscription(
-            Float32MultiArray, "vr_controller", self._vr_control_callback, 10
-        )
-
-        import threading
-
-        self.ros_thread = threading.Thread(target=self._ros_spin, daemon=True)
-        self.ros_thread.start()
-        self.get_logger().info("ROS2 Service服务初始化完成")
-
-    def _ros_spin(self):
-        while rclpy.ok():
-            rclpy.spin_once(self._node, timeout_sec=0.1)
-            time.sleep(0.01)
 
     def show_instruction(self) -> None:
-        """显示用户操作说明"""
+        """Shows the instruction for the VR control."""
         # self.get_logger().info(
         #     # bcolors.OKCYAN + f"\n{pformat(self.config.instruction_button)}" + bcolors.ENDC
         # )
-        return None
-
-    def print_round(self):
-        self.get_logger().info(f"Current sample round: {self.fsm.sample_info.round}")
 
     def _handle_rec_service(self, request: SetBool.Request, response: SetBool.Response):
-        print("Received start recording request.")
         if request.data:
-            print("Received start recording request.")
-            print(Action.sample.name)
-            self._handle_joy_action(Action.sample)  # 复用原来的动作处理逻辑
-            self._node.get_logger().info("Received start recording request.")
+            self.get_logger().info("Received start recording request.")
+            self.fsm.act(Action.sample)
             response.success = True
             response.message = "1"
         else:
@@ -81,7 +60,7 @@ class VRCallbackManager(DemonstrateManagerBasis):
         self, request: SetBool.Request, response: SetBool.Response
     ):
         if request.data:
-            self._handle_joy_action(Action.save)  # 复用原来的动作处理逻辑
+            self.fsm.act(Action.save)
             self._node.get_logger().info("Received stop recording request.")
             response.success = True
             response.message = "1"
@@ -90,15 +69,9 @@ class VRCallbackManager(DemonstrateManagerBasis):
             response.message = "2"
         return response
 
-    def _vr_control_callback(self, msg: Float32MultiArray):
-        if msg.data[1] > 0.1:
-            self._handle_joy_action(Action.finish)
-            self.get_logger().info("finish sample")
-
-    def _handle_joy_action(self, action: Action):
-        self.get_logger().info(f"Triggering action: {action.name}")
-        self.fsm.act(action)
-        self.print_round()
+    def _vr_control_callback(self, data: float):
+        if data[VRControllerEvent.B] > 0.1:
+            self.fsm.act(Action.finish)
 
     def update(self) -> bool:
         return True
@@ -109,8 +82,7 @@ class VRCallbackManager(DemonstrateManagerBasis):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    manager = VRCallbackManager()
+    manager = VRManager()
     assert manager.configure()
 
     try:
