@@ -248,7 +248,7 @@ if __name__ == "__main__":
     init_logging(logging.INFO)
 
     relative_action = True
-    delta_action = True
+    delta_action = False
 
     player = AIRBOTPlay(
         AIRBOTPlayConfig(
@@ -281,6 +281,10 @@ if __name__ == "__main__":
             target_ori[1] = -step_pitch
         else:
             target_pos[1] -= step_z
+            if relative_action:
+                target_pitch = delta_pitch - (i + 1) * step_pitch
+                print(f"{target_pitch=}")
+                target_ori = list(quaternion_from_euler(0, target_pitch, 0))
         player.send_action(target_pos + target_ori + [0.07 / steps * (i + 1)])
         input("Press Enter to continue...")
     assert player.shutdown()
