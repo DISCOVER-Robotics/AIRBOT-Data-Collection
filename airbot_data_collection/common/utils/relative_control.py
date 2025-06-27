@@ -12,13 +12,18 @@ Pose = Tuple[Position, Orientation]
 
 
 class RelativePoseControl:
-    def __init__(self, reference: Literal["last", "current"] = "current"):
+    def __init__(
+        self, reference: Literal["last", "current"] = "current", delta: bool = True
+    ):
         """A class to handle relative pose control for a robotic arm.
         Args:
             reference (str): The reference frame for the pose control. Can be "last" or "current".
+            delta (bool): Only update once when not delta.
         """
         assert reference in {"last", "current"}
         self._ref = reference
+        self._delta = delta
+        self._updated = False
 
     def get_reference(self) -> Pose:
         """Get the reference position and orientation.
@@ -36,6 +41,10 @@ class RelativePoseControl:
             position (Tuple[float, float, float]): The relative position offset.
             orientation (Tuple[float, float, float, float]): The relative orientation offset as a quaternion.
         """
+        if not self._updated:
+            self._updated = True
+        elif not self._delta:
+            return
         if position:
             self.position = np.array(position, dtype=np.float32)
         if orientation:

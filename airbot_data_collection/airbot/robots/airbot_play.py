@@ -33,6 +33,7 @@ class AIRBOTPlayConfig(BaseModel):
     use_pose: bool = False
     relative_action: bool = False
     relative_observation: bool = False
+    delta_action: bool = False
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
@@ -41,6 +42,8 @@ class AIRBOTPlayConfig(BaseModel):
             f"Backend is not available: {self.backend}, "
             f"available backends: {AVAILABLE_BACKEND}"
         )
+        if self.delta_action:
+            self.relative_action = True
         if self.relative_action or self.relative_observation:
             assert self.use_pose, "Relative control is only supported in pose mode now."
 
@@ -129,11 +132,10 @@ class AIRBOTPlay(System):
     def _init_relative_control(self):
         pose = self.interface.get_end_pose()
         if self.config.relative_action:
-            # update before each moving
-            self.rela_act_ctrl = RelativePoseControl()
+            self.rela_act_ctrl = RelativePoseControl(delta=self.config.delta_action)
+            self.rela_act_ctrl.update(*pose)
         if self.config.relative_observation:
             self.rela_obs_ctrl = RelativePoseControl()
-            # only update once in initial pose
             self.rela_obs_ctrl.update(*pose)
 
     def _process_pose(self, pose):
@@ -141,7 +143,8 @@ class AIRBOTPlay(System):
         if not isinstance(pose[0], Iterable):
             pose = [pose[:3], pose[3:7]]
         if self.config.relative_action:
-            self.rela_act_ctrl.update(*self.interface.get_end_pose())
+            if self.config.delta_action:
+                self.rela_act_ctrl.update(*self.interface.get_end_pose())
             pose = self.rela_act_ctrl.to_absolute(*pose)
         # self.get_logger().info(f"Processed pose: {pose}")
         return [list(pose[0]), list(pose[1])]
@@ -245,9 +248,12 @@ if __name__ == "__main__":
     init_logging(logging.INFO)
 
     relative_action = True
+    delta_action = True
 
     player = AIRBOTPlay(
-        AIRBOTPlayConfig(use_pose=True, relative_action=relative_action)
+        AIRBOTPlayConfig(
+            use_pose=True, relative_action=relative_action, delta_action=delta_action
+        )
     )
     assert player.configure()
     current_pose = player.capture_observation()["arm/pose"]["data"]
@@ -270,7 +276,7 @@ if __name__ == "__main__":
     step_z = delta_y / steps
     step_pitch = delta_pitch / steps
     for i in range(steps):
-        if relative_action:
+        if relative_action and delta_action:
             target_pos[1] = -step_z
             target_ori[1] = -step_pitch
         else:
