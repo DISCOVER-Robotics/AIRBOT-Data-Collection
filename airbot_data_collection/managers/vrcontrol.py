@@ -11,9 +11,7 @@ from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 
 
-
 class VRCallbackConfig(BaseModel):
-    # 定义服务名称（可配置化）
     service_names: Dict[Action, str] = {
         Action.sample: "rec_srv",  # 开始录制服务名
         Action.save: "stop_rec_srv",  # 停止录制服务名
@@ -23,72 +21,55 @@ class VRCallbackConfig(BaseModel):
 class VRCallbackManager(DemonstrateManagerBasis):
     config: VRCallbackConfig
 
-    def __init__(self):
-        super().__init__()
-        self.node = None
-        self.ros_initialized = False
-        self._init_ros2()  # 修改此方法即可
+    def on_configure(self):
+        self._init_ros2()
+        self.print_round()
+        self.show_instruction()
+        return True
 
     def _init_ros2(self):
-        """将原来的Topic订阅改为Service服务"""
-        try:
-            rclpy.init()
-            self.ros_initialized = True
-            self.node = Node("service_based_manager")
+        rclpy.init()
+        self._ros_initialized = True
+        self._node = Node("service_based_manager")
 
-            # 创建两个服务
-            self.rec_service = self.node.create_service(
-                SetBool, "rec_srv", self._handle_rec_service  # 开始录制回调
-            )
-            self.stop_rec_service = self.node.create_service(
-                SetBool, "stop_rec_srv", self._handle_stop_service  # 停止录制回调
-            )
-            self.vr_sub = self.node.create_subscription(
-                Float32MultiArray, "vr_controller", self.vr_control_callback, 10
-            )
+        self.rec_service = self._node.create_service(
+            SetBool, "rec_srv", self._handle_rec_service  # 开始录制回调
+        )
+        self.stop_rec_service = self._node.create_service(
+            SetBool, "stop_rec_srv", self._handle_stop_service  # 停止录制回调
+        )
+        self.vr_sub = self._node.create_subscription(
+            Float32MultiArray, "vr_controller", self._vr_control_callback, 10
+        )
 
-            # 保留原来的线程处理逻辑
-            import threading
+        import threading
 
-            self.ros_thread = threading.Thread(target=self._ros_spin, daemon=True)
-            self.ros_thread.start()
-            self.get_logger().info("ROS2 Service服务初始化完成")
-
-        except Exception as e:
-            self.get_logger().error(f"ROS2初始化失败: {e}")
-            raise
+        self.ros_thread = threading.Thread(target=self._ros_spin, daemon=True)
+        self.ros_thread.start()
+        self.get_logger().info("ROS2 Service服务初始化完成")
 
     def _ros_spin(self):
-        """在单独的线程中运行ROS2回调"""
-        try:
-            while rclpy.ok() and hasattr(self, "node") and self.node:
-                try:
-                    rclpy.spin_once(self.node, timeout_sec=0.1)
-                except Exception as e:
-                    self.get_logger().error(f"ROS2回调执行错误: {e}")
-                time.sleep(0.01)
-        except Exception as e:
-            self.get_logger().error(f"ROS2回调线程错误: {e}")
+        while rclpy.ok():
+            rclpy.spin_once(self._node, timeout_sec=0.1)
+            time.sleep(0.01)
 
     def show_instruction(self) -> None:
         """显示用户操作说明"""
-        # self.get_self.get_logger().info(
+        # self.get_logger().info(
         #     # bcolors.OKCYAN + f"\n{pformat(self.config.instruction_button)}" + bcolors.ENDC
         # )
         return None
 
     def print_round(self):
-        self.get_self.get_logger().info(
-            f"Current sample round: {self.fsm.sample_info.round}"
-        )
+        self.get_logger().info(f"Current sample round: {self.fsm.sample_info.round}")
 
     def _handle_rec_service(self, request: SetBool.Request, response: SetBool.Response):
         print("Received start recording request.")
         if request.data:
             print("Received start recording request.")
             print(Action.sample.name)
-            self.handle_joy_action(Action.sample)  # 复用原来的动作处理逻辑
-            self.node.get_self.get_logger().info("Received start recording request.")
+            self._handle_joy_action(Action.sample)  # 复用原来的动作处理逻辑
+            self._node.get_logger().info("Received start recording request.")
             response.success = True
             response.message = "1"
         else:
@@ -100,8 +81,8 @@ class VRCallbackManager(DemonstrateManagerBasis):
         self, request: SetBool.Request, response: SetBool.Response
     ):
         if request.data:
-            self.handle_joy_action(Action.save)  # 复用原来的动作处理逻辑
-            self.node.get_self.get_logger().info("Received stop recording request.")
+            self._handle_joy_action(Action.save)  # 复用原来的动作处理逻辑
+            self._node.get_logger().info("Received stop recording request.")
             response.success = True
             response.message = "1"
         else:
@@ -109,33 +90,22 @@ class VRCallbackManager(DemonstrateManagerBasis):
             response.message = "2"
         return response
 
-    def vr_control_callback(self, msg: Float32MultiArray):
+    def _vr_control_callback(self, msg: Float32MultiArray):
         if msg.data[1] > 0.1:
-            self.handle_joy_action(Action.finish)
-            self.node.get_self.get_logger().info("finish sample")
+            self._handle_joy_action(Action.finish)
+            self.get_logger().info("finish sample")
 
-    # 保留所有原有方法（无需修改）
-    def handle_joy_action(self, action: Action):
-        """完全复用原来的动作处理"""
-        self.get_self.get_logger().info(f"Triggering action: {action.name}")
+    def _handle_joy_action(self, action: Action):
+        self.get_logger().info(f"Triggering action: {action.name}")
         self.fsm.act(action)
         self.print_round()
-
-    def on_configure(self):
-        self.print_round()
-        self.show_instruction()
-        return True
 
     def update(self) -> bool:
         return True
 
     def on_shutdown(self) -> bool:
-        """
-        节点关闭时执行的清理操作。
-        因为 JoyCallbackManager 不使用 keyboard.Listener，所以无需额外清理。
-        """
-        self.get_self.get_logger().info("Shutting down JoyCallbackManager.")
-        return True
+        self.get_logger().info("Shutting down JoyCallbackManager.")
+        return self._node.destroy_node()
 
 
 def main(args=None):
