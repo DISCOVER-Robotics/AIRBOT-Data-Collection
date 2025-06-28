@@ -9,12 +9,13 @@ from airbot_data_collection.common.robot_devices.vr.quest import (
     VRQuestConfig,
     VRControllerEvent,
 )
+from functools import partial
 
 
 class VRConfig(VRQuestConfig):
     service_names: Dict[Action, str] = {
-        Action.sample: "rec_srv",  # 开始录制服务名
-        Action.save: "stop_rec_srv",  # 停止录制服务名
+        Action.sample: "rec_srv",
+        Action.save: "stop_rec_srv",
     }
 
 
@@ -32,12 +33,13 @@ class VRManager(DemonstrateManagerBasis):
 
     def _init_ros2(self):
         self._node = self.interface.node
-        self.rec_service = self._node.create_service(
-            SetBool, "rec_srv", self._handle_rec_service  # 开始录制回调
-        )
-        self.stop_rec_service = self._node.create_service(
-            SetBool, "stop_rec_srv", self._handle_stop_service  # 停止录制回调
-        )
+        srvs = self.config.service_names
+        self._services = [
+            self._node.create_service(
+                SetBool, srv_name, partial(self._handle_service, action)
+            )
+            for action, srv_name in srvs.items()
+        ]
 
     def show_instruction(self) -> None:
         """Shows the instruction for the VR control."""
@@ -45,23 +47,12 @@ class VRManager(DemonstrateManagerBasis):
         #     # bcolors.OKCYAN + f"\n{pformat(self.config.instruction_button)}" + bcolors.ENDC
         # )
 
-    def _handle_rec_service(self, request: SetBool.Request, response: SetBool.Response):
-        if request.data:
-            self.get_logger().info("Received start recording request.")
-            self.fsm.act(Action.sample)
-            response.success = True
-            response.message = "1"
-        else:
-            response.success = False
-            response.message = "2"
-        return response
-
-    def _handle_stop_service(
-        self, request: SetBool.Request, response: SetBool.Response
+    def _handle_service(
+        self, action: Action, request: SetBool.Request, response: SetBool.Response
     ):
         if request.data:
-            self.fsm.act(Action.save)
-            self._node.get_logger().info("Received stop recording request.")
+            self.get_logger().info(f"Received {action} request.")
+            self.fsm.act(action)
             response.success = True
             response.message = "1"
         else:
