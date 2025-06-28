@@ -2,6 +2,8 @@ import time
 import threading
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from pydantic import BaseModel
 from std_msgs.msg import Float32MultiArray
@@ -10,15 +12,7 @@ from enum import Enum, auto
 from functools import partial
 
 from airbot_data_collection.basis import ConfigBasis
-
-
-class VRQuestConfig(BaseModel):
-    init_rcl: bool = True
-    node_name: str = "vr_quest"
-    # TODO: use a spin config
-    spin_timeout: Optional[float] = None
-    spin_period: float = 0.0
-    spin_thread: bool = True
+from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 
 
 class VRControllerEvent(int, Enum):
@@ -36,15 +30,28 @@ class VRControllerEvent(int, Enum):
     Y = auto()
 
 
+class VRQuestConfig(BaseModel):
+    init_rcl: bool = True
+    node_name: str = "vr_quest"
+    # TODO: use a spin config
+    spin_timeout: Optional[float] = None
+    spin_period: float = 0.0
+    spin_thread: bool = True
+    # event to set the current info pose to be zero
+    # which is used to rela-control
+    zero_info: Dict[str, VRControllerEvent] = {}
+
+
 class VRQuest(ConfigBasis):
     config: VRQuestConfig
 
     def on_configure(self):
-        self._init_ros2()
+        self._pos = {"left", "right"}
         self._event_callbacks: Dict[VRControllerEvent, Callable] = {}
         self._callbacks = []
         self._vr_control_data = [0.0] * len(VRControllerEvent)
         self._vr_info_data = {}
+        self._init_ros2()
         return True
 
     def _init_ros2(self):
@@ -57,7 +64,11 @@ class VRQuest(ConfigBasis):
                 rclpy.init()
         self.node = Node(self.config.node_name)
         self._vr_ctrl_sub = self.node.create_subscription(
-            Float32MultiArray, "vr_controller", self._vr_control_callback, 10
+            Float32MultiArray,
+            "vr_controller",
+            self._vr_control_callback,
+            10,
+            callback_group=MutuallyExclusiveCallbackGroup(),
         )
         self._info_subs = [
             self.node.create_subscription(
@@ -65,24 +76,49 @@ class VRQuest(ConfigBasis):
                 f"{pos}Info",
                 partial(self._vr_info_callback, pos),
                 10,
+                callback_group=MutuallyExclusiveCallbackGroup(),
             )
-            for pos in ["left", "right"]
+            for pos in self._pos
         ]
+        self._info_rela_ctrl: Dict[str, RelativePoseControl] = {}
+        for pos, event in self.config.zero_info.items():
+            self.get_logger().info(f"Registering zero {pos} info callback for {event}.")
+            self._info_rela_ctrl[pos] = RelativePoseControl()
+            self.register_event_callback(
+                event,
+                partial(self._update_rela, pos),
+            )
+        self._executor = MultiThreadedExecutor(3)
+        self._executor.add_node(self.node)
         if self.config.spin_thread:
             self._spin_thread = threading.Thread(target=self._ros_spin, daemon=True)
             self._spin_thread.start()
 
+    def _update_rela(self, pos: str, data: float):
+        """Update the relative control data."""
+        self.get_logger().info("Updating relative control data.")
+        self.clear_info()
+        self.wait_for_info(pos)
+        value = self.get_info_data()[pos]
+        self._info_rela_ctrl[pos].update(value[:3], value[3:7])
+
     def _ros_spin(self):
         while rclpy.ok():
-            rclpy.spin_once(self.node, timeout_sec=self.config.spin_timeout)
+            self._executor.spin_once(self.config.spin_timeout)
             time.sleep(self.config.spin_period)
 
     def _vr_control_callback(self, msg: Float32MultiArray):
+        # self.get_logger().info(
+        #     f"Received VR control data: {msg.data}, length: {len(msg.data)}"
+        # )
         self._vr_control_data = msg.data
         for event, callback in self._event_callbacks.items():
             # self.get_logger().info(f"Message data: {msg.data}")
             # self.get_logger().info(f"Event {event} {event.value} triggered")
             if (data := msg.data[event]) != 0:
+                # self.get_logger().info(
+                #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
+                # )
                 callback(data)
         for callback in self._callbacks:
             callback(self._vr_control_data)
@@ -112,7 +148,7 @@ class VRQuest(ConfigBasis):
             f"Waiting for VR info data for {pos} with timeout {timeout} seconds."
         )
         start_time = time.time()
-        pos = {pos} if pos else {"left", "right"}
+        pos = {pos} if pos else self._pos
         while timeout is None or time.time() - start_time < timeout:
             for p in pos:
                 if p not in self._vr_info_data:
@@ -120,6 +156,7 @@ class VRQuest(ConfigBasis):
             else:
                 self.get_logger().info(f"VR info data for {pos} is available.")
                 return True
+            time.sleep(0.1)  # Sleep to avoid busy waiting
         self.get_logger().error(
             f"Timeout waiting for VR info data after {timeout} seconds."
         )
@@ -145,16 +182,16 @@ if __name__ == "__main__":
 
     init_logging(logging.INFO)
 
-    vr = VRQuest(VRQuestConfig())
+    vr = VRQuest(VRQuestConfig(zero_info={"right": VRControllerEvent.RIGHT_TRIGGER}))
     assert vr.configure()
 
-    for event in VRControllerEvent:
-        vr.register_event_callback(
-            event,
-            lambda data, e=event: vr.get_logger().info(
-                f"Event {e} triggered with data: {data}"
-            ),
-        )
+    # for event in VRControllerEvent:
+    #     vr.register_event_callback(
+    #         event,
+    #         lambda data, e=event: vr.get_logger().info(
+    #             f"Event {e} triggered with data: {data}"
+    #         ),
+    #     )
     assert vr.wait_for_info(pos="right")
     pprint(vr.get_info_data())
 

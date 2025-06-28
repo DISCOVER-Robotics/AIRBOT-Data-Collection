@@ -4,6 +4,7 @@ from airbot_data_collection.common.utils.transformations import (
 )
 from typing import Tuple, Literal, Optional
 import numpy as np
+from logging import getLogger
 
 
 Position = Tuple[float, float, float]
@@ -24,6 +25,7 @@ class RelativePoseControl:
         self._ref = reference
         self._delta = delta
         self._updated = False
+        self._logger = getLogger(self.__class__.__name__)
 
     def get_reference(self) -> Pose:
         """Get the reference position and orientation.
@@ -44,6 +46,9 @@ class RelativePoseControl:
         if not self._updated:
             self._updated = True
         elif not self._delta:
+            self._logger.warning(
+                "RelativePoseControl is not in delta mode, update only once. "
+            )
             return
         if position:
             self.position = np.array(position, dtype=np.float32)
