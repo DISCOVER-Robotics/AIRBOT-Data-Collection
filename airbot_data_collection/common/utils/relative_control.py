@@ -25,6 +25,8 @@ class RelativePoseControl:
         self._ref = reference
         self._delta = delta
         self._updated = False
+        self.position = None
+        self.orientation = None
         self._logger = getLogger(self.__class__.__name__)
 
     def get_reference(self) -> Pose:
@@ -36,6 +38,9 @@ class RelativePoseControl:
             return self.position, self.orientation
         else:
             return self._last_position, self._last_orientation
+
+    def has_reference(self) -> bool:
+        return None not in {self.position, self.orientation}
 
     def update(self, position: Optional[Position], orientation: Optional[Orientation]):
         """Update the current position and orientation.

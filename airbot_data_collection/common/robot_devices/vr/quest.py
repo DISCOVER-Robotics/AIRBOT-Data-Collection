@@ -80,19 +80,21 @@ class VRQuest(ConfigBasis):
             )
             for pos in self._pos
         ]
-        self._info_rela_ctrl: Dict[str, RelativePoseControl] = {}
-        for pos, event in self.config.zero_info.items():
-            self.get_logger().info(f"Registering zero {pos} info callback for {event}.")
-            self._info_rela_ctrl[pos] = RelativePoseControl()
-            self.register_event_callback(
-                event,
-                partial(self._update_rela, pos),
-            )
         self._executor = MultiThreadedExecutor(3)
         self._executor.add_node(self.node)
         if self.config.spin_thread:
             self._spin_thread = threading.Thread(target=self._ros_spin, daemon=True)
             self._spin_thread.start()
+        self._info_rela_ctrl: Dict[str, RelativePoseControl] = {}
+        for pos, event in self.config.zero_info.items():
+            self.get_logger().info(f"Registering zero {pos} info callback for {event}.")
+            self._info_rela_ctrl[pos] = RelativePoseControl()
+            self._update_rela(pos, None)
+            self.register_event_callback(
+                event,
+                partial(self._update_rela, pos),
+            )
+        self.wait_for_info()
 
     def _update_rela(self, pos: str, data: float):
         """Update the relative control data."""
@@ -124,7 +126,7 @@ class VRQuest(ConfigBasis):
             callback(self._vr_control_data)
 
     def _vr_info_callback(self, pos: str, msg: Float32MultiArray):
-        self._vr_info_data[pos] = msg.data
+        self._vr_info_data[pos] = list(msg.data)
 
     def register_event_callback(self, event: VRControllerEvent, callback: Callable):
         self._event_callbacks[event] = callback
@@ -139,6 +141,11 @@ class VRQuest(ConfigBasis):
     def get_info_data(self) -> Dict[str, List[float]]:
         """Get the information data for the left and right controllers."""
         return self._vr_info_data
+
+    def get_rela_info_data(self, pos: str) -> List[float]:
+        pos_data = self._vr_info_data[pos]
+        data = self._info_rela_ctrl[pos].to_relative(pos_data[:3], pos_data[3:7])
+        return data[0] + data[1]
 
     def wait_for_info(
         self, pos: Optional[str] = None, timeout: Optional[float] = None
@@ -192,8 +199,10 @@ if __name__ == "__main__":
     #             f"Event {e} triggered with data: {data}"
     #         ),
     #     )
-    assert vr.wait_for_info(pos="right")
-    pprint(vr.get_info_data())
-
-    input("Press Enter to exit...")
+    pos = "right"
+    assert vr.wait_for_info(pos)
+    pprint(vr.get_info_data()[pos])
+    while input("Press Enter to continue...") != "z":
+        pprint(vr.get_info_data()[pos])
+        pprint(vr.get_rela_info_data(pos))
     assert vr.shutdown()
