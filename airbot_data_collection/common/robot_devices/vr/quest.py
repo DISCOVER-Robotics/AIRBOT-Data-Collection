@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from std_msgs.msg import Float32MultiArray
 from typing import Optional, Callable, List, Dict
 from enum import Enum, auto
+from functools import partial
 
 from airbot_data_collection.basis import ConfigBasis
 
@@ -42,7 +43,8 @@ class VRQuest(ConfigBasis):
         self._init_ros2()
         self._event_callbacks: Dict[VRControllerEvent, Callable] = {}
         self._callbacks = []
-        self._data = [0.0] * len(VRControllerEvent)
+        self._vr_control_data = [0.0] * len(VRControllerEvent)
+        self._vr_info_data = {}
         return True
 
     def _init_ros2(self):
@@ -57,6 +59,15 @@ class VRQuest(ConfigBasis):
         self._vr_ctrl_sub = self.node.create_subscription(
             Float32MultiArray, "vr_controller", self._vr_control_callback, 10
         )
+        self._info_subs = [
+            self.node.create_subscription(
+                Float32MultiArray,
+                f"{pos}Info",
+                partial(self._vr_info_callback, pos),
+                10,
+            )
+            for pos in ["left", "right"]
+        ]
         if self.config.spin_thread:
             self._spin_thread = threading.Thread(target=self._ros_spin, daemon=True)
             self._spin_thread.start()
@@ -67,13 +78,17 @@ class VRQuest(ConfigBasis):
             time.sleep(self.config.spin_period)
 
     def _vr_control_callback(self, msg: Float32MultiArray):
-        self._data = msg.data
+        self._vr_control_data = msg.data
         for event, callback in self._event_callbacks.items():
+            # self.get_logger().info(f"Message data: {msg.data}")
             # self.get_logger().info(f"Event {event} {event.value} triggered")
             if (data := msg.data[event]) != 0:
                 callback(data)
         for callback in self._callbacks:
-            callback(self._data)
+            callback(self._vr_control_data)
+
+    def _vr_info_callback(self, pos: str, msg: Float32MultiArray):
+        self._vr_info_data[pos] = msg.data
 
     def register_event_callback(self, event: VRControllerEvent, callback: Callable):
         self._event_callbacks[event] = callback
@@ -83,7 +98,36 @@ class VRQuest(ConfigBasis):
         self._callbacks.append(callback)
 
     def get_control_data(self) -> List[float]:
-        return self._data
+        return self._vr_control_data
+
+    def get_info_data(self) -> Dict[str, List[float]]:
+        """Get the information data for the left and right controllers."""
+        return self._vr_info_data
+
+    def wait_for_info(
+        self, pos: Optional[str] = None, timeout: Optional[float] = None
+    ) -> bool:
+        """Wait for the information data to be available."""
+        self.get_logger().info(
+            f"Waiting for VR info data for {pos} with timeout {timeout} seconds."
+        )
+        start_time = time.time()
+        pos = {pos} if pos else {"left", "right"}
+        while timeout is None or time.time() - start_time < timeout:
+            for p in pos:
+                if p not in self._vr_info_data:
+                    break
+            else:
+                self.get_logger().info(f"VR info data for {pos} is available.")
+                return True
+        self.get_logger().error(
+            f"Timeout waiting for VR info data after {timeout} seconds."
+        )
+        return False
+
+    def clear_info(self):
+        """Clear the information data for the left and right controllers."""
+        self._vr_info_data.clear()
 
     def spin_once(self) -> bool:
         rclpy.spin_once(self.node, timeout_sec=self.config.spin_timeout)
@@ -96,6 +140,7 @@ class VRQuest(ConfigBasis):
 if __name__ == "__main__":
 
     from airbot_data_collection.utils import init_logging
+    from pprint import pprint
     import logging
 
     init_logging(logging.INFO)
@@ -107,10 +152,11 @@ if __name__ == "__main__":
         vr.register_event_callback(
             event,
             lambda data, e=event: vr.get_logger().info(
-                f"Event {e.name} triggered with data: {data}"
+                f"Event {e} triggered with data: {data}"
             ),
         )
+    assert vr.wait_for_info(pos="right")
+    pprint(vr.get_info_data())
 
     input("Press Enter to exit...")
-
     assert vr.shutdown()
