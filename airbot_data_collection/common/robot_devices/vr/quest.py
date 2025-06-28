@@ -1,10 +1,11 @@
 import time
 import threading
 import rclpy
+from rclpy.node import Node
 
 from pydantic import BaseModel
 from std_msgs.msg import Float32MultiArray
-from typing import Optional, Callable, List
+from typing import Optional, Callable, List, Dict
 from enum import Enum, auto
 
 from airbot_data_collection.basis import ConfigBasis
@@ -20,7 +21,7 @@ class VRQuestConfig(BaseModel):
 
 
 class VRControllerEvent(int, Enum):
-    A = auto()
+    A = 0
     B = auto()
     LEFT_STICK_V = auto()
     LEFT_STICK_H = auto()
@@ -39,7 +40,7 @@ class VRQuest(ConfigBasis):
 
     def on_configure(self):
         self._init_ros2()
-        self._event_callbacks = {}
+        self._event_callbacks: Dict[VRControllerEvent, Callable] = {}
         self._callbacks = []
         self._data = [0.0] * len(VRControllerEvent)
         return True
@@ -52,7 +53,7 @@ class VRQuest(ConfigBasis):
                 )
             else:
                 rclpy.init()
-        self.node = rclpy.Node(self.config.node_name)
+        self.node = Node(self.config.node_name)
         self._vr_ctrl_sub = self.node.create_subscription(
             Float32MultiArray, "vr_controller", self._vr_control_callback, 10
         )
@@ -68,7 +69,8 @@ class VRQuest(ConfigBasis):
     def _vr_control_callback(self, msg: Float32MultiArray):
         self._data = msg.data
         for event, callback in self._event_callbacks.items():
-            if data := msg.data[event] != 0:
+            # self.get_logger().info(f"Event {event} {event.value} triggered")
+            if (data := msg.data[event]) != 0:
                 callback(data)
         for callback in self._callbacks:
             callback(self._data)
@@ -93,13 +95,20 @@ class VRQuest(ConfigBasis):
 
 if __name__ == "__main__":
 
+    from airbot_data_collection.utils import init_logging
+    import logging
+
+    init_logging(logging.INFO)
+
     vr = VRQuest(VRQuestConfig())
     assert vr.configure()
 
     for event in VRControllerEvent:
         vr.register_event_callback(
             event,
-            lambda data, e=event: print(f"Event {e.name} triggered with data: {data}"),
+            lambda data, e=event: vr.get_logger().info(
+                f"Event {e.name} triggered with data: {data}"
+            ),
         )
 
     input("Press Enter to exit...")
