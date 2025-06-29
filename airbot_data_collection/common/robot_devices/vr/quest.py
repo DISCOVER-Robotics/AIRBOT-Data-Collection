@@ -34,6 +34,10 @@ class VRControllerEvent(int, Enum):
 class ControllerEventMode(str, Enum):
     NOT_ZERO = "not_zero"
     VALUE_CHANGE = "value_change"
+    LEAVE_ZERO = "leave_zero"
+    ENTER_ZERO = "enter_zero"
+    ENTER_POSITIVE = "enter_positive"
+    ENTER_NEGATIVE = "enter_negative"
 
 
 class VRQuestConfig(BaseModel):
@@ -60,6 +64,7 @@ class VRQuest(ConfigBasis):
         self._vr_control_data = [0.0] * len(VRControllerEvent)
         self._vr_info_data = {}
         self._init_ros2()
+        self._init_judgers()
         return True
 
     def _init_ros2(self):
@@ -101,9 +106,25 @@ class VRQuest(ConfigBasis):
             self.register_event_callback(
                 event,
                 partial(self._update_rela, pos),
-                ControllerEventMode.VALUE_CHANGE,
+                ControllerEventMode.LEAVE_ZERO,
             )
         self.wait_for_info()
+
+    def _init_judgers(self):
+        """Initialize the judgers for the VR controller events."""
+        self._judgers = {
+            ControllerEventMode.NOT_ZERO: lambda data, event: data != 0,
+            ControllerEventMode.VALUE_CHANGE: lambda data, event: data
+            != self._vr_control_data[event],
+            ControllerEventMode.LEAVE_ZERO: lambda data, event: data != 0
+            and self._vr_control_data[event] == 0,
+            ControllerEventMode.ENTER_ZERO: lambda data, event: data == 0
+            and self._vr_control_data[event] != 0,
+            ControllerEventMode.ENTER_POSITIVE: lambda data, event: data > 0
+            and self._vr_control_data[event] <= 0,
+            ControllerEventMode.ENTER_NEGATIVE: lambda data, event: data < 0
+            and self._vr_control_data[event] >= 0,
+        }
 
     def _update_rela(self, pos: str, data: float):
         """Update the relative control data."""
@@ -127,25 +148,15 @@ class VRQuest(ConfigBasis):
         # self.get_logger().info(
         #     f"Received VR control data: {msg.data}, length: {len(msg.data)}"
         # )
-        for event, callback in self._event_callbacks.get(
-            ControllerEventMode.NOT_ZERO, {}
-        ).items():
-            # self.get_logger().info(f"Message data: {msg.data}")
-            # self.get_logger().info(f"Event {event} {event.value} triggered")
-            if (data := msg.data[event]) != 0:
-                # self.get_logger().info(
-                #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
-                # )
-                callback(data)
-        for event, callback in self._event_callbacks.get(
-            ControllerEventMode.VALUE_CHANGE, {}
-        ).items():
-            # self.get_logger().info(f"Event {event} {event.value} triggered")
-            if (data := msg.data[event]) != self._vr_control_data[event]:
-                # self.get_logger().info(
-                #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
-                # )
-                callback(data)
+        for mode, event_callbacks in self._event_callbacks.items():
+            for event, callback in event_callbacks.items():
+                # self.get_logger().info(f"Processing event {event} with mode {mode}.")
+                data = msg.data[event]
+                if self._judgers[mode](data, event):
+                    # self.get_logger().info(
+                    #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
+                    # )
+                    callback(data)
         for callback in self._callbacks:
             callback(self._vr_control_data)
         self._vr_control_data = msg.data
