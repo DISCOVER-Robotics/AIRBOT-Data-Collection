@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     init_logging(logging.INFO)
 
-    vr = VRQuest(VRQuestConfig(zero_info={"right": VRControllerEvent.RIGHT_TRIGGER}))
+    vr = VRQuest(VRQuestConfig(zero_info={"right": VRControllerEvent.RIGHT_GRIP}))
     assert vr.configure()
 
     # for event in VRControllerEvent:

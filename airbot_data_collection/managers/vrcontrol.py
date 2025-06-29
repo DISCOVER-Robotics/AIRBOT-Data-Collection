@@ -65,6 +65,7 @@ class VRManager(DemonstrateManagerBasis):
             self.fsm.act(Action.finish)
 
     def update(self) -> bool:
+        # TODO: choose to spine once
         return True
 
     def on_shutdown(self) -> bool:
