@@ -101,6 +101,7 @@ class VRQuest(ConfigBasis):
             self.register_event_callback(
                 event,
                 partial(self._update_rela, pos),
+                ControllerEventMode.VALUE_CHANGE,
             )
         self.wait_for_info()
 
@@ -118,6 +119,11 @@ class VRQuest(ConfigBasis):
             time.sleep(self.config.spin_period)
 
     def _vr_control_callback(self, msg: Float32MultiArray):
+        """Callback for the VR controller data.
+        The event callbacks are executed first,
+        then the common callbacks, finally the
+        internal control data value is updated.
+        """
         # self.get_logger().info(
         #     f"Received VR control data: {msg.data}, length: {len(msg.data)}"
         # )
