@@ -10,6 +10,7 @@ from std_msgs.msg import Float32MultiArray
 from typing import Optional, Callable, List, Dict
 from enum import Enum, auto
 from functools import partial
+from collections import defaultdict
 
 from airbot_data_collection.basis import ConfigBasis
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
@@ -30,6 +31,11 @@ class VRControllerEvent(int, Enum):
     Y = auto()
 
 
+class ControllerEventMode(str, Enum):
+    NOT_ZERO = "not_zero"
+    VALUE_CHANGE = "value_change"
+
+
 class VRQuestConfig(BaseModel):
     init_rcl: bool = True
     node_name: str = "vr_quest"
@@ -47,7 +53,9 @@ class VRQuest(ConfigBasis):
 
     def on_configure(self):
         self._pos = {"left", "right"}
-        self._event_callbacks: Dict[VRControllerEvent, Callable] = {}
+        self._event_callbacks: Dict[
+            ControllerEventMode, Dict[VRControllerEvent, Callable]
+        ] = defaultdict(dict)
         self._callbacks = []
         self._vr_control_data = [0.0] * len(VRControllerEvent)
         self._vr_info_data = {}
@@ -113,8 +121,9 @@ class VRQuest(ConfigBasis):
         # self.get_logger().info(
         #     f"Received VR control data: {msg.data}, length: {len(msg.data)}"
         # )
-        self._vr_control_data = msg.data
-        for event, callback in self._event_callbacks.items():
+        for event, callback in self._event_callbacks.get(
+            ControllerEventMode.NOT_ZERO, {}
+        ).items():
             # self.get_logger().info(f"Message data: {msg.data}")
             # self.get_logger().info(f"Event {event} {event.value} triggered")
             if (data := msg.data[event]) != 0:
@@ -122,14 +131,29 @@ class VRQuest(ConfigBasis):
                 #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
                 # )
                 callback(data)
+        for event, callback in self._event_callbacks.get(
+            ControllerEventMode.VALUE_CHANGE, {}
+        ).items():
+            # self.get_logger().info(f"Event {event} {event.value} triggered")
+            if (data := msg.data[event]) != self._vr_control_data[event]:
+                # self.get_logger().info(
+                #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
+                # )
+                callback(data)
         for callback in self._callbacks:
             callback(self._vr_control_data)
+        self._vr_control_data = msg.data
 
     def _vr_info_callback(self, pos: str, msg: Float32MultiArray):
         self._vr_info_data[pos] = list(msg.data)
 
-    def register_event_callback(self, event: VRControllerEvent, callback: Callable):
-        self._event_callbacks[event] = callback
+    def register_event_callback(
+        self,
+        event: VRControllerEvent,
+        callback: Callable,
+        mode: ControllerEventMode = ControllerEventMode.NOT_ZERO,
+    ):
+        self._event_callbacks[mode][event] = callback
 
     def register_callback(self, callback: Callable):
         """Register a callback for the VR controller events."""
@@ -191,14 +215,18 @@ if __name__ == "__main__":
 
     vr = VRQuest(VRQuestConfig(zero_info={"right": VRControllerEvent.RIGHT_GRIP}))
     assert vr.configure()
-
-    # for event in VRControllerEvent:
-    #     vr.register_event_callback(
-    #         event,
-    #         lambda data, e=event: vr.get_logger().info(
-    #             f"Event {e} triggered with data: {data}"
-    #         ),
-    #     )
+    vr.register_event_callback(
+        VRControllerEvent.B,
+        lambda data: vr.get_logger().info(f"B button value changed with data: {data}"),
+        mode=ControllerEventMode.VALUE_CHANGE,
+    )
+    for event in {VRControllerEvent.RIGHT_STICK_V, VRControllerEvent.RIGHT_STICK_H}:
+        vr.register_event_callback(
+            event,
+            lambda data, e=event: vr.get_logger().info(
+                f"Event {e} triggered with data: {data}"
+            ),
+        )
     pos = "right"
     assert vr.wait_for_info(pos)
     pprint(vr.get_info_data()[pos])
