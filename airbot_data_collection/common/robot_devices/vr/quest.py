@@ -63,8 +63,9 @@ class VRQuest(ConfigBasis):
         self._callbacks = []
         self._vr_control_data = [0.0] * len(VRControllerEvent)
         self._vr_info_data = {}
-        self._init_ros2()
+        self._last_stamp = defaultdict(float)
         self._init_judgers()
+        self._init_ros2()
         return True
 
     def _init_ros2(self):
@@ -129,7 +130,6 @@ class VRQuest(ConfigBasis):
     def _update_rela(self, pos: str, data: float):
         """Update the relative control data."""
         self.get_logger().info("Updating relative control data.")
-        self.clear_info()
         self.wait_for_info(pos)
         value = self.get_info_data()[pos]
         self._info_rela_ctrl[pos].update(value[:3], value[3:7])
@@ -163,6 +163,7 @@ class VRQuest(ConfigBasis):
 
     def _vr_info_callback(self, pos: str, msg: Float32MultiArray):
         self._vr_info_data[pos] = list(msg.data)
+        self._last_stamp[pos] = time.time()
 
     def register_event_callback(
         self,
@@ -197,9 +198,10 @@ class VRQuest(ConfigBasis):
         )
         start_time = time.time()
         pos = {pos} if pos else self._pos
+        last_stamp = self._last_stamp.copy()
         while timeout is None or time.time() - start_time < timeout:
             for p in pos:
-                if p not in self._vr_info_data:
+                if self._last_stamp[p] == last_stamp[p]:
                     break
             else:
                 self.get_logger().info(f"VR info data for {pos} is available.")
