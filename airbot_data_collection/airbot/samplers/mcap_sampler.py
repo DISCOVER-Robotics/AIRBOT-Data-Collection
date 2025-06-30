@@ -186,8 +186,8 @@ class AIRBOTMcapDataSampler(DataSampler):
                         raise NotImplementedError(
                             f"Image save type {save_type} not implemented for MCAP saving."
                         )
-                elif "joint_state" in key:
-                    data_type = "joint_state"
+                elif "joint_state" in key or "pose" in key:
+                    data_type = "field_array"
                     fields = values[0]["data"].keys()
                     topics = {}
                     for field in fields:

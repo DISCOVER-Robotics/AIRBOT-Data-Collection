@@ -83,7 +83,7 @@ for folder in folders:
             for group, value in zip(groups, [act, obs]):
                 # print(value)
                 for component, slc in zip(components, slices):
-                    flb_writer.add_joint_state(
+                    flb_writer.add_field_array(
                         {"position": to_topic(group, component)},
                         data={"position": value[slc]},
                         publish_time=stamp_ns,

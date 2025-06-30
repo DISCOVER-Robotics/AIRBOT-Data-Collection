@@ -12,6 +12,7 @@ from enum import Enum, auto
 from functools import partial
 from collections import defaultdict
 
+from airbot_data_collection.utils import StrEnum
 from airbot_data_collection.basis import ConfigBasis
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 
@@ -31,13 +32,13 @@ class VRControllerEvent(int, Enum):
     Y = auto()
 
 
-class ControllerEventMode(str, Enum):
-    NOT_ZERO = "not_zero"
-    VALUE_CHANGE = "value_change"
-    LEAVE_ZERO = "leave_zero"
-    ENTER_ZERO = "enter_zero"
-    ENTER_POSITIVE = "enter_positive"
-    ENTER_NEGATIVE = "enter_negative"
+class ControllerEventMode(StrEnum):
+    NOT_ZERO = auto()
+    VALUE_CHANGE = auto()
+    LEAVE_ZERO = auto()
+    ENTER_ZERO = auto()
+    ENTER_POSITIVE = auto()
+    ENTER_NEGATIVE = auto()
 
 
 class VRQuestConfig(BaseModel):

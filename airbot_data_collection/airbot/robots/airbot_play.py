@@ -1,11 +1,12 @@
-from typing import List, Union, Dict, Tuple, Any, Iterable
+from typing import List, Union, Dict, Tuple, Any, Iterable, Set
 from pydantic import BaseModel, PositiveInt
 
 from time import time_ns
 from collections import defaultdict
-from airbot_data_collection.utils import linear_map
 from functools import partial
+from enum import auto
 
+from airbot_data_collection.utils import linear_map, StrEnum
 from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 
@@ -24,15 +25,24 @@ except ImportError:
     AVAILABLE_BACKEND.add("thin")
 
 
+class InterfaceType(StrEnum):
+    JOINT_STATE = auto()
+    JOINT_POSITION = auto()
+    JOINT_VELOCITY = auto()
+    JOINT_EFFORT = auto()
+    POSE = auto()
+
+
 class AIRBOTPlayConfig(BaseModel):
     url: str = "localhost"
     port: PositiveInt = 50050
     speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
-    use_pose: bool = False
-    relative_action: bool = False
+    use_pose: bool = False  # pose control mode
+    # observations: Set[InterfaceType] = {InterfaceType.JOINT_STATE}
     relative_observation: bool = False
+    relative_action: bool = False
     delta_action: bool = False
 
     def model_post_init(self, context):
@@ -46,6 +56,8 @@ class AIRBOTPlayConfig(BaseModel):
             self.relative_action = True
         if self.relative_action or self.relative_observation:
             assert self.use_pose, "Relative control is only supported in pose mode now."
+        # if self.use_pose:
+        #     self.observations.add(InterfaceType.POSE)
 
 
 class AIRBOTPlay(System):
@@ -160,21 +172,18 @@ class AIRBOTPlay(System):
     ) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}
-        if self.config.use_pose:
-            pose = self.interface.get_end_pose()
-            if self.config.relative_observation:
-                pose = self.rela_obs_ctrl.to_relative(*pose)
-            obs["arm/pose"] = {
-                "t": time_ns(),
-                "data": {
-                    "position": pose[0],
-                    "orientation": pose[1],
-                },
-            }
-            components = {"eef"}
-        else:
-            components = self._components
-        for component in components:
+        # if self.config.use_pose:
+        pose = self.interface.get_end_pose()
+        if self.config.relative_observation:
+            pose = self.rela_obs_ctrl.to_relative(*pose)
+        obs["arm/pose"] = {
+            "t": time_ns(),
+            "data": {
+                "position": pose[0],
+                "orientation": pose[1],
+            },
+        }
+        for component in self._components:
             obs[f"{component}/joint_state"] = {
                 "t": time_ns(),
                 "data": {

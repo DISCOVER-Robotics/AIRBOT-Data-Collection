@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from enum import Enum
+from enum import Enum, auto
 from functools import partial
 from logging import getLogger
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -9,16 +9,18 @@ from pydantic import BaseModel
 from transitions import EventData
 from transitions.extensions import LockedMachine
 
+from airbot_data_collection.utils import StrEnum
+
 State = Optional[Union[str, Enum, dict]]
 Action = Union[str, Enum]
 
 
-class LogLevel(str, Enum):
-    debug = "debug"
-    info = "info"
-    warning = "warning"
-    error = "error"
-    critical = "critical"
+class LogLevel(StrEnum):
+    debug = auto()
+    info = auto()
+    warning = auto()
+    error = auto()
+    critical = auto()
 
     @classmethod
     def get(cls, level: str):
@@ -210,9 +212,7 @@ class StateMachineBasis:
                 **to_dest.model_dump(),
             )
 
-    def is_action_source_added(
-        self, action: str, source: State | tuple[State]
-    ) -> bool:
+    def is_action_source_added(self, action: str, source: State | tuple[State]) -> bool:
         """Check if the action source is added."""
         if not isinstance(source, tuple):
             source = (source,)

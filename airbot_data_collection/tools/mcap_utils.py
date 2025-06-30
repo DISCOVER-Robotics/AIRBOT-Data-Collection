@@ -108,7 +108,7 @@ class McapFlatbufferWriter:
         )
         self.builder.Clear()
 
-    def add_joint_state(
+    def add_field_array(
         self,
         topics: Dict[str, str],
         data: dict[str, list[float]],
