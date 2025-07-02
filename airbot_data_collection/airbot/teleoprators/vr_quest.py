@@ -87,7 +87,7 @@ class InputController(ABC):
 
 
 class VRQuestController(InputController):
-    """Generate motion deltas from gamepad input."""
+    """Generate motion deltas from vr meta quest3 input"""
 
     def __init__(self):
         super().__init__()
@@ -181,11 +181,18 @@ class VRQuestController(InputController):
 if __name__ == "__main__":
     import time
     from airbot_data_collection.utils import init_logging
+    from airbot_data_collection.common.utils.transformations import (
+        euler_from_quaternion,
+    )
+    import numpy as np
+
+    np.set_printoptions(precision=3)
 
     init_logging(logging.INFO)
 
-    controller = VRQuestController([])
+    controller = VRQuestController()
     controller.start()
+
     try:
         while not controller.should_quit():
             controller.update()
@@ -194,7 +201,19 @@ if __name__ == "__main__":
             if controller.should_intervene():
                 deltas = controller.get_deltas()
                 eef = controller.gripper_command()
-                controller.get_logger().info(f"Current deltas: {deltas}, eef: {eef}")
+                # controller.get_logger().info(f"Current deltas: {deltas}, eef: {eef}")
+                # controller.get_logger().info(f"Delta euler angles: {euler_from_quaternion(deltas[3:7])}")
+                # controller.get_logger().info(f"Delta position: {pose[0]}, eef: {eef}")
+                # controller.get_logger().info(f"Delta euler angles: {euler_from_quaternion(pose[1])}")
+                abs_data = controller._vr.get_info_data()["right"]
+                controller.get_logger().info(
+                    f"Absolute position: {np.array(abs_data[0:3])}"
+                )
+                controller.get_logger().info(
+                    f"Absolute euler: {np.array(euler_from_quaternion(abs_data[3:7]))}"
+                )
+                # controller.get_logger().info(f"Absolute position: {np.array(abs_data[0])}")
+                # controller.get_logger().info(f"Absolute euler: {np.array(euler_from_quaternion(abs_data[1]))}")
             time.sleep(0.1)  # Simulate frame delay
     finally:
         controller.stop()

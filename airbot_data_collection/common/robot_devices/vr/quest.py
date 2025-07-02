@@ -15,6 +15,8 @@ from collections import defaultdict
 from airbot_data_collection.utils import StrEnum
 from airbot_data_collection.basis import ConfigBasis
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
+from airbot_data_collection.common.utils.coordinate import CoordinateConverter
+from airbot_data_collection.common.utils.ros2 import TFPublisher
 
 
 class VRControllerEvent(int, Enum):
@@ -51,6 +53,8 @@ class VRQuestConfig(BaseModel):
     # event to set the current info pose to be zero
     # which is used to rela-control
     zero_info: Dict[str, VRControllerEvent] = {}
+    to_right_hand: bool = True
+    publish_tf: bool = True
 
 
 class VRQuest(ConfigBasis):
@@ -78,6 +82,8 @@ class VRQuest(ConfigBasis):
             else:
                 rclpy.init()
         self.node = Node(self.config.node_name)
+        if self.config.publish_tf:
+            self._tf_pub = TFPublisher()
         self._vr_ctrl_sub = self.node.create_subscription(
             Float32MultiArray,
             "vr_controller",
@@ -163,8 +169,20 @@ class VRQuest(ConfigBasis):
         self._vr_control_data = msg.data
 
     def _vr_info_callback(self, pos: str, msg: Float32MultiArray):
-        self._vr_info_data[pos] = list(msg.data)
+        if self.config.to_right_hand:
+            d = msg.data
+            data = CoordinateConverter.convert_left_to_right_handed(d[:3], d[3:7])
+            data = data[0] + data[1]
+        else:
+            data = msg.data
+        self._vr_info_data[pos] = list(data)
         self._last_stamp[pos] = time.time()
+        if self.config.publish_tf:
+            self._tf_pub.broadcast_tf(
+                data[:3],
+                data[3:7],
+                child_frame_id=f"/{pos}Info",
+            )
 
     def register_event_callback(
         self,
@@ -188,6 +206,12 @@ class VRQuest(ConfigBasis):
     def get_rela_info_data(self, pos: str) -> List[float]:
         pos_data = self._vr_info_data[pos]
         data = self._info_rela_ctrl[pos].to_relative(pos_data[:3], pos_data[3:7])
+        if self.config.publish_tf:
+            self._tf_pub.broadcast_tf(
+                data[0],
+                data[1],
+                child_frame_id=f"/{pos}RelaInfo",
+            )
         return data[0] + data[1]
 
     def wait_for_info(
