@@ -119,13 +119,14 @@ class VRQuestController(InputController):
         self._pos = config.pos if config.pos is not None else ["left", "right"]
         self._end_status = {"success", "failure", "rerecord_episode"}
         self._event_to_end_status: Dict[int, str] = {
-            getattr(event_config, field) for field in self._end_status
+            getattr(event_config, field): field for field in self._end_status
         }
         self._init_vr()
         self._show_insructions()
 
     def _show_insructions(self):
         instructions = {status: status for status in self._end_status} | {
+            "intervention": "start/stop intervention",
             "left_eef": "open/close left_eef",
             "right_eef": "open/close right_eef",
             "zero_info": "set current pose as zero for rela-control and start/stop intervention",
@@ -253,12 +254,13 @@ def main(controller: VRQuestController):
                     quaternion_from_euler(*right_rela_left[1]),
                     "right_rela_left",
                 )
-                controller.get_logger().info(
-                    f"Absolute position: {np.array(right_abs[0:3])}"
-                )
-                controller.get_logger().info(
-                    f"Absolute euler: {np.array(euler_from_quaternion(right_abs[3:7]))}"
-                )
+                # controller.get_logger().info(
+                #     f"Absolute position: {np.array(right_abs[0:3])}"
+                # )
+                # controller.get_logger().info(
+                #     f"Absolute euler: {np.array(euler_from_quaternion(right_abs[3:7]))}"
+                # )
+                controller.get_logger().info(f"eef: {eef}")
                 # controller.get_logger().info(f"Absolute position: {np.array(abs_data[0])}")
                 # controller.get_logger().info(f"Absolute euler: {np.array(euler_from_quaternion(abs_data[1]))}")
             time.sleep(0.1)  # Simulate frame delay
