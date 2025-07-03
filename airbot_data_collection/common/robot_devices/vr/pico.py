@@ -8,6 +8,7 @@ from airbot_data_collection.common.robot_devices.vr.quest import (
     ControllerEventMode,
 )
 from airbot_data_collection.common.utils.ros2 import TFDiscover
+from typing import List
 
 
 class VREvent(IntEnum):
@@ -67,6 +68,7 @@ class VRPico(VRQuest):
     """
 
     config: VRQuestConfig
+    event: VREvent
 
     def _init_subs(self):
         """Initialize the ROS2 subscriptions for the VR controller data."""
@@ -81,10 +83,9 @@ class VRPico(VRQuest):
         self._tf_discover = TFDiscover(self.node, "/vr/pose")
         self._tf_discover.listener.add_callback(self._vr_info_callback)
 
-    def _get_event_data(self, msg: Joy, event: VREvent) -> float:
-        """Get the data for a specific event."""
-        data = msg.axes + msg.buttons
-        return data[event]
+    def _get_control_msg_data(self, msg: Joy) -> List[float]:
+        """Get the data from the Float32MultiArray message."""
+        return list(msg.axes) + list(msg.buttons)
 
     def _vr_info_callback(self, msg: TFMessage):
         for pos in self._pos:

@@ -59,6 +59,7 @@ class VRQuestConfig(BaseModel):
 
 class VRQuest(ConfigBasis):
     config: VRQuestConfig
+    event: VRControllerEvent
 
     def on_configure(self):
         self._pos = {"left", "right"}
@@ -66,9 +67,9 @@ class VRQuest(ConfigBasis):
             ControllerEventMode, Dict[VRControllerEvent, Callable]
         ] = defaultdict(dict)
         self._callbacks = []
-        self._vr_control_data = [0.0] * len(VRControllerEvent)
         self._vr_info_data = {}
         self._last_stamp = defaultdict(float)
+        self._vr_control_data = [0.0] * len(self.__annotations__["event"])
         self._init_judgers()
         self._init_ros2()
         return True
@@ -150,12 +151,6 @@ class VRQuest(ConfigBasis):
             self._executor.spin_once(self.config.spin_timeout)
             time.sleep(self.config.spin_period)
 
-    def _get_event_data(
-        self, msg: Float32MultiArray, event: VRControllerEvent
-    ) -> float:
-        """Get the data for a specific event."""
-        return msg.data[event]
-
     def _get_control_msg_data(self, msg: Float32MultiArray) -> List[float]:
         """Get the data from the Float32MultiArray message."""
         return msg.data
@@ -169,10 +164,11 @@ class VRQuest(ConfigBasis):
         # self.get_logger().info(
         #     f"Received VR control data: {msg.data}, length: {len(msg.data)}"
         # )
+        msg_data = self._get_control_msg_data(msg)
         for mode, event_callbacks in self._event_callbacks.items():
             for event, callback in event_callbacks.items():
                 # self.get_logger().info(f"Processing event {event} with mode {mode}.")
-                data = self._get_event_data(msg, event)
+                data = msg_data[event]
                 if self._judgers[mode](data, event):
                     # self.get_logger().info(
                     #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
@@ -180,7 +176,7 @@ class VRQuest(ConfigBasis):
                     callback(data)
         for callback in self._callbacks:
             callback(self._vr_control_data)
-        self._vr_control_data = self._get_control_msg_data(msg)
+        self._vr_control_data = msg_data
 
     def _vr_info_callback(self, pos: str, msg: Float32MultiArray):
         if self.config.to_right_hand:
