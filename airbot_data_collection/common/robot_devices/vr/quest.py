@@ -84,6 +84,26 @@ class VRQuest(ConfigBasis):
         self.node = Node(self.config.node_name)
         if self.config.publish_tf:
             self._tf_pub = TFPublisher()
+        self._init_subs()
+        self._executor = MultiThreadedExecutor(3)
+        self._executor.add_node(self.node)
+        if self.config.spin_thread:
+            self._spin_thread = threading.Thread(target=self._ros_spin, daemon=True)
+            self._spin_thread.start()
+        self._info_rela_ctrl: Dict[str, RelativePoseControl] = {}
+        for pos, event in self.config.zero_info.items():
+            self.get_logger().info(f"Registering zero {pos} info callback for {event}.")
+            self._info_rela_ctrl[pos] = RelativePoseControl()
+            self._update_rela(pos, None)
+            self.register_event_callback(
+                event,
+                partial(self._update_rela, pos),
+                ControllerEventMode.LEAVE_ZERO,
+            )
+        self.wait_for_info()
+
+    def _init_subs(self):
+        """Initialize the ROS2 subscriptions for the VR controller data."""
         self._vr_ctrl_sub = self.node.create_subscription(
             Float32MultiArray,
             "vr_controller",
@@ -101,22 +121,6 @@ class VRQuest(ConfigBasis):
             )
             for pos in self._pos
         ]
-        self._executor = MultiThreadedExecutor(3)
-        self._executor.add_node(self.node)
-        if self.config.spin_thread:
-            self._spin_thread = threading.Thread(target=self._ros_spin, daemon=True)
-            self._spin_thread.start()
-        self._info_rela_ctrl: Dict[str, RelativePoseControl] = {}
-        for pos, event in self.config.zero_info.items():
-            self.get_logger().info(f"Registering zero {pos} info callback for {event}.")
-            self._info_rela_ctrl[pos] = RelativePoseControl()
-            self._update_rela(pos, None)
-            self.register_event_callback(
-                event,
-                partial(self._update_rela, pos),
-                ControllerEventMode.LEAVE_ZERO,
-            )
-        self.wait_for_info()
 
     def _init_judgers(self):
         """Initialize the judgers for the VR controller events."""
@@ -146,7 +150,17 @@ class VRQuest(ConfigBasis):
             self._executor.spin_once(self.config.spin_timeout)
             time.sleep(self.config.spin_period)
 
-    def _vr_control_callback(self, msg: Float32MultiArray):
+    def _get_event_data(
+        self, msg: Float32MultiArray, event: VRControllerEvent
+    ) -> float:
+        """Get the data for a specific event."""
+        return msg.data[event]
+
+    def _get_control_msg_data(self, msg: Float32MultiArray) -> List[float]:
+        """Get the data from the Float32MultiArray message."""
+        return msg.data
+
+    def _vr_control_callback(self, msg):
         """Callback for the VR controller data.
         The event callbacks are executed first,
         then the common callbacks, finally the
@@ -158,7 +172,7 @@ class VRQuest(ConfigBasis):
         for mode, event_callbacks in self._event_callbacks.items():
             for event, callback in event_callbacks.items():
                 # self.get_logger().info(f"Processing event {event} with mode {mode}.")
-                data = msg.data[event]
+                data = self._get_event_data(msg, event)
                 if self._judgers[mode](data, event):
                     # self.get_logger().info(
                     #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
@@ -166,7 +180,7 @@ class VRQuest(ConfigBasis):
                     callback(data)
         for callback in self._callbacks:
             callback(self._vr_control_data)
-        self._vr_control_data = msg.data
+        self._vr_control_data = self._get_control_msg_data(msg)
 
     def _vr_info_callback(self, pos: str, msg: Float32MultiArray):
         if self.config.to_right_hand:
@@ -175,6 +189,9 @@ class VRQuest(ConfigBasis):
             data = data[0] + data[1]
         else:
             data = msg.data
+        self._update_pos_info(pos, data)
+
+    def _update_pos_info(self, pos: str, data: List[float]):
         self._vr_info_data[pos] = list(data)
         self._last_stamp[pos] = time.time()
         if self.config.publish_tf:
