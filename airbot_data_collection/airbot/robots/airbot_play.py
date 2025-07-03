@@ -10,6 +10,7 @@ from airbot_data_collection.utils import linear_map, StrEnum
 from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.airbot.robots.common import ControlConfig
+from airbot_data_collection.common.utils.coordinate import CoordinateTools
 
 
 AVAILABLE_BACKEND = set()
@@ -49,9 +50,12 @@ class AIRBOTPlayConfig(ControlConfig):
             f"Backend is not available: {self.backend}, "
             f"available backends: {AVAILABLE_BACKEND}"
         )
-        if self.delta_action:
+        if self.pose_in_end:
+            self.relative_observation = False
+            self.delta_action = False
+        elif self.delta_action:
             self.relative_action = True
-        if self.relative_action or self.relative_observation:
+        if self.relative_action or self.relative_observation or self.pose_in_end:
             assert self.use_pose, "Relative control is only supported in pose mode now."
         # if self.use_pose:
         #     self.observations.add(InterfaceType.POSE)
@@ -147,14 +151,21 @@ class AIRBOTPlay(System):
             self.rela_obs_ctrl = RelativePoseControl()
             self.rela_obs_ctrl.update(*pose)
 
-    def _process_pose(self, pose):
+    def _process_pose(
+        self, pose: Union[List[float], List[list[float]]]
+    ) -> List[list[float]]:
         # self.get_logger().info(f"Processing pose: {pose}")
         if not isinstance(pose[0], Iterable):
             pose = [pose[:3], pose[3:7]]
-        if self.config.relative_action:
+
+        if self.config.pose_in_end:
+            cur_pose = self.interface.get_end_pose()
+            pose = CoordinateTools.to_world_coordinate(pose, cur_pose)
+        elif self.config.relative_action:
             if self.config.delta_action:
                 self.rela_act_ctrl.update(*self.interface.get_end_pose())
             pose = self.rela_act_ctrl.to_absolute(*pose)
+
         # self.get_logger().info(f"Processed pose: {pose}")
         return [list(pose[0]), list(pose[1])]
 

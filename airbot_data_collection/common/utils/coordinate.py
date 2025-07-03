@@ -4,6 +4,8 @@ from airbot_data_collection.common.utils import transformations
 import numpy as np
 
 
+Pose = Tuple[np.ndarray, np.ndarray]  # (position:ndarray, orientation:ndarray)
+
 class CoordinateConverter:
     """坐标系转换类：将左手坐标系(Z前)转换为右手坐标系(X前,Y左,Z上)"""
 
@@ -39,7 +41,7 @@ class CoordinateConverter:
         return [*axis, angle]
 
     @staticmethod
-    def axis_angle_to_quaternion(axis, angle):
+    def axis_angle_to_quaternion(axis: List, angle: float) -> List[float]:
         """轴角表示转换为四元数"""
         # 归一化轴
         magnitude = math.sqrt(sum(x * x for x in axis))
@@ -204,15 +206,15 @@ class CoordinateTools:
 
     @classmethod
     def to_world_coordinate(
-        cls, target_in_robot: tuple, robot_in_world: tuple
-    ) -> tuple:
+        cls, target_in_robot: Pose, robot_in_world: Pose
+    ) -> Pose:
         """目标在机器人坐标系下的位姿转换为在世界坐标系下的位姿"""
         return cls.tf_compute_series(robot_in_world, target_in_robot)
 
     @classmethod
     def to_robot_coordinate(
-        cls, target_in_world: tuple, robot_in_world: tuple
-    ) -> tuple:
+        cls, target_in_world: Pose, robot_in_world: Pose
+    ) -> Pose:
         """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
         return cls.tf_compute_parallel(robot_in_world, target_in_world)
 
