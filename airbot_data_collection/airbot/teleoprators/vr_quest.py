@@ -186,6 +186,7 @@ if __name__ == "__main__":
     from airbot_data_collection.utils import init_logging
     from airbot_data_collection.common.utils.transformations import (
         euler_from_quaternion,
+        quaternion_from_euler,
     )
     from airbot_data_collection.common.utils.coordinate import CoordinateTools
     import numpy as np
@@ -217,7 +218,7 @@ if __name__ == "__main__":
                     (right_deltas[:3], right_deltas[3:7]), (left_abs[:3], left_abs[3:7])
                 )
                 controller._vr._tf_pub.broadcast_tf(
-                    right_rela_left[0], right_rela_left[1], "right_rela_left"
+                    right_rela_left[0], quaternion_from_euler(*right_rela_left[1]), "right_rela_left"
                 )
                 controller.get_logger().info(
                     f"Absolute position: {np.array(right_abs[0:3])}"
