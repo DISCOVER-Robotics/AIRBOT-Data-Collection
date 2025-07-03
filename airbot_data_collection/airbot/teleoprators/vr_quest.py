@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Type
 from airbot_data_collection.common.robot_devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
@@ -10,6 +10,7 @@ from airbot_data_collection.utils import bcolors
 from pprint import pformat
 from functools import partial
 from abc import ABC, abstractmethod
+from pydantic import BaseModel
 
 
 class InputController(ABC):
@@ -86,36 +87,66 @@ class InputController(ABC):
         return logging.getLogger(self.__class__.__name__)
 
 
+class EventConfig(BaseModel):
+    zero_info: int
+    success: int
+    failure: int
+    rerecord_episode: int
+    intervention: int
+    shutdown: int
+    left_eef: int
+    right_eef: int
+
+
+class TeleopConfig(BaseModel):
+    """
+    Configuration for teleoperation controllers.
+    This can be extended to include more parameters as needed.
+    """
+
+    event_config: EventConfig
+    pos: Optional[List[str]] = None
+
+
 class VRQuestController(InputController):
     """Generate motion deltas from vr meta quest3 input"""
 
-    def __init__(self, pos: Optional[List[str]] = None):
+    def __init__(self, config: TeleopConfig):
         super().__init__()
-        self.joystick = None
         self.intervention_flag = False
-        pos = pos if pos is not None else ["left", "right"]
-        self._vr = VRQuest(
-            VRQuestConfig(
-                zero_info={comp: VRControllerEvent.RIGHT_GRIP for comp in pos}
-            )
-        )
-        self._event_to_end_status = {
-            VRControllerEvent.Y: "success",
-            VRControllerEvent.X: "rerecord_episode",
-            VRControllerEvent.LEFT_GRIP: "failure",
+        event_config = config.event_config
+        self._event_config = event_config
+        self._pos = config.pos if config.pos is not None else ["left", "right"]
+        self._end_status = {"success", "failure", "rerecord_episode"}
+        self._event_to_end_status: Dict[int, str] = {
+            getattr(event_config, field) for field in self._end_status
         }
+        self._init_vr()
+        self._show_insructions()
+
+    def _show_insructions(self):
+        instructions = {status: status for status in self._end_status} | {
+            "left_eef": "open/close left_eef",
+            "right_eef": "open/close right_eef",
+            "zero_info": "set current pose as zero for rela-control and start/stop intervention",
+            "shutdown": "stop (exit/quit) the teleoperation",
+        }
+        event_type = self._vr._get_event_type()
         self.get_logger().info(
             bcolors.OKBLUE
             + "\n"
             + pformat(
                 {
-                    "Y": "success",
-                    "X": "rerecord_episode",
-                    "LEFT_GRIP": "failure",
-                    "STICK_V": "open/close left/right eef",
-                    "RIGHT_GRIP": "set current pose as zero for rela-control and start/stop intervention",
-                    "B": "stop (exit/quit) the teleoperation",
+                    event_type(event).name: instructions[field]
+                    for field, event in self._event_config.model_dump().items()
                 }
+            )
+        )
+
+    def _init_vr(self):
+        self._vr = VRQuest(
+            VRQuestConfig(
+                zero_info={comp: self._event_config.zero_info for comp in self._pos}
             )
         )
 
@@ -146,18 +177,19 @@ class VRQuestController(InputController):
         """Process pygame events to get fresh gamepad readings."""
         control_data = self._vr.get_control_data()
         self.update_eef(control_data)
-        if control_data[VRControllerEvent.RIGHT_GRIP]:
+        if control_data[self._event_config.intervention]:
             self.intervention_flag = True
         else:
             self.intervention_flag = False
-        if control_data[VRControllerEvent.B]:
+        if control_data[self._event_config.shutdown]:
             self.running = False
 
     def update_eef(self, control_data=None):
         """Update the end-effector command based on gamepad input."""
         if control_data is None:
             control_data = self._vr.get_control_data()
-        eef = control_data[VRControllerEvent.RIGHT_STICK_V]
+        # TODO: support both left and right eef
+        eef = control_data[self._event_config.right_eef]
         if eef < 0:
             self.close_gripper_command = True
         elif eef > 0:
@@ -181,7 +213,7 @@ class VRQuestController(InputController):
         # self.get_logger().info("Episode end status cleared.")
 
 
-if __name__ == "__main__":
+def main(controller: VRQuestController):
     import time
     from airbot_data_collection.utils import init_logging
     from airbot_data_collection.common.utils.transformations import (
@@ -195,7 +227,6 @@ if __name__ == "__main__":
 
     init_logging(logging.INFO)
 
-    controller = VRQuestController()
     controller.start()
 
     try:
@@ -218,7 +249,9 @@ if __name__ == "__main__":
                     (right_deltas[:3], right_deltas[3:7]), (left_abs[:3], left_abs[3:7])
                 )
                 controller._vr._tf_pub.broadcast_tf(
-                    right_rela_left[0], quaternion_from_euler(*right_rela_left[1]), "right_rela_left"
+                    right_rela_left[0],
+                    quaternion_from_euler(*right_rela_left[1]),
+                    "right_rela_left",
                 )
                 controller.get_logger().info(
                     f"Absolute position: {np.array(right_abs[0:3])}"
@@ -231,3 +264,23 @@ if __name__ == "__main__":
             time.sleep(0.1)  # Simulate frame delay
     finally:
         controller.stop()
+
+
+if __name__ == "__main__":
+
+    main(
+        VRQuestController(
+            TeleopConfig(
+                event_config=EventConfig(
+                    zero_info=VRControllerEvent.RIGHT_GRIP,
+                    success=VRControllerEvent.Y,
+                    failure=VRControllerEvent.X,
+                    rerecord_episode=VRControllerEvent.LEFT_GRIP,
+                    intervention=VRControllerEvent.RIGHT_GRIP,
+                    shutdown=VRControllerEvent.B,
+                    left_eef=VRControllerEvent.LEFT_STICK_V,
+                    right_eef=VRControllerEvent.RIGHT_STICK_V,
+                )
+            )
+        )
+    )

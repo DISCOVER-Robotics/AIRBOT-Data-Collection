@@ -7,7 +7,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from pydantic import BaseModel
 from std_msgs.msg import Float32MultiArray
-from typing import Optional, Callable, List, Dict, Union
+from typing import Optional, Callable, List, Dict, Union, Type
 from enum import IntEnum, auto
 from functools import partial
 from collections import defaultdict
@@ -69,10 +69,13 @@ class VRQuest(ConfigBasis):
         self._callbacks = []
         self._vr_info_data = {}
         self._last_stamp = defaultdict(float)
-        self._vr_control_data = [0.0] * len(self.__annotations__["event"])
+        self._vr_control_data = [0.0] * len(self._get_event_type())
         self._init_judgers()
         self._init_ros2()
         return True
+
+    def _get_event_type(self) -> Type[IntEnum]:
+        return self.__annotations__["event"]
 
     def _init_ros2(self):
         if self.config.init_rcl:
