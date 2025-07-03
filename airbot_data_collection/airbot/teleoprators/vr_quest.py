@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 from airbot_data_collection.common.robot_devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
@@ -89,12 +89,15 @@ class InputController(ABC):
 class VRQuestController(InputController):
     """Generate motion deltas from vr meta quest3 input"""
 
-    def __init__(self):
+    def __init__(self, pos: Optional[List[str]] = None):
         super().__init__()
         self.joystick = None
         self.intervention_flag = False
+        pos = pos if pos is not None else ["left", "right"]
         self._vr = VRQuest(
-            VRQuestConfig(zero_info={"right": VRControllerEvent.RIGHT_GRIP})
+            VRQuestConfig(
+                zero_info={comp: VRControllerEvent.RIGHT_GRIP for comp in pos}
+            )
         )
         self._event_to_end_status = {
             VRControllerEvent.Y: "success",

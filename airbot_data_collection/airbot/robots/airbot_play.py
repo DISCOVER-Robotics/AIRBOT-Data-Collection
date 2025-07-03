@@ -1,5 +1,5 @@
-from typing import List, Union, Dict, Tuple, Any, Iterable, Set
-from pydantic import BaseModel, PositiveInt
+from typing import List, Union, Dict, Tuple, Any, Iterable
+from pydantic import PositiveInt
 
 from time import time_ns
 from collections import defaultdict
@@ -9,6 +9,8 @@ from enum import auto
 from airbot_data_collection.utils import linear_map, StrEnum
 from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
+from airbot_data_collection.airbot.robots.common import ControlConfig
+
 
 AVAILABLE_BACKEND = set()
 try:
@@ -33,17 +35,12 @@ class InterfaceType(StrEnum):
     POSE = auto()
 
 
-class AIRBOTPlayConfig(BaseModel):
+class AIRBOTPlayConfig(ControlConfig):
     url: str = "localhost"
     port: PositiveInt = 50050
     speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
-    use_pose: bool = False  # pose control mode
-    # observations: Set[InterfaceType] = {InterfaceType.JOINT_STATE}
-    relative_observation: bool = False
-    relative_action: bool = False
-    delta_action: bool = False
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
