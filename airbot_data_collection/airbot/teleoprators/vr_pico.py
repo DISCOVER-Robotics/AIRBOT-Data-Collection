@@ -33,8 +33,8 @@ if __name__ == "__main__":
             TeleopConfig(
                 event_config=EventConfig(
                     zero_info=VREvent.RIGHT_GRIP,
-                    success=VREvent.LEFT_PRIMARY_BUTTON,
-                    failure=VREvent.LEFT_SECONDARY_BUTTON,
+                    success=VREvent.LEFT_SECONDARY_BUTTON,
+                    failure=VREvent.LEFT_PRIMARY_BUTTON,
                     rerecord_episode=VREvent.LEFT_GRIP,
                     intervention=VREvent.RIGHT_GRIP,
                     shutdown=VREvent.RIGHT_SECONDARY_BUTTON,
