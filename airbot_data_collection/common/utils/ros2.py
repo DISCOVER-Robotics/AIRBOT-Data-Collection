@@ -1,4 +1,5 @@
 from rclpy.node import Node
+from rclpy.time import Time
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener
 from tf2_msgs.msg import TFMessage
@@ -65,6 +66,7 @@ class TransformListenerPro(TransformListener):
         super().__init__(
             buffer, node, spin_thread=spin_thread, qos=qos, static_qos=static_qos
         )
+        qos = self.tf_sub.qos_profile
         node.destroy_subscription(self.tf_sub)
         self.tf_sub = node.create_subscription(
             TFMessage, tf_topic, self.callback, qos, callback_group=self.group
@@ -105,9 +107,11 @@ class TFDiscover:
         """
         try:
             transform: TransformStamped = self._buffer.lookup_transform(
-                target_frame, source_frame, 0
+                target_frame, source_frame, Time()
             )
-            return transform.transform.translation, transform.transform.rotation
+            trans = transform.transform.translation
+            rot = transform.transform.rotation
+            return (trans.x, trans.y, trans.z), (rot.x, rot.y, rot.z, rot.w)
         except Exception as e:
             self.get_logger().error(f"Failed to get transform: {e}")
             return None
