@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, List, Dict, Type
+from typing import Optional, List, Dict
 from airbot_data_collection.common.robot_devices.vr.quest import (
     VRQuest,
     VRQuestConfig,

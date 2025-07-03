@@ -144,7 +144,7 @@ class VRQuest(ConfigBasis):
 
     def _update_rela(self, pos: str, data: float):
         """Update the relative control data."""
-        self.get_logger().info("Updating relative control data.")
+        self.get_logger().info(f"Updating relative control data for {pos}.")
         self.wait_for_info(pos)
         value = self.get_info_data()[pos]
         self._info_rela_ctrl[pos].update(value[:3], value[3:7])
@@ -252,10 +252,6 @@ class VRQuest(ConfigBasis):
             f"Timeout waiting for VR info data after {timeout} seconds."
         )
         return False
-
-    def clear_info(self):
-        """Clear the information data for the left and right controllers."""
-        self._vr_info_data.clear()
 
     def spin_once(self) -> bool:
         rclpy.spin_once(self.node, timeout_sec=self.config.spin_timeout)
