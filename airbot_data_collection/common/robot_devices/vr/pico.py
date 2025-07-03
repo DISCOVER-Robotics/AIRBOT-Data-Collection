@@ -10,7 +10,7 @@ from airbot_data_collection.common.robot_devices.vr.quest import (
 from airbot_data_collection.common.utils.ros2 import TFDiscover
 
 
-class VrAxisEvent(IntEnum):
+class VREvent(IntEnum):
     HMD_BATTERY_LEVEL = 0
     LEFT_BATTERY_LEVEL = auto()
     LEFT_GRIP = auto()
@@ -22,10 +22,7 @@ class VrAxisEvent(IntEnum):
     RIGHT_TRIGGER = auto()
     RIGHT_STICK_H = auto()
     RIGHT_STICK_V = auto()
-
-
-class VrButtonEvent(IntEnum):
-    HMD_IS_TRACKED = 0
+    HMD_IS_TRACKED = auto()
     HMD_USER_PRESENCE = auto()
     LEFT_IS_TRACKED = auto()
     LEFT_STATUS = auto()
@@ -84,12 +81,10 @@ class VRPico(VRQuest):
         self._tf_discover = TFDiscover(self.node, "/vr/pose")
         self._tf_discover.listener.add_callback(self._vr_info_callback)
 
-    def _get_event_data(self, msg: Joy, event: IntEnum) -> float:
+    def _get_event_data(self, msg: Joy, event: VREvent) -> float:
         """Get the data for a specific event."""
-        if "AXIS" in event.name:
-            return msg.axes[event]
-        else:
-            return msg.buttons[event]
+        data = msg.axes + msg.buttons
+        return data[event]
 
     def _vr_info_callback(self, msg: TFMessage):
         for pos in self._pos:
@@ -107,14 +102,14 @@ if __name__ == "__main__":
 
     init_logging(logging.INFO)
 
-    vr = VRPico(VRQuestConfig(zero_info={"right": VrButtonEvent.RIGHT_GRIP_BUTTON}))
+    vr = VRPico(VRQuestConfig(zero_info={"right": VREvent.RIGHT_GRIP_BUTTON}))
     assert vr.configure()
     vr.register_event_callback(
-        VrButtonEvent.RIGHT_PRIMARY_BUTTON,
+        VREvent.RIGHT_PRIMARY_BUTTON,
         lambda data: vr.get_logger().info(f"B button value changed with data: {data}"),
         mode=ControllerEventMode.VALUE_CHANGE,
     )
-    for event in {VrAxisEvent.RIGHT_STICK_V, VrAxisEvent.RIGHT_STICK_H}:
+    for event in {VREvent.RIGHT_STICK_V, VREvent.RIGHT_STICK_H}:
         vr.register_event_callback(
             event,
             lambda data, e=event: vr.get_logger().info(

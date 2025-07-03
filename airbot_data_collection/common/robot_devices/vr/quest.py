@@ -7,8 +7,8 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from pydantic import BaseModel
 from std_msgs.msg import Float32MultiArray
-from typing import Optional, Callable, List, Dict
-from enum import Enum, auto
+from typing import Optional, Callable, List, Dict, Union
+from enum import IntEnum, auto
 from functools import partial
 from collections import defaultdict
 
@@ -19,7 +19,7 @@ from airbot_data_collection.common.utils.coordinate import CoordinateConverter
 from airbot_data_collection.common.utils.ros2 import TFPublisher
 
 
-class VRControllerEvent(int, Enum):
+class VRControllerEvent(IntEnum):
     A = 0
     B = auto()
     LEFT_STICK_V = auto()
@@ -52,7 +52,7 @@ class VRQuestConfig(BaseModel):
     spin_thread: bool = True
     # event to set the current info pose to be zero
     # which is used to rela-control
-    zero_info: Dict[str, VRControllerEvent] = {}
+    zero_info: Dict[str, Union[VRControllerEvent, int]] = {}
     to_right_hand: bool = True
     publish_tf: bool = True
 
