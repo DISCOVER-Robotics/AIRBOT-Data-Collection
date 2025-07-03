@@ -166,9 +166,9 @@ class VRQuestController(InputController):
             self.close_gripper_command = False
             self.open_gripper_command = False
 
-    def get_deltas(self):
-        """Get the current movement deltas from gamepad state."""
-        return self._vr.get_rela_info_data("right")
+    def get_deltas(self, pos: str) -> List[float]:
+        """Get the current movement deltas from vr state."""
+        return self._vr.get_rela_info_data(pos)
 
     def _set_episode_end_status(self, status: str, data: float):
         """Set the episode end status based on gamepad input."""
@@ -187,6 +187,7 @@ if __name__ == "__main__":
     from airbot_data_collection.common.utils.transformations import (
         euler_from_quaternion,
     )
+    from airbot_data_collection.common.utils.coordinate import CoordinateTools
     import numpy as np
 
     np.set_printoptions(precision=3)
@@ -202,18 +203,27 @@ if __name__ == "__main__":
             if status := controller.get_episode_end_status():
                 controller.get_logger().info(f"Episode ended with status: {status}")
             if controller.should_intervene():
-                deltas = controller.get_deltas()
+                right_deltas = controller.get_deltas("right")
+                left_deltas = controller.get_deltas("left")
                 eef = controller.gripper_command()
                 # controller.get_logger().info(f"Current deltas: {deltas}, eef: {eef}")
                 # controller.get_logger().info(f"Delta euler angles: {euler_from_quaternion(deltas[3:7])}")
                 # controller.get_logger().info(f"Delta position: {pose[0]}, eef: {eef}")
                 # controller.get_logger().info(f"Delta euler angles: {euler_from_quaternion(pose[1])}")
-                abs_data = controller._vr.get_info_data()["right"]
-                controller.get_logger().info(
-                    f"Absolute position: {np.array(abs_data[0:3])}"
+                all_abs_data = controller._vr.get_info_data()
+                right_abs = all_abs_data["right"]
+                left_abs = all_abs_data["left"]
+                right_rela_left = CoordinateTools.to_world_coordinate(
+                    (right_deltas[:3], right_deltas[3:7]), (left_abs[:3], left_abs[3:7])
+                )
+                controller._vr._tf_pub.broadcast_tf(
+                    right_rela_left[0], right_rela_left[1], "right_rela_left"
                 )
                 controller.get_logger().info(
-                    f"Absolute euler: {np.array(euler_from_quaternion(abs_data[3:7]))}"
+                    f"Absolute position: {np.array(right_abs[0:3])}"
+                )
+                controller.get_logger().info(
+                    f"Absolute euler: {np.array(euler_from_quaternion(right_abs[3:7]))}"
                 )
                 # controller.get_logger().info(f"Absolute position: {np.array(abs_data[0])}")
                 # controller.get_logger().info(f"Absolute euler: {np.array(euler_from_quaternion(abs_data[1]))}")
