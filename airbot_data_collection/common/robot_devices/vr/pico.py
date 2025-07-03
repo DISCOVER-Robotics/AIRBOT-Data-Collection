@@ -89,9 +89,10 @@ class VRPico(VRQuest):
 
     def _vr_info_callback(self, msg: TFMessage):
         for pos in self._pos:
-            data = self._tf_discover.get_transform(self._tfs[pos], "world")
+            data = self._tf_discover.get_transform("world", self._tfs[pos])
             if data:
                 self._update_pos_info(pos, data[0] + data[1])
+            # self.get_logger().info(f"pos: {pos}, data: {data}")
 
 
 if __name__ == "__main__":
