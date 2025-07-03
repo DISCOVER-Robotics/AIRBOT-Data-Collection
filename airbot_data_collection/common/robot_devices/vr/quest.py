@@ -144,7 +144,7 @@ class VRQuest(ConfigBasis):
 
     def _update_rela(self, pos: str, data: float):
         """Update the relative control data."""
-        self.get_logger().warning(f"Updating relative control data for {pos}.")
+        self.get_logger().info(f"Updating relative control data for {pos}.")
         self.wait_for_info(pos)
         value = self.get_info_data()[pos]
         self._info_rela_ctrl[pos].update(value[:3], value[3:7])
@@ -221,7 +221,7 @@ class VRQuest(ConfigBasis):
         return self._vr_info_data
 
     def get_rela_info_data(self, pos: str) -> List[float]:
-        # self.get_logger().warning(f"Getting relative info data for {pos}.")
+        # self.get_logger().info(f"Getting relative info data for {pos}.")
         pos_data = self._vr_info_data[pos]
         data = self._info_rela_ctrl[pos].to_relative(pos_data[:3], pos_data[3:7])
         if self.config.publish_tf:
