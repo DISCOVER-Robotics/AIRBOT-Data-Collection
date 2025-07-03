@@ -64,8 +64,8 @@ class VRQuest(ConfigBasis):
     def on_configure(self):
         self._pos = {"left", "right"}
         self._event_callbacks: Dict[
-            ControllerEventMode, Dict[VRControllerEvent, Callable]
-        ] = defaultdict(dict)
+            ControllerEventMode, Dict[VRControllerEvent, List[Callable]]
+        ] = defaultdict(lambda: defaultdict(list))
         self._callbacks = []
         self._vr_info_data = {}
         self._last_stamp = defaultdict(float)
@@ -144,7 +144,7 @@ class VRQuest(ConfigBasis):
 
     def _update_rela(self, pos: str, data: float):
         """Update the relative control data."""
-        self.get_logger().info(f"Updating relative control data for {pos}.")
+        self.get_logger().warning(f"Updating relative control data for {pos}.")
         self.wait_for_info(pos)
         value = self.get_info_data()[pos]
         self._info_rela_ctrl[pos].update(value[:3], value[3:7])
@@ -169,14 +169,15 @@ class VRQuest(ConfigBasis):
         # )
         msg_data = self._get_control_msg_data(msg)
         for mode, event_callbacks in self._event_callbacks.items():
-            for event, callback in event_callbacks.items():
-                # self.get_logger().info(f"Processing event {event} with mode {mode}.")
+            for event, callbacks in event_callbacks.items():
                 data = msg_data[event]
-                if self._judgers[mode](data, event):
-                    # self.get_logger().info(
-                    #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
-                    # )
-                    callback(data)
+                for callback in callbacks:
+                    # self.get_logger().info(f"Processing event {event} with mode {mode}.")
+                    if self._judgers[mode](data, event):
+                        # self.get_logger().info(
+                        #     f"Event {event} triggered with data: {data}, executing callback: {callback}."
+                        # )
+                        callback(data)
         for callback in self._callbacks:
             callback(self._vr_control_data)
         self._vr_control_data = msg_data
@@ -206,7 +207,7 @@ class VRQuest(ConfigBasis):
         callback: Callable,
         mode: ControllerEventMode = ControllerEventMode.NOT_ZERO,
     ):
-        self._event_callbacks[mode][event] = callback
+        self._event_callbacks[mode][event].append(callback)
 
     def register_callback(self, callback: Callable):
         """Register a callback for the VR controller events."""
@@ -220,6 +221,7 @@ class VRQuest(ConfigBasis):
         return self._vr_info_data
 
     def get_rela_info_data(self, pos: str) -> List[float]:
+        # self.get_logger().warning(f"Getting relative info data for {pos}.")
         pos_data = self._vr_info_data[pos]
         data = self._info_rela_ctrl[pos].to_relative(pos_data[:3], pos_data[3:7])
         if self.config.publish_tf:
