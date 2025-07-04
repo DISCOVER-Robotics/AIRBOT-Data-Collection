@@ -14,6 +14,7 @@ license = { text = "MIT" }
 requires-python = ">=3.9"
 dependencies = [
     "pydantic",
+    "numpy",
 ]
 
 [project.optional-dependencies]

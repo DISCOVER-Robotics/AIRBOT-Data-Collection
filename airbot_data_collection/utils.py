@@ -6,7 +6,6 @@ import threading
 import time
 from enum import Enum
 import numpy as np
-from tqdm import tqdm
 import subprocess
 
 
@@ -236,6 +235,8 @@ class ProgressBar:
     def __init__(self, total: int, desc: str):
         self.total = total
         self.desc = desc
+        from tqdm import tqdm
+
         self.progress_bar = tqdm(
             total=total or self.total, desc=desc or self.desc, unit="step"
         )
