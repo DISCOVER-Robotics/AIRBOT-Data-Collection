@@ -12,6 +12,7 @@ from typing import List
 
 
 class VREvent(IntEnum):
+    # AXIS
     HMD_BATTERY_LEVEL = 0
     LEFT_BATTERY_LEVEL = auto()
     LEFT_GRIP = auto()
@@ -23,8 +24,11 @@ class VREvent(IntEnum):
     RIGHT_TRIGGER = auto()
     RIGHT_STICK_H = auto()
     RIGHT_STICK_V = auto()
+    # BUTTONS
+    # [HMD]
     HMD_IS_TRACKED = auto()
     HMD_USER_PRESENCE = auto()
+    # [LEFT CONTROLLER]
     LEFT_IS_TRACKED = auto()
     LEFT_STATUS = auto()
     LEFT_PRIMARY_BUTTON = auto()
@@ -36,7 +40,9 @@ class VREvent(IntEnum):
     LEFT_SECONDARY_TOUCH = auto()
     LEFT_TRIGGER_TOUCH = auto()
     LEFT_THUMB_REST_TOUCH = auto()
+    LEFT_STICK_CLICK = auto()
     LEFT_STICK_TOUCH = auto()
+    # [RIGHT CONTROLLER]
     RIGHT_IS_TRACKED = auto()
     RIGHT_STATUS = auto()
     RIGHT_PRIMARY_BUTTON = auto()
@@ -48,6 +54,7 @@ class VREvent(IntEnum):
     RIGHT_SECONDARY_TOUCH = auto()
     RIGHT_TRIGGER_TOUCH = auto()
     RIGHT_THUMB_REST_TOUCH = auto()
+    RIGHT_STICK_CLICK = auto()
     RIGHT_STICK_TOUCH = auto()
 
 
@@ -72,6 +79,7 @@ class VRPico(VRQuest):
 
     def _init_subs(self):
         """Initialize the ROS2 subscriptions for the VR controller data."""
+        assert len(VREvent) == 11 + 28, "VREvent enum should have 39 members."
         self._vr_ctrl_sub = self.node.create_subscription(
             Joy,
             "/vr/joy",
