@@ -113,22 +113,17 @@ if __name__ == "__main__":
 
     vr = VRPico(VRQuestConfig(zero_info={"right": VREvent.RIGHT_GRIP_BUTTON}))
     assert vr.configure()
-    vr.register_event_callback(
-        VREvent.RIGHT_PRIMARY_BUTTON,
-        lambda data: vr.get_logger().info(f"B button value changed with data: {data}"),
-        mode=ControllerEventMode.VALUE_CHANGE,
-    )
-    for event in {VREvent.RIGHT_STICK_V, VREvent.RIGHT_STICK_H}:
+    for event in VREvent:
         vr.register_event_callback(
             event,
             lambda data, e=event: vr.get_logger().info(
-                f"Event {e} triggered with data: {data}"
+                f"Event {e.name} triggered with data: {data}"
             ),
         )
     pos = "right"
     assert vr.wait_for_info(pos)
     pprint(vr.get_info_data()[pos])
-    while input("Press Enter to continue...") != "z":
+    while input("Press Enter to continue or `z` to exit...") != "z":
         pprint(vr.get_info_data()[pos])
         pprint(vr.get_rela_info_data(pos))
     assert vr.shutdown()
