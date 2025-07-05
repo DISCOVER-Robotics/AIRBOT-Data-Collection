@@ -106,6 +106,8 @@ class StrEnum(str, ReprEnum):
         """
         return name.lower()
 
+    def __str__(self):
+        return self.value
 
 class CustomFormatter(logging.Formatter):
 
@@ -453,4 +455,11 @@ if __name__ == "__main__":
     #         bar.update(i + 1)
     #     bar.reset(desc=f"Round {rd + 1}")
 
-    print(linear_map(-0.1, (0, 1), (0, 100)))
+    # print(linear_map(-0.1, (0, 1), (0, 100)))
+
+    class TestEnum(StrEnum):
+        A = "a"
+        B = "b"
+        C = "c"
+
+    print(f"{TestEnum.A}_ok")
