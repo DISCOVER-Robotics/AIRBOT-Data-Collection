@@ -437,6 +437,13 @@ def linear_map(
     return (x - a) * (d - c) / (b - a) + c
 
 
+def sort_index(order: list, name_list: list, value_list: list) -> tuple:
+    order_dict = {val: idx for idx, val in enumerate(order)}
+    sorted_pairs = sorted(zip(value_list, name_list), key=lambda x: order_dict[x[1]])
+    sorted_value_list, _ = zip(*sorted_pairs)
+    return sorted_value_list
+
+
 if __name__ == "__main__":
 
     # bar = ProgressBar(100, "Round 0")

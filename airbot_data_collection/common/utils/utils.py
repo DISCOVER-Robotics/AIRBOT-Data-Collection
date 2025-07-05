@@ -15,7 +15,6 @@
 # limitations under the License.
 
 
-import logging
 import os
 import os.path as osp
 from datetime import datetime, timezone
@@ -29,25 +28,6 @@ def inside_slurm():
     """Check whether the python process was launched through slurm"""
     # TODO(rcadene): return False for interactive mode `--pty bash`
     return "SLURM_JOB_ID" in os.environ
-
-
-def init_logging():
-    def custom_format(record):
-        dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        fnameline = f"{record.pathname}:{record.lineno}"
-        message = f"{record.levelname} {dt} {fnameline[-15:]:>15} {record.msg}"
-        return message
-
-    logging.basicConfig(level=logging.INFO)
-
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    formatter = logging.Formatter()
-    formatter.format = custom_format
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logging.getLogger().addHandler(console_handler)
 
 
 def format_big_number(num, precision=0):
