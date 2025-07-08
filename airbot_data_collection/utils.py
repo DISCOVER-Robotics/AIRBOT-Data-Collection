@@ -6,7 +6,6 @@ import threading
 import time
 from enum import Enum
 import numpy as np
-from tqdm import tqdm
 import subprocess
 
 
@@ -107,6 +106,8 @@ class StrEnum(str, ReprEnum):
         """
         return name.lower()
 
+    def __str__(self):
+        return self.value
 
 class CustomFormatter(logging.Formatter):
 
@@ -236,6 +237,8 @@ class ProgressBar:
     def __init__(self, total: int, desc: str):
         self.total = total
         self.desc = desc
+        from tqdm import tqdm
+
         self.progress_bar = tqdm(
             total=total or self.total, desc=desc or self.desc, unit="step"
         )
@@ -436,6 +439,13 @@ def linear_map(
     return (x - a) * (d - c) / (b - a) + c
 
 
+def sort_index(order: list, name_list: list, value_list: list) -> tuple:
+    order_dict = {val: idx for idx, val in enumerate(order)}
+    sorted_pairs = sorted(zip(value_list, name_list), key=lambda x: order_dict[x[1]])
+    sorted_value_list, _ = zip(*sorted_pairs)
+    return sorted_value_list
+
+
 if __name__ == "__main__":
 
     # bar = ProgressBar(100, "Round 0")
@@ -445,4 +455,11 @@ if __name__ == "__main__":
     #         bar.update(i + 1)
     #     bar.reset(desc=f"Round {rd + 1}")
 
-    print(linear_map(-0.1, (0, 1), (0, 100)))
+    # print(linear_map(-0.1, (0, 1), (0, 100)))
+
+    class TestEnum(StrEnum):
+        A = "a"
+        B = "b"
+        C = "c"
+
+    print(f"{TestEnum.A}_ok")
