@@ -31,7 +31,16 @@ class AIRBOTMMK2Config:
     domain_id: int = -1
     ip: str = "192.168.11.200"
     port: int = 50055
-    default_action: Optional[List[float]] = None
+    default_action: Optional[List[float]] = field(
+        default_factory=lambda: [
+            -0.233,-0.73, 1.088, 1.774, -1.1475, -0.1606,    # left_arm (6 joints)
+            0.0,                             # left_arm_eef (1 joint)
+            0.2258, -0.6518, 0.9543, -1.777, 1.0615, 0.3588,    # right_arm (6 joints)
+            0.0,                             # right_arm_eef (1 joint)
+            0.0, -0.5,                       # head (2 joints)
+            0.15                             # spine (1 joint)
+        ]
+    )
     # cameras: Dict[str, List[str]] = field(default_factory=lambda: {})
     cameras: Dict[str, List[str]] = field(
         default_factory=lambda: {
@@ -79,8 +88,6 @@ class AIRBOTMMK2:
         logger.info(f"Components: {self.components}")
         logger.info(f"Joint numbers: {self.joint_num}")
 
-        print(self.cameras)
-
         self.robot.enable_resources(
             {
                 comp: {
@@ -113,10 +120,6 @@ class AIRBOTMMK2:
         self.enter_passive_mode = lambda: self._set_mode("passive")
         self.get_state_mode = lambda: self._state_mode
         self.exit = lambda: None
-        # logger.info("Warm up the robot")
-        # for _ in range(5):
-        #     self._capture_images()
-        # logger.info("AIRBOTMMK2 is ready")
         self.reset()
 
     def reset(self, sleep_time=0):
