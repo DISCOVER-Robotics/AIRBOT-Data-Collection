@@ -47,7 +47,7 @@ sampler:
           description: "stack the wooden blocks one by one"
           description_zh: "将木制积木逐个堆叠"
     upload:
-      enabled: true
+      enabled: false
       endpoint: 192.168.215.80
       username: admin
       password: "123456"

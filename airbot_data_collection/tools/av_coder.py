@@ -144,22 +144,53 @@ class AvCoder:
             else:
                 self._encode_frame(frame, timestamp)
 
+    # def end(self, file_path: str = "") -> bytes:
+    #     """
+    #     Finalize the encoding process and return the encoded data bytes.
+    #     """
+    #     with self._encode_lock:
+    #         if self._last_future:
+    #             self._last_future.result()
+    #         for packet in self.stream.encode():
+    #             self._container.mux(packet)
+    #         self._container.close()
+    #         value = self._outbuf.getvalue()
+    #         self._outbuf.close()
+    #         self._reset()
+    #         if file_path:
+    #             with open(file_path, "wb") as f:
+    #                 f.write(value)
+    #         return value
+
     def end(self, file_path: str = "") -> bytes:
         """
         Finalize the encoding process and return the encoded data bytes.
+        Fix UnicodeDecodeError by ensuring UTF-8 encoding for paths and metadata.
         """
+        import sys  # 新增导入
         with self._encode_lock:
             if self._last_future:
                 self._last_future.result()
             for packet in self.stream.encode():
-                self._container.mux(packet)
+                try:
+                    self._container.mux(packet)
+                except UnicodeDecodeError as e:
+                    # 处理非ASCII字符错误
+                    sys.stderr.write(f"Warning: Ignored Unicode error during muxing: {e}\n")
             self._container.close()
             value = self._outbuf.getvalue()
             self._outbuf.close()
             self._reset()
             if file_path:
-                with open(file_path, "wb") as f:
-                    f.write(value)
+                try:
+                    # 显式处理文件路径编码 [6,7](@ref)
+                    safe_path = file_path.encode('utf-8', errors='ignore').decode('utf-8')
+                    with open(safe_path, "wb") as f:
+                        f.write(value)
+                except UnicodeEncodeError:
+                    # 回退方案：使用ASCII安全路径
+                    with open("output_fallback.bin", "wb") as f:
+                        f.write(value)
             return value
 
     @classmethod

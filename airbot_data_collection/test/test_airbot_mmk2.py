@@ -55,6 +55,8 @@ class AIRBOTMMK2Config:
             MMK2Components.LEFT_ARM_EEF.value,
             MMK2Components.RIGHT_ARM.value,
             MMK2Components.RIGHT_ARM_EEF.value,
+            MMK2Components.HEAD.value,
+            MMK2Components.SPINE.value
         ]
     )
     demonstrate: bool = True
