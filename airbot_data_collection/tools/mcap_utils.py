@@ -187,7 +187,6 @@ class McapFlatbufferReader:
             name = attachment.name
             print(name)
             if name in names:
-                print(f"Skipping duplicate attachment: {name}")
                 assert attachment.media_type in {
                     "video/mp4"
                 }, f"Unsupported attachment {name} with media type: {attachment.media_type}"
@@ -209,6 +208,36 @@ class McapFlatbufferReader:
             for name, value in zip(attch_names, values):
                 data[name] = value
             yield data
+
+    def topic_message_counts(self) -> Dict[str, int]:
+        """Get the message count for each topic in the MCAP file."""
+        topic_msg_count = {}
+        summary = self.reader.get_summary()
+        statistics = summary.statistics
+        for c_id, stats in statistics.channel_message_counts.items():
+            # get topic name from channel id
+            topic = summary.channels[c_id].topic
+            topic_msg_count[topic] = stats
+        return topic_msg_count
+
+    @staticmethod
+    def equal_message_counts(counts: Dict[str, int]) -> int:
+        """Check if all topics have the same number of messages.
+        Args:
+            counts (Dict[str, int]): A dictionary mapping topic names to their message counts.
+        Returns:
+            int: The common message count if all topics have the same count, otherwise 0.
+        Raises:
+            AssertionError: If the counts dictionary is empty or contains non-positive counts.
+        """
+        assert counts, "Counts dictionary is empty"
+        counts = list(counts.values())
+        first_count = counts[0]
+        for count in counts[1:]:
+            assert count > 0, "Message count must be positive"
+            if count != first_count:
+                return 0
+        return first_count
 
 
 def h264_attachment_to_compressed_images(
