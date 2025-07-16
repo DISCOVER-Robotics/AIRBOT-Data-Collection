@@ -155,6 +155,9 @@ class McapFlatbufferReader:
         self, topics: Optional[Iterable[str]] = None
     ) -> Generator[Dict[str, Any], None, None]:
         """Iterate over messages in the MCAP file."""
+        # TODO: support iter through a reference topic
+        # and inter other topics with start_time according
+        # to the reference topic
         topics = topics or self.all_topics()
         messages = {}
         for schema, channel, message in self.reader.iter_messages(topics):
