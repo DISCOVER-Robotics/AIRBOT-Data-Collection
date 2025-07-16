@@ -11,21 +11,39 @@ from mcap.writer import Writer
 import os
 import time
 import json
-import argparse
+import tyro
+from pydantic import BaseModel
 
+# This script converts DISCOVERSE data to MCAP format.
+
+
+class Config(BaseModel):
+    """Configuration for the DISCOVERSE to MCAP conversion.
+    Args:
+        root (str): Root directory containing the task data.
+        task_name (str): Name of the task to process.
+        output_dir (str): Directory to save the output MCAP files. If not provided,
+            it defaults to `<root>/mcap/<task_name>`.
+    """
+
+    root: str
+    task_name: str
+    output_dir: str = ""
+
+
+config = tyro.cli(Config)
 
 start = time.perf_counter()
-root = "/home/ghz/Work/airbot/DISCOVERSE/data"
-task_name = "jujube_pick"
-directory = f"{root}/{task_name}"
-output_dir = f"{root}/mcap/{task_name}"
+directory = f"{config.root}/{config.task_name}"
+output_dir = config.output_dir or f"{config.root}/mcap/{config.task_name}"
+
 os.makedirs(output_dir, exist_ok=True)
 
 # find all folders in the directory
 folders = [f.path for f in os.scandir(directory) if f.is_dir()]
 print(folders)
 
-config = AIRBOTMcapDataSamplerConfig(task_info=TaskInfo(task_name=task_name))
+config = AIRBOTMcapDataSamplerConfig(task_info=TaskInfo(task_name=config.task_name))
 
 for folder in folders:
     episode = int(os.path.basename(folder))

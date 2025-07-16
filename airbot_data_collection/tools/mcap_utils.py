@@ -2,7 +2,7 @@ from mcap.reader import make_reader
 from mcap.writer import Writer
 from mcap.well_known import SchemaEncoding, MessageEncoding
 from turbojpeg import TurboJPEG
-from typing import Dict, IO, Set, Optional
+from typing import Dict, IO, Set, Optional, Iterable, List, Generator, Any
 from foxglove_schemas_flatbuffer import CompressedImage, Time
 from foxglove_schemas_flatbuffer import get_schema
 from importlib.resources import read_binary
@@ -11,6 +11,7 @@ from airbot_data_collection.tools.av_coder import AvCoder
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from enum import Enum
 import os
+import numpy as np
 
 
 class FlatbufferSchemas(Enum):
@@ -136,6 +137,75 @@ class McapFlatbufferWriter:
                 log_time=log_time,
             )
             self.builder.Clear()
+
+
+class McapFlatbufferReader:
+    """Class to handle reading MCAP files with Flatbuffer schemas."""
+
+    def __init__(self, file: IO[bytes]):
+        self.reader = make_reader(file)
+        self._decoders = {"airbot_fbs.FloatArray": self._decode_array}
+
+    def _decode_array(self, data: bytes) -> np.ndarray:
+        """Decode a FloatArray Flatbuffer message."""
+        fb = FloatArray.FloatArray.GetRootAsFloatArray(data, 0)
+        return fb.ValuesAsNumpy()
+
+    def iter_message_samples(
+        self, topics: Optional[Iterable[str]] = None
+    ) -> Generator[Dict[str, Any], None, None]:
+        """Iterate over messages in the MCAP file."""
+        topics = topics or self.all_topics()
+        messages = {}
+        for schema, channel, message in self.reader.iter_messages(topics):
+            data = self._decoders[schema.name](message.data)
+            messages[channel.topic] = data
+            if len(messages) == len(topics):
+                yield messages
+                messages.clear()
+
+    def all_topics(self) -> Set[str]:
+        """Get all topics in the MCAP file."""
+        return {
+            channel.topic for channel in self.reader.get_summary().channels.values()
+        }
+
+    def all_attachment_names(self) -> Set[str]:
+        """Get all attachment names in the MCAP file."""
+        return {attachment.name for attachment in self.reader.iter_attachments()}
+
+    def iter_attachment_samples(
+        self, names: Iterable[str]
+    ) -> Generator[Dict[str, Any], None, None]:
+        """Iterate over target attachments in the MCAP file."""
+        attch_names: List[str] = []
+        iters: List[Generator] = []
+        for attachment in self.reader.iter_attachments():
+            name = attachment.name
+            print(name)
+            if name in names:
+                print(f"Skipping duplicate attachment: {name}")
+                assert attachment.media_type in {
+                    "video/mp4"
+                }, f"Unsupported attachment {name} with media type: {attachment.media_type}"
+                attch_names.append(name)
+                coder = AvCoder()
+                iters.append(
+                    coder.iter_decode(
+                        attachment.data, mismatch_tolerance=0, ensure_base_stamp=True
+                    )
+                )
+                if len(attch_names) == len(names):
+                    break
+        else:
+            raise ValueError(
+                f"Not all requested attachments found: {names} vs {attch_names}"
+            )
+        for values in zip(*iters):
+            data = {}
+            for name, value in zip(attch_names, values):
+                data[name] = value
+            yield data
 
 
 def h264_attachment_to_compressed_images(
