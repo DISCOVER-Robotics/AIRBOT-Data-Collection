@@ -54,6 +54,10 @@ all = [
     "flatten-dict",
     "av",
 ]
+ml = [
+    "torch",
+    "torchvision",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
