@@ -3,30 +3,31 @@ import random
 from typing import Any, Callable, Iterable, Iterator, List, Optional
 from pydantic import BaseModel, NonNegativeInt
 from torch.utils.data import IterableDataset, get_worker_info
+from airbot_data_collection.tools.mcap_utils import McapFlatbufferReader
 
 
 class IterableDatasetConfig(BaseModel):
-    """通用迭代式 Dataset 配置。
-    包含数据根目录、随机种子、多进程配置等。
-    子类可以扩展此配置类，添加特定参数。
+    """Generic iterable Dataset configuration.
+    Contains data root directory, random seed, multi-process configuration, etc.
+    Subclasses can extend this configuration class to add specific parameters.
     Args:
-        data_root (str): 原始数据根目录/文件前缀
-        shuffle_buffer_size (NonNegativeInt): 流式 shuffle 的缓冲区大小
-        seed (Optional[int]): 随机种子；None 表示不固定
-        world_size (int): 总进程数（用于分布式训练）
-        rank (int): 当前进程 rank
-        resume_from_sample (int): 从第 N 个样本开始恢复
-        transform (Optional[Callable[[Any], Any]]): 样本级变换函数
-        filter_fn (Optional[Callable[[Any], bool]]): 过滤函数
-        extra (Dict[str, Any]): 留给子类放额外参数
-    说明：
-        - `data_root` 可以是文件路径、URL 或其他数据源前缀
-        - `shuffle_buffer_size` 为 0 时表示不进行 shuffle
-        - `seed` 用于控制随机性，None 表示每次运行都不同
-        - `world_size` 和 `rank` 用于分布式训练，确保每个样本只被处理一次
-        - `resume_from_sample` 用于断点续训，从指定样本开始
-        - `transform` 和 `filter_fn` 用于样本级变换和过滤
-        - `extra` 字段可以存放子类特定的额外参数
+        data_root (str): Raw data root directory/file prefix
+        shuffle_buffer_size (NonNegativeInt): Buffer size for streaming shuffle
+        seed (Optional[int]): Random seed; None means not fixed
+        world_size (int): Total number of processes (for distributed training)
+        rank (int): Current process rank
+        resume_from_sample (int): Resume from the Nth sample
+        transform (Optional[Callable[[Any], Any]]): Sample-level transform function
+        filter_fn (Optional[Callable[[Any], bool]]): Filter function
+        extra (Dict[str, Any]): Reserved for subclasses to put additional parameters
+    Description:
+        - `data_root` can be file path, URL or other data source prefix
+        - `shuffle_buffer_size` of 0 means no shuffle
+        - `seed` controls randomness, None means different each run
+        - `world_size` and `rank` for distributed training, ensuring each sample is processed only once
+        - `resume_from_sample` for checkpoint resumption, starting from specified sample
+        - `transform` and `filter_fn` for sample-level transformation and filtering
+        - `extra` field can store subclass-specific additional parameters
     """
 
     data_root: str
@@ -39,15 +40,15 @@ class IterableDatasetConfig(BaseModel):
     filter_fn: Optional[Callable[[Any], bool]] = None
 
     # class Config:
-    #     # 支持从环境变量读取(例如 DATA_ROOT、SHUFFLE_BUFFER_SIZE)
+    #     # Support reading from environment variables (e.g. DATA_ROOT, SHUFFLE_BUFFER_SIZE)
     #     env_prefix = ""
     #     case_sensitive = False
 
 
 class StreamingDataset(IterableDataset):
     """
-    通用迭代式 Dataset 模板。
-    子类只需实现 `_read_stream()` 生成样本。
+    Generic iterable Dataset template.
+    Subclasses only need to implement `_read_stream()` to generate samples.
     """
 
     def __init__(self, config: IterableDatasetConfig) -> None:
@@ -57,41 +58,41 @@ class StreamingDataset(IterableDataset):
 
     def _read_stream(self) -> Iterable[Any]:
         """
-        返回一个 **可迭代对象**，每个元素即为一个样本。
-        子类根据 data_root 读取文件、数据库、网络流等。
+        Returns an **iterable object**, each element is a sample.
+        Subclasses read files, databases, network streams, etc. based on data_root.
         """
         raise NotImplementedError
 
     def __iter__(self) -> Iterator[Any]:
-        worker_info = get_worker_info()
-        # 1. 拿到原始流
+        # 1. Get the original stream
         stream = self._read_stream()
 
-        # 2. 多进程/多节点切分
-        stream = self._shard_stream(stream, worker_info)
+        # 2. Multi-process/multi-node sharding
+        stream = self._shard_stream(stream)
 
-        # 3. 跳过 resume 的样本
+        # 3. Skip resumed samples
         stream = self._skip_samples(stream)
 
-        # 4. 过滤
+        # 4. Filter
         if self.cfg.filter_fn is not None:
             stream = filter(self.cfg.filter_fn, stream)
 
-        # 5. 变换
+        # 5. Transform
         if self.cfg.transform is not None:
             stream = map(self.cfg.transform, stream)
 
-        # 6. shuffle（流式）
+        # 6. Shuffle (streaming)
         if self.cfg.shuffle_buffer_size > 0:
             stream = self._shuffle_stream(stream)
 
         yield from stream
 
-    def _shard_stream(self, stream: Iterable[Any], worker_info) -> Iterable[Any]:
+    def _shard_stream(self, stream: Iterable[Any]) -> Iterable[Any]:
         """
-        根据 worker 和分布式 rank 切分数据流，保证每个样本只被处理一次。
+        Shard the data stream based on worker and distributed rank, ensuring each sample is processed only once.
         """
-        # 总并行度 = 节点数 * 每节点进程数 * 每进程 worker 数
+        worker_info = get_worker_info()
+        # Total parallelism = number of nodes * processes per node * workers per process
         total_parts = self.cfg.world_size
         part_id = self.cfg.rank
 
@@ -105,7 +106,7 @@ class StreamingDataset(IterableDataset):
 
     def _skip_samples(self, stream: Iterable[Any]) -> Iterable[Any]:
         """
-        跳过 resume_from_sample 之前的样本。
+        Skip samples before resume_from_sample.
         """
         if self.cfg.resume_from_sample <= 0:
             yield from stream
@@ -116,7 +117,7 @@ class StreamingDataset(IterableDataset):
 
     def _shuffle_stream(self, stream: Iterable[Any]) -> Iterable[Any]:
         """
-        使用固定大小缓冲区做流式 shuffle。
+        Use fixed-size buffer for streaming shuffle.
         """
         buf: List[Any] = []
         for sample in stream:
@@ -124,40 +125,62 @@ class StreamingDataset(IterableDataset):
             if len(buf) >= self.cfg.shuffle_buffer_size:
                 idx = self._rng.randrange(len(buf))
                 yield buf.pop(idx)
-        # 把剩余样本随机打出
+        # Randomly output remaining samples
         self._rng.shuffle(buf)
         yield from buf
 
 
+class McapFlatbufferDatasetConfig(IterableDatasetConfig):
+    """
+    MCAP Flatbuffer dataset configuration.
+    Contains MCAP file path and other specific parameters.
+    """
+
+    keys: List[str] = []  # Message fields to extract
+    topics: List[str] = []  # Topics to extract
+    attachments: List[str] = []  # Attachment name list
+
+
+class McapFlatbufferDataset(StreamingDataset):
+    """
+    Iterable Dataset for reading MCAP files.
+    Subclasses only need to implement `_read_stream()` to return MCAP messages.
+    """
+
+    cfg: McapFlatbufferDatasetConfig
+
+    def _read_stream(self) -> Iterable[dict[str, Any]]:
+        """
+        Read MCAP file and return message stream.
+        """
+        with open(self.cfg.data_root, "rb") as f:
+            reader = McapFlatbufferReader(f)
+            yield from reader.iter_samples(
+                keys=self.cfg.keys,
+                topics=self.cfg.topics,
+                attachments=self.cfg.attachments,
+            )
+
+
 if __name__ == "__main__":
-    import argparse
-    import yaml
+    from pprint import pprint
+    import time
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", type=str, help="YAML 配置文件")
-    args = parser.parse_args()
-
-    if args.config:
-        with open(args.config) as fp:
-            raw_cfg = yaml.safe_load(fp)
-    else:
-        raw_cfg = {}  # 全用环境变量 / 默认值
-
-    class DummyTextDataset(StreamingDataset):
-        """
-        例子：读取文本文件，每行一个样本。
-        """
-
-        def _read_stream(self) -> Iterable[str]:
-            path = self.cfg.data_root
-            with open(path, encoding="utf-8") as f:
-                for line in f:
-                    yield line.rstrip("\n")
-
-    cfg = IterableDatasetConfig(**raw_cfg)
-    ds = DummyTextDataset(cfg)
-
-    for i, x in enumerate(ds):
-        print(i, x)
-        if i >= 9:
-            break
+    dataset = McapFlatbufferDataset(
+        McapFlatbufferDatasetConfig(
+            data_root="/home/ghz/Work/OpenGHz/data-collection/airbot-data-collection/airbot_data_collection/data/arm1-001/0.mcap",
+            keys=[
+                "/left/follow/arm/joint_state/position",
+                "/left/follow/eef/joint_state/position",
+                "/left/lead/arm/joint_state/position",
+                "/left/lead/eef/joint_state/position",
+                "/env_camera/env/color/image_raw",
+            ],
+        )
+    )
+    start = time.perf_counter()
+    for sample in dataset:
+        print(time.perf_counter() - start)
+        # pprint(sample)
+        start = time.perf_counter()
+        # break  # Only print the first sample
