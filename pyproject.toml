@@ -54,6 +54,23 @@ all = [
     "flatten-dict",
     "av",
 ]
+# no hardware support, such as
+# opencv, linuxpy, udev, pynput
+# but pyav is included
+soft = [
+    "argdantic",
+    "omegaconf >=2.3.0",
+    "hydra-core >=1.3.2",
+    "transitions",
+    "bidict",
+    "tqdm",
+    "PyTurboJPEG",
+    "flatbuffers",
+    "foxglove-schemas-flatbuffer",
+    "mcap",
+    "flatten-dict",
+    "av",
+]
 ml = [
     "torch",
     "torchvision",
