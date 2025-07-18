@@ -10,7 +10,7 @@ from turbojpeg import TurboJPEG
 import flatbuffers
 from importlib.resources import read_binary
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
-from airbot_data_collection.tools.av_coder import encode_h264
+from airbot_data_collection.common.utils.av_coder import encode_h264
 
 from airbot_data_collection.test.show_bson import decode_h264, load_bson
 

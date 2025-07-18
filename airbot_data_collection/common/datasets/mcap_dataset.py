@@ -1,12 +1,12 @@
 import random
+import os
 
 from typing import Any, Callable, Iterable, Iterator, List, Optional, Literal
 from pydantic import BaseModel, NonNegativeInt
 from torch.utils.data import IterableDataset, get_worker_info
-from airbot_data_collection.tools.mcap_utils import McapFlatbufferReader
+from airbot_data_collection.common.utils.mcap_utils import McapFlatbufferReader
 from airbot_data_collection.utils import get_items_by_ext
 from abc import ABC, abstractmethod
-import os
 
 
 class IterableDatasetConfig(BaseModel):

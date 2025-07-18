@@ -1,4 +1,4 @@
-from airbot_data_collection.tools.mcap_utils import McapFlatbufferReader
+from airbot_data_collection.common.utils.mcap_utils import McapFlatbufferReader
 from pprint import pprint
 import time
 

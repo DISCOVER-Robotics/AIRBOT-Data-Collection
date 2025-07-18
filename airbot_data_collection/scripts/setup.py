@@ -15,7 +15,7 @@ from airbot_data_collection.utils import (
     execute_shell_script,
     get_can_interfaces,
 )
-from airbot_data_collection.tools.system_info import SystemInfo
+from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.utils import bcolors
 from collections import defaultdict
 import logging

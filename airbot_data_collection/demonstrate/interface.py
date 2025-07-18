@@ -32,7 +32,7 @@ from airbot_data_collection.utils import (
     find_matching_files,
     get_items_by_ext,
 )
-from airbot_data_collection.tools.system_info import SystemInfo
+from airbot_data_collection.common.utils.system_info import SystemInfo
 import os
 from collections import defaultdict
 

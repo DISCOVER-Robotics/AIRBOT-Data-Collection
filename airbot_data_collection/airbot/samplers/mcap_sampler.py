@@ -9,8 +9,8 @@ from mcap.writer import Writer
 from flatten_dict import flatten
 from time import time_ns
 from airbot_data_collection.utils import bcolors
-from airbot_data_collection.tools.av_coder import AvCoder
-from airbot_data_collection.tools.mcap_utils import (
+from airbot_data_collection.common.utils.av_coder import AvCoder
+from airbot_data_collection.common.utils.mcap_utils import (
     McapFlatbufferWriter,
     FlatbufferSchemas,
 )

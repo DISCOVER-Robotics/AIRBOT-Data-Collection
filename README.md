@@ -22,7 +22,7 @@ pip install torch -i https://mirrors.aliyun.com/pypi/simple
 # Setup
 
 ```bash
-python3 tools/setup.py
+python3 scripts/setup.py
 ```
 
 # Usage
