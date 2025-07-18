@@ -158,7 +158,7 @@ class McapFlatbufferReader:
         # TODO: support iter through a reference topic
         # and inter other topics with start_time according
         # to the reference topic
-        topics = topics or self.all_topics()
+        topics = topics if topics is not None else self.all_topic_names()
         messages = {}
         for schema, channel, message in self.reader.iter_messages(topics):
             data = self._decoders[schema.name](message.data)
@@ -167,7 +167,7 @@ class McapFlatbufferReader:
                 yield messages
                 messages.clear()
 
-    def all_topics(self) -> Set[str]:
+    def all_topic_names(self) -> Set[str]:
         """Get all topics in the MCAP file."""
         return {
             channel.topic for channel in self.reader.get_summary().channels.values()
@@ -178,9 +178,10 @@ class McapFlatbufferReader:
         return {attachment.name for attachment in self.reader.iter_attachments()}
 
     def iter_attachment_samples(
-        self, names: Iterable[str]
+        self, names: Optional[Iterable[str]] = None
     ) -> Generator[Dict[str, Any], None, None]:
         """Iterate over target attachments in the MCAP file."""
+        names = names if names is not None else self.all_attachment_names()
         attch_names: List[str] = []
         iters: List[Generator] = []
         for attachment in self.reader.iter_attachments():
@@ -194,7 +195,10 @@ class McapFlatbufferReader:
                 coder = AvCoder()
                 iters.append(
                     coder.iter_decode(
-                        attachment.data, mismatch_tolerance=0, ensure_base_stamp=True
+                        attachment.data,
+                        mismatch_tolerance=0,
+                        ensure_base_stamp=True,
+                        with_stamp=False,
                     )
                 )
                 if len(attch_names) == len(names):
@@ -207,6 +211,55 @@ class McapFlatbufferReader:
             data = {}
             for name, value in zip(attch_names, values):
                 data[name] = value
+            yield data
+
+    def iter_samples(
+        self,
+        keys: Optional[Iterable[str]] = None,
+        topics: Optional[Iterable[str]] = None,
+        attachments: Optional[Iterable[str]] = None,
+    ) -> Generator[Dict[str, np.ndarray], None, None]:
+        """Iterate over messages and attachments in the MCAP file.
+        Args:
+            keys (Optional[Iterable[str]]): Specific keys to include in the samples.
+                The keys can be topic names or attachment names. If None, will ignore this filter.
+                If provided, the keys must be unique across topics and attachments.
+            topics (Optional[Iterable[str]]): Specific topics to include in the samples.
+                If None, will include all topics.
+            attachments (Optional[Iterable[str]]): Specific attachments to include in the samples.
+                If None, will include all attachments.
+        Returns:
+            Generator[Dict[str, Any]]: A generator yielding dictionaries containing message and attachment data.
+        Raises:
+            ValueError: If the keys are not unique across topics and attachments.
+            ValueError: If the topics or attachments are not found.
+        """
+        all_topics = self.all_topic_names()
+        all_attachments = self.all_attachment_names()
+        topics = set(topics) if topics is not None else all_topics
+        attachments = set(attachments) if attachments is not None else all_attachments
+        if keys is not None:
+            for key in keys:
+                flag = 0
+                if key in all_topics:
+                    topics.add(key)
+                    flag += 1
+                if key in all_attachments:
+                    attachments.add(key)
+                    flag += 1
+                if flag == 0:
+                    raise ValueError(f"Key '{key}' not found in topics or attachments.")
+                elif flag > 1:
+                    raise ValueError(
+                        f"Key '{key}' found in both topics and attachments, please specify only one."
+                    )
+        for msg_data, att_data in zip(
+            self.iter_message_samples(topics),
+            self.iter_attachment_samples(attachments),
+        ):
+            data = {}
+            data.update(msg_data)
+            data.update(att_data)
             yield data
 
     def topic_message_counts(self) -> Dict[str, int]:
