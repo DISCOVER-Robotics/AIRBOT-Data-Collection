@@ -1,6 +1,6 @@
 import random
 
-from typing import Any, Callable, Iterable, Iterator, List, Optional
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Literal
 from pydantic import BaseModel, NonNegativeInt
 from torch.utils.data import IterableDataset, get_worker_info
 from airbot_data_collection.tools.mcap_utils import McapFlatbufferReader
@@ -171,7 +171,7 @@ class McapFlatbufferEpisodicDatasetConfig(McapFlatbufferDatasetConfig):
     Episodic dataset configuration for reading MCAP files in the root_dir.
     """
 
-    sort: bool = True  # Whether to sort files by name
+    rearrange: Literal["none", "sort", "shuffle"] = "none"
 
     def model_post_init(self, context):
         assert os.path.isdir(
@@ -186,21 +186,32 @@ class McapFlatbufferEpisodicDataset(McapFlatbufferDataset):
 
     cfg: McapFlatbufferEpisodicDatasetConfig
 
+    def __init__(self, config):
+        super().__init__(config)
+        files = get_items_by_ext(self.cfg.data_root, ".mcap")
+        rearrange = self.cfg.rearrange
+        if rearrange == "sort":
+            files.sort()
+        elif rearrange == "shuffle":
+            self._rng.shuffle(files)
+        self._files = files
+
     def _read_stream(self) -> Iterable[Iterable[dict[str, Any]]]:
         """
         Read MCAP files and return episodic message stream.
         Each episode corresponds to one MCAP file.
         """
-        files = get_items_by_ext(self.cfg.data_root, ".mcap")
-        if self.cfg.sort:
-            files.sort()
-        for file_path in files:
+        for file_path in self._files:
             self._current_file = os.path.join(self.cfg.data_root, file_path)
             yield self._read_a_file(self._current_file)
 
     @property
     def current_file(self) -> str:
         return self._current_file
+
+    @property
+    def all_files(self) -> List[str]:
+        return self._files
 
 
 if __name__ == "__main__":
@@ -238,6 +249,7 @@ if __name__ == "__main__":
         )
     )
     start = time.perf_counter()
+    print(dataset.all_files)
     for episode in dataset:
         print(f"Processing: {dataset.current_file}")
         for sample in episode:
