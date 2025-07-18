@@ -4,6 +4,9 @@ from typing import Any, Callable, Iterable, Iterator, List, Optional
 from pydantic import BaseModel, NonNegativeInt
 from torch.utils.data import IterableDataset, get_worker_info
 from airbot_data_collection.tools.mcap_utils import McapFlatbufferReader
+from airbot_data_collection.utils import get_items_by_ext
+from abc import ABC, abstractmethod
+import os
 
 
 class IterableDatasetConfig(BaseModel):
@@ -39,15 +42,10 @@ class IterableDatasetConfig(BaseModel):
     transform: Optional[Callable[[Any], Any]] = None
     filter_fn: Optional[Callable[[Any], bool]] = None
 
-    # class Config:
-    #     # Support reading from environment variables (e.g. DATA_ROOT, SHUFFLE_BUFFER_SIZE)
-    #     env_prefix = ""
-    #     case_sensitive = False
 
-
-class StreamingDataset(IterableDataset):
+class StreamingDataset(IterableDataset, ABC):
     """
-    Generic iterable Dataset template.
+    Generic iterable dataset template.
     Subclasses only need to implement `_read_stream()` to generate samples.
     """
 
@@ -56,6 +54,7 @@ class StreamingDataset(IterableDataset):
         self.cfg = config
         self._rng = random.Random(self.cfg.seed)
 
+    @abstractmethod
     def _read_stream(self) -> Iterable[Any]:
         """
         Returns an **iterable object**, each element is a sample.
@@ -140,11 +139,13 @@ class McapFlatbufferDatasetConfig(IterableDatasetConfig):
     topics: List[str] = []  # Topics to extract
     attachments: List[str] = []  # Attachment name list
 
+    def model_post_init(self, context):
+        assert self.data_root.endswith(".mcap"), "data_root must be a .mcap file"
+
 
 class McapFlatbufferDataset(StreamingDataset):
     """
-    Iterable Dataset for reading MCAP files.
-    Subclasses only need to implement `_read_stream()` to return MCAP messages.
+    Iterable dataset for reading a MCAP file.
     """
 
     cfg: McapFlatbufferDatasetConfig
@@ -153,7 +154,10 @@ class McapFlatbufferDataset(StreamingDataset):
         """
         Read MCAP file and return message stream.
         """
-        with open(self.cfg.data_root, "rb") as f:
+        return self._read_a_file(self.cfg.data_root)
+
+    def _read_a_file(self, file_path: str) -> Iterable[dict[str, Any]]:
+        with open(file_path, "rb") as f:
             reader = McapFlatbufferReader(f)
             yield from reader.iter_samples(
                 keys=self.cfg.keys,
@@ -162,25 +166,82 @@ class McapFlatbufferDataset(StreamingDataset):
             )
 
 
+class McapFlatbufferEpisodicDatasetConfig(McapFlatbufferDatasetConfig):
+    """
+    Episodic dataset configuration for reading MCAP files in the root_dir.
+    """
+
+    sort: bool = True  # Whether to sort files by name
+
+    def model_post_init(self, context):
+        assert os.path.isdir(
+            self.data_root
+        ), "data_root must be a directory containing MCAP files"
+
+
+class McapFlatbufferEpisodicDataset(McapFlatbufferDataset):
+    """
+    Episodic dataset for reading MCAP files in the root_dir.
+    """
+
+    cfg: McapFlatbufferEpisodicDatasetConfig
+
+    def _read_stream(self) -> Iterable[Iterable[dict[str, Any]]]:
+        """
+        Read MCAP files and return episodic message stream.
+        Each episode corresponds to one MCAP file.
+        """
+        files = get_items_by_ext(self.cfg.data_root, ".mcap")
+        if self.cfg.sort:
+            files.sort()
+        for file_path in files:
+            self._current_file = os.path.join(self.cfg.data_root, file_path)
+            yield self._read_a_file(self._current_file)
+
+    @property
+    def current_file(self) -> str:
+        return self._current_file
+
+
 if __name__ == "__main__":
     from pprint import pprint
     import time
 
-    dataset = McapFlatbufferDataset(
-        McapFlatbufferDatasetConfig(
-            data_root="/home/ghz/Work/OpenGHz/data-collection/airbot-data-collection/airbot_data_collection/data/arm1-001/0.mcap",
-            keys=[
-                "/left/follow/arm/joint_state/position",
-                "/left/follow/eef/joint_state/position",
-                "/left/lead/arm/joint_state/position",
-                "/left/lead/eef/joint_state/position",
-                "/env_camera/env/color/image_raw",
-            ],
+    root_dir = "/home/ghz/Work/OpenGHz/data-collection/airbot-data-collection/airbot_data_collection/data/arm1-001/"
+    # data_root = "0.mcap"
+    data_root = root_dir
+    keys = [
+        "/left/follow/arm/joint_state/position",
+        "/left/follow/eef/joint_state/position",
+        "/left/lead/arm/joint_state/position",
+        "/left/lead/eef/joint_state/position",
+        "/env_camera/env/color/image_raw",
+    ]
+
+    # dataset = McapFlatbufferDataset(
+    #     McapFlatbufferDatasetConfig(
+    #         data_root=data_root,
+    #         keys=keys,
+    #     )
+    # )
+    # start = time.perf_counter()
+    # for sample in dataset:
+    #     print(time.perf_counter() - start)
+    #     # pprint(sample)
+    #     start = time.perf_counter()
+    #     # break  # Only print the first sample
+
+    dataset = McapFlatbufferEpisodicDataset(
+        McapFlatbufferEpisodicDatasetConfig(
+            data_root=data_root,
+            keys=keys,
         )
     )
     start = time.perf_counter()
-    for sample in dataset:
-        print(time.perf_counter() - start)
-        # pprint(sample)
-        start = time.perf_counter()
-        # break  # Only print the first sample
+    for episode in dataset:
+        print(f"Processing: {dataset.current_file}")
+        for sample in episode:
+            print(time.perf_counter() - start)
+            # pprint(sample)
+            start = time.perf_counter()
+            break

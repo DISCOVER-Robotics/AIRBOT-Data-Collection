@@ -7,6 +7,7 @@ import time
 from enum import Enum
 import numpy as np
 import subprocess
+from typing import List
 
 
 def get_stamp_ms() -> int:
@@ -109,6 +110,7 @@ class StrEnum(str, ReprEnum):
     def __str__(self):
         return self.value
 
+
 class CustomFormatter(logging.Formatter):
 
     grey = "\x1b[38;20m"
@@ -156,8 +158,10 @@ def run_event_loop() -> asyncio.AbstractEventLoop:
     return event_loop
 
 
-def get_items_by_ext(directory: str, extension: str) -> list[str]:
-    """Get all files or directories in a directory with a specific extension.
+def get_items_by_ext(
+    directory: str, extension: str, with_directory: bool = False
+) -> List[str]:
+    """Get all files or directories in a directory with a specific extension (suffix).
     Args:
         directory (str): The directory to search in.
         extension (str): The file extension to filter by. If empty, return directories.
@@ -168,15 +172,19 @@ def get_items_by_ext(directory: str, extension: str) -> list[str]:
     if not os.path.exists(directory):
         return []
     entries = os.scandir(directory)
+    if with_directory:
+        prefix = directory.removesuffix("/") + "/"
+    else:
+        prefix = ""
     if extension == ".":
-        return [entry.name for entry in entries if entry.is_file()]
+        return [prefix + entry.name for entry in entries if entry.is_file()]
     elif not extension:
         return [entry.name for entry in entries if entry.is_dir()]
     else:
         if not extension.startswith("."):
             extension = "." + extension
         return [
-            entry.name
+            prefix + entry.name
             for entry in entries
             if entry.name.endswith(extension) and entry.is_file()
         ]
