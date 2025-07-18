@@ -23,6 +23,9 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 
+import sys
+import locale
+
 
 def inside_slurm():
     """Check whether the python process was launched through slurm"""
@@ -97,3 +100,36 @@ def hydra_instance_from_dict(config: dict):
 
 def capture_timestamp_utc():
     return datetime.now(timezone.utc)
+
+
+def check_utf8_locale() -> bool:
+    lang = os.environ.get("LANG", None)
+    if lang is None or "UTF-8" in lang:
+        encoding = sys.getdefaultencoding()
+        if encoding == "utf-8":
+            return True
+        else:
+            sys.stderr.write(f"Python default encoding is not UTF-8: {encoding}\n")
+    else:
+        sys.stderr.write(f"System default locale is not UTF-8: {lang}\n")
+    return False
+
+
+def set_utf8_locale() -> bool:
+    if check_utf8_locale():
+        sys.stderr.write("UTF-8 locale is already set\n")
+        return True
+
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+    os.environ["LANG"] = "en_US.UTF-8"
+    os.environ["LC_ALL"] = "en_US.UTF-8"
+
+    for lc in ["zh_CN.UTF-8", "en_US.UTF-8", "C.UTF-8"]:
+        try:
+            locale.setlocale(locale.LC_ALL, lc)
+            sys.stderr.write(f"Locale set to '{lc}'\n")
+            return True
+        except locale.Error as e:
+            sys.stderr.write(f"Warning: Could not set locale to '{lc}': {e}\n")
+    sys.stderr.write("Failed to set UTF-8 locale\n")
+    return False

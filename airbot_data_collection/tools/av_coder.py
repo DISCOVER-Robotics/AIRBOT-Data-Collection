@@ -167,7 +167,6 @@ class AvCoder:
         Finalize the encoding process and return the encoded data bytes.
         Fix UnicodeDecodeError by ensuring UTF-8 encoding for paths and metadata.
         """
-        import sys  # 新增导入
         with self._encode_lock:
             if self._last_future:
                 self._last_future.result()
@@ -175,20 +174,25 @@ class AvCoder:
                 try:
                     self._container.mux(packet)
                 except UnicodeDecodeError as e:
-                    # 处理非ASCII字符错误
-                    sys.stderr.write(f"Warning: Ignored Unicode error during muxing: {e}\n")
+                    self.get_logger().warning(
+                        f"Ignored Unicode error during muxing: {e}"
+                    )
             self._container.close()
             value = self._outbuf.getvalue()
             self._outbuf.close()
             self._reset()
             if file_path:
                 try:
-                    # 显式处理文件路径编码 [6,7](@ref)
-                    safe_path = file_path.encode('utf-8', errors='ignore').decode('utf-8')
+                    safe_path = file_path.encode("utf-8", errors="ignore").decode(
+                        "utf-8"
+                    )
                     with open(safe_path, "wb") as f:
                         f.write(value)
-                except UnicodeEncodeError:
-                    # 回退方案：使用ASCII安全路径
+                except UnicodeEncodeError as e:
+                    self.get_logger().warning(
+                        f"Unicode error when writing to file {file_path}: {e}. "
+                        "Using fallback path."
+                    )
                     with open("output_fallback.bin", "wb") as f:
                         f.write(value)
             return value
@@ -298,7 +302,8 @@ class AvCoder:
         frame_format: str = "bgr24",
         mismatch_tolerance: int = 0,
         ensure_base_stamp: bool = False,
-    ) -> Generator[tuple[np.ndarray, int], None, None]:
+        with_stamp: bool = True,
+    ) -> Generator[Union[tuple[np.ndarray, int], np.ndarray], None, None]:
         """
         Generator to decode frames from a video file.
         This method yields frames one by one.
@@ -311,7 +316,10 @@ class AvCoder:
             cnt += 1
             np_frame = frame.to_ndarray(format=frame_format)
             abs_stamp = base_stamp + frame.pts
-            yield np_frame, abs_stamp
+            if with_stamp:
+                yield np_frame, abs_stamp
+            else:
+                yield np_frame
         mismatch = frame_cnt - cnt
         if mismatch > 0:
             if mismatch <= mismatch_tolerance:
@@ -319,7 +327,10 @@ class AvCoder:
                     f"Missing {mismatch} frames in video. Filling with last frame."
                 )
                 for _ in range(mismatch):
-                    yield np_frame, abs_stamp
+                    if with_stamp:
+                        yield np_frame, abs_stamp
+                    else:
+                        yield np_frame
             else:
                 raise ValueError(
                     f"Frame count mismatch: {cnt} != {frame_cnt}; "
@@ -380,7 +391,6 @@ class AvCoder:
                 frame.pts,
             )
         cls.get_logger().info("Total frames processed:", frame_cnt)
-
 
 
 if __name__ == "__main__":
