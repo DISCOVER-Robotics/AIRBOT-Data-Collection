@@ -21,7 +21,7 @@ from airbot_data_collection.common.utils.utils import (
 )
 from airbot_data_collection.utils import get_items_by_ext
 from abc import ABC, abstractmethod
-from functools import cached_property
+from functools import cached_property, cache
 from logging import getLogger
 import numpy as np
 
@@ -303,6 +303,10 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
     def __del__(self):
         self.reader.file_io.close()
 
+    def __len__(self) -> int:
+        """Get the total number of messages in the MCAP file."""
+        return len(self.reader)
+
 
 class McapFlatbufferEpisodeDatasetConfig(McapDatasetConfig):
     """
@@ -378,6 +382,14 @@ class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
         for reader in self.reader.values():
             reader.file_io.close()
 
+    @cache
+    def __len__(self) -> int:
+        """Get the total number of messages in all MCAP files."""
+        total_count = 0
+        for reader in self.reader.values():
+            total_count += len(reader)
+        return total_count
+
 
 if __name__ == "__main__":
     from airbot_data_collection.utils import init_logging, logging
@@ -422,6 +434,7 @@ if __name__ == "__main__":
     )
     dataset.load()
     print(dataset.all_files)
+    print(f"Dataset length: {len(dataset)}")
     for file_path, reader in dataset.reader.items():
         print(f"File: {file_path}, Messages: {len(reader)}")
 
