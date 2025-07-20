@@ -390,10 +390,10 @@ if __name__ == "__main__":
     # data_root = "0.mcap"
     data_root = root_dir
     keys = [
-        "/left/follow/arm/joint_state/position",
-        "/left/follow/eef/joint_state/position",
-        "/left/lead/arm/joint_state/position",
-        "/left/lead/eef/joint_state/position",
+        # "/left/follow/arm/joint_state/position",
+        # "/left/follow/eef/joint_state/position",
+        # "/left/lead/arm/joint_state/position",
+        # "/left/lead/eef/joint_state/position",
         "/env_camera/env/color/image_raw",
     ]
 

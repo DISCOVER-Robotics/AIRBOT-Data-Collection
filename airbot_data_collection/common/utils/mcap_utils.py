@@ -150,7 +150,7 @@ class McapFlatbufferReader:
 
     def _decode_array(self, data: bytes) -> np.ndarray:
         """Decode a FloatArray Flatbuffer message."""
-        fb = FloatArray.FloatArray.GetRootAsFloatArray(data, 0)
+        fb = FloatArray.FloatArray.GetRootAs(data, 0)
         return fb.ValuesAsNumpy()
 
     def iter_message_samples(
@@ -205,9 +205,10 @@ class McapFlatbufferReader:
                 if len(attch_names) == len(names):
                     break
         else:
-            raise ValueError(
-                f"Not all requested attachments found: {names} vs {attch_names}"
-            )
+            assert (
+                not names
+            ), f"Not all requested attachments found: {names} vs {attch_names}"
+
         for values in zip(*iters):
             data = {}
             for name, value in zip(attch_names, values):
@@ -256,11 +257,18 @@ class McapFlatbufferReader:
                     raise ValueError(
                         f"Key '{key}' found in both topics and attachments, please specify only one."
                     )
+
+        def empty_iter():
+            for _ in range(len(self)):
+                yield {}
+
+        topic_iter = self.iter_message_samples(topics) if topics else empty_iter()
+        attachment_iter = (
+            self.iter_attachment_samples(attachments) if attachments else empty_iter()
+        )
+
         # The first iteration costs more time since it needs to create the iterators.
-        for msg_data, att_data in zip(
-            self.iter_message_samples(topics),
-            self.iter_attachment_samples(attachments),
-        ):
+        for msg_data, att_data in zip(topic_iter, attachment_iter):
             data = {}
             data.update(msg_data)
             data.update(att_data)
