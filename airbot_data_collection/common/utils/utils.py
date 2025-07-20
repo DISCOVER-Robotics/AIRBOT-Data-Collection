@@ -26,6 +26,11 @@ from omegaconf import DictConfig
 import sys
 import locale
 
+from typing import Union, List
+
+
+SlicesType = Union[List[tuple], tuple, int]
+
 
 def inside_slurm():
     """Check whether the python process was launched through slurm"""
@@ -133,3 +138,74 @@ def set_utf8_locale() -> bool:
             sys.stderr.write(f"Warning: Could not set locale to '{lc}': {e}\n")
     sys.stderr.write("Failed to set UTF-8 locale\n")
     return False
+
+
+def multi_slices_to_indexes(slices: SlicesType) -> List[int]:
+    """Convert slices to a list of indexes.
+    Args:
+        slices: can be a int number to use the first n episodes
+        or a tuple of (start, end) to use the episodes from start to
+        end (not included the end), e.g. (50, 100) or a tuple of
+        (start, end, suffix) to use the episodes from start to end with the suffix,
+        e.g. (50, 100, "augmented") or a list (not tuple!) of
+        multi tuples e.g. [(0, 50), (100, 200)].
+        Empty slices will be ignored.
+    Returns:
+        A list of indexes, e.g. [0, 1, ...,] or ['0_suffix', '1_suffix', ...]
+    Raises:
+        ValueError: if slices is not a tuple or list of tuples
+    Examples:
+        multi_slices_to_indexes(10) -> [0, 1, 2, ..., 9]
+        multi_slices_to_indexes((5, 10)) -> [5, 6, 7, 8, 9]
+        multi_slices_to_indexes((5, 7, "_suffix")) -> ['5_suffix', '6_suffix', '7_suffix']
+        multi_slices_to_indexes([(1, 4), (8, 10)]) -> [1, 2, 3, 8, 9]
+    """
+
+    def process_tuple(tuple_slices: tuple) -> list:
+        tuple_len = len(tuple_slices)
+        if tuple_len == 2:
+            start, end = tuple_slices
+            suffix = None
+        elif tuple_len == 3:
+            start, end, suffix = tuple_slices
+        elif tuple_len == 0:
+            return []
+        else:
+            raise ValueError(f"tuple_slices length is {tuple_len}, not in ")
+        tuple_slices = list(range(start, end))
+        if suffix is not None:
+            for index, ep in enumerate(tuple_slices):
+                tuple_slices[index] = f"{ep}{suffix}"
+        return tuple_slices
+
+    if isinstance(slices, int):
+        slices = (0, slices)
+
+    if isinstance(slices, tuple):
+        slices = process_tuple(slices)
+    elif isinstance(slices, list):
+        for index, element in enumerate(slices):
+            if isinstance(element, int):
+                element = (element, element + 1)
+            slices[index] = process_tuple(element)
+        # flatten the list
+        flattened = []
+        for sublist in slices:
+            flattened.extend(sublist)
+        slices = flattened
+    else:
+        raise ValueError("slices should be tuple or list of tuples")
+    return slices
+
+
+if __name__ == "__main__":
+
+    assert multi_slices_to_indexes(()) == []
+    assert multi_slices_to_indexes(10) == list(range(10))
+    assert multi_slices_to_indexes((5, 10)) == list(range(5, 10))
+    assert multi_slices_to_indexes((5, 10, "suffix")) == [
+        f"{i}suffix" for i in range(5, 10)
+    ]
+    assert multi_slices_to_indexes([(1, 4), (8, 10)]) == list(range(1, 4)) + list(
+        range(8, 10)
+    )

@@ -12,6 +12,7 @@ from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from enum import Enum
 import os
 import numpy as np
+from functools import cache
 
 
 class FlatbufferSchemas(Enum):
@@ -143,6 +144,7 @@ class McapFlatbufferReader:
     """Class to handle reading MCAP files with Flatbuffer schemas."""
 
     def __init__(self, file: IO[bytes]):
+        self.file_io = file
         self.reader = make_reader(file)
         self._decoders = {"airbot_fbs.FloatArray": self._decode_array}
 
@@ -186,7 +188,6 @@ class McapFlatbufferReader:
         iters: List[Generator] = []
         for attachment in self.reader.iter_attachments():
             name = attachment.name
-            print(name)
             if name in names:
                 assert attachment.media_type in {
                     "video/mp4"
@@ -248,11 +249,14 @@ class McapFlatbufferReader:
                     attachments.add(key)
                     flag += 1
                 if flag == 0:
-                    raise ValueError(f"Key '{key}' not found in topics or attachments.")
+                    raise ValueError(
+                        f"Key '{key}' not found in topics or attachments. Available topics: {all_topics}, attachments: {all_attachments}."
+                    )
                 elif flag > 1:
                     raise ValueError(
                         f"Key '{key}' found in both topics and attachments, please specify only one."
                     )
+        # The first iteration costs more time since it needs to create the iterators.
         for msg_data, att_data in zip(
             self.iter_message_samples(topics),
             self.iter_attachment_samples(attachments),
@@ -291,6 +295,21 @@ class McapFlatbufferReader:
             if count != first_count:
                 return 0
         return first_count
+
+    @cache
+    def __len__(self) -> int:
+        """Get the total number of messages in the MCAP file."""
+        counts = self.topic_message_counts()
+        length = self.equal_message_counts(counts)
+        if length == 0:
+            if counts:
+                raise ValueError(
+                    "Not all topics have the same number of messages. "
+                    f"Counts: {counts}"
+                )
+            else:
+                raise ValueError("No messages found in the MCAP file.")
+        return length
 
 
 def h264_attachment_to_compressed_images(
