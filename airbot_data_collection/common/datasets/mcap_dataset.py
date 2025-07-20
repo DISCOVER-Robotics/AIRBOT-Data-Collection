@@ -185,6 +185,7 @@ class IterableDatasetABC(IterableDataset, ABC):
         raise NotImplementedError
 
     def __iter__(self) -> Iterator[Any]:
+        # TODO: really consider how to handle multi-process/multi-node sharding
         # 1. Get the original stream
         stream = self._read_stream()
 
@@ -390,6 +391,29 @@ class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
             total_count += len(reader)
         return total_count
 
+    def __getitem__(self, index: int) -> Dict[str, np.ndarray]:
+        """
+        Get a specific sample by index.
+        This is not efficient for large datasets, use with caution.
+        """
+        # TODO: should support 2-dim indexing, e.g.
+        # dataset[episode_index][sample_index] or
+        # dataset[episode_index, sample_index]?
+        # This may be configurable in the future.
+        raw_index = index
+        if index < 0:
+            index += len(self)
+        if index < 0 or index >= len(self):
+            raise IndexError(
+                f"Index {raw_index} out of range: [-{len(self)}, {len(self)})"
+            )
+        for episode in self:
+            for sample in episode:
+                if index == 0:
+                    return sample
+                index -= 1
+        raise RuntimeError(f"Index {index} not found in dataset")
+
 
 if __name__ == "__main__":
     from airbot_data_collection.utils import init_logging, logging
@@ -402,10 +426,10 @@ if __name__ == "__main__":
     # data_root = "0.mcap"
     data_root = root_dir
     keys = [
-        # "/left/follow/arm/joint_state/position",
-        # "/left/follow/eef/joint_state/position",
-        # "/left/lead/arm/joint_state/position",
-        # "/left/lead/eef/joint_state/position",
+        "/left/follow/arm/joint_state/position",
+        "/left/follow/eef/joint_state/position",
+        "/left/lead/arm/joint_state/position",
+        "/left/lead/eef/joint_state/position",
         "/env_camera/env/color/image_raw",
     ]
 
@@ -435,6 +459,16 @@ if __name__ == "__main__":
     dataset.load()
     print(dataset.all_files)
     print(f"Dataset length: {len(dataset)}")
+    pprint(dataset[0])
+    for v1, v2 in zip(dataset[0].values(), dataset[0].values()):
+        assert np.array_equal(v1, v2), "Samples are not equal"
+    for v1, v2 in zip(dataset[0].values(), dataset[1].values()):
+        if not np.array_equal(v1, v2):
+            print("Samples are not equal")
+            break
+    else:
+        raise ValueError("Samples are all equal")
+
     for file_path, reader in dataset.reader.items():
         print(f"File: {file_path}, Messages: {len(reader)}")
 
