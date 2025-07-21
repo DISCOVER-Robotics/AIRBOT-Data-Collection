@@ -240,34 +240,33 @@ class McapFlatbufferReader:
         all_attachments = self.all_attachment_names()
         topics = set(topics) if topics is not None else all_topics
         attachments = set(attachments) if attachments is not None else all_attachments
-        if keys is not None:
-            for key in keys:
-                flag = 0
-                if key in all_topics:
-                    topics.add(key)
-                    flag += 1
-                if key in all_attachments:
-                    attachments.add(key)
-                    flag += 1
-                if flag == 0:
-                    raise ValueError(
-                        f"Key '{key}' not found in topics or attachments. Available topics: {all_topics}, attachments: {all_attachments}."
-                    )
-                elif flag > 1:
-                    raise ValueError(
-                        f"Key '{key}' found in both topics and attachments, please specify only one."
-                    )
+        keys = keys or []
+        for key in keys:
+            flag = 0
+            if key in all_topics:
+                topics.add(key)
+                flag += 1
+            if key in all_attachments:
+                attachments.add(key)
+                flag += 1
+            if flag == 0:
+                raise ValueError(
+                    f"Key '{key}' not found in topics or attachments. Available topics: {all_topics}, attachments: {all_attachments}."
+                )
+            elif flag > 1:
+                raise ValueError(
+                    f"Key '{key}' found in both topics and attachments, please specify only one."
+                )
 
         def empty_iter():
             for _ in range(len(self)):
                 yield {}
 
+        # The first iteration costs more time since it needs to create these iterators.
         topic_iter = self.iter_message_samples(topics) if topics else empty_iter()
         attachment_iter = (
             self.iter_attachment_samples(attachments) if attachments else empty_iter()
         )
-
-        # The first iteration costs more time since it needs to create the iterators.
         for msg_data, att_data in zip(topic_iter, attachment_iter):
             data = {}
             data.update(msg_data)

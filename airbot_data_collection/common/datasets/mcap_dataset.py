@@ -257,13 +257,12 @@ class IterableDatasetABC(IterableDataset, ABC):
 
 class McapDatasetConfig(IterableDatasetConfig):
     """
-    MCAP Flatbuffer dataset configuration.
-    Contains MCAP file path and other specific parameters.
+    MCAP dataset configuration.
     """
 
-    keys: List[str] = []  # Message fields to extract
-    topics: List[str] = []  # Topics to extract
-    attachments: List[str] = []  # Attachment name list
+    keys: List[str] = []
+    topics: Optional[List[str]] = []
+    attachments: Optional[List[str]] = []
 
     @field_validator("data_root")
     def validate_data_root(cls, v) -> str:
