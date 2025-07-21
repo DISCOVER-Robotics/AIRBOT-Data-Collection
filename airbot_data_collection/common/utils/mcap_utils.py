@@ -197,7 +197,7 @@ class McapFlatbufferReader:
                 iters.append(
                     coder.iter_decode(
                         attachment.data,
-                        mismatch_tolerance=0,
+                        mismatch_tolerance=5,
                         ensure_base_stamp=True,
                         with_stamp=False,
                     )
