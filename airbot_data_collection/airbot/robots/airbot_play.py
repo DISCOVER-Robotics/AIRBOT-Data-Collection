@@ -190,17 +190,18 @@ class AIRBOTPlay(System):
     ) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}
+        # FIXME: Currently, the robot arm will have a large shake when acquiring pose
         # if self.config.use_pose:
-        pose = self.interface.get_end_pose()
-        if self.config.relative_observation:
-            pose = self.rela_obs_ctrl.to_relative(*pose)
-        obs["arm/pose"] = {
-            "t": time_ns(),
-            "data": {
-                "position": pose[0],
-                "orientation": pose[1],
-            },
-        }
+        # pose = self.interface.get_end_pose()
+        # if self.config.relative_observation:
+        #     pose = self.rela_obs_ctrl.to_relative(*pose)
+        # obs["arm/pose"] = {
+        #     "t": time_ns(),
+        #     "data": {
+        #         "position": pose[0],
+        #         "orientation": pose[1],
+        #     },
+        # }
         for component in self.config.components:
             obs[f"{component}/joint_state"] = {
                 "t": time_ns(),
