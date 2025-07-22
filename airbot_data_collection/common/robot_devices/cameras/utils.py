@@ -81,7 +81,7 @@ class CameraControl(BaseModel):
 def find_camera_indices(
     raise_when_empty: bool = False,
     max_index_search_range: int = 10,
-    only_even: bool = True,
+    filt_mode: str = "none",
     sorting: bool = True,
 ) -> list[int]:
     """Finds the available camera indices on the system.
@@ -109,8 +109,9 @@ def find_camera_indices(
 
     camera_ids = possible_camera_ids
 
-    if only_even:
-        camera_ids = [camera_id for camera_id in camera_ids if camera_id % 2 == 0]
+    if filt_mode in {"even", "odd"}:
+        remainder = 4 - len(filt_mode)
+        camera_ids = [camera_id for camera_id in camera_ids if camera_id % 2 == remainder]
     if sorting:
         camera_ids = sorted(camera_ids)
 
@@ -215,7 +216,9 @@ def find_device_ids_by_keyword(
                     continue
                 if return_int:
                     device = int(device.replace("/dev/video", ""))
-            devices[current_name].append(device)
+            device_key = current_name.rsplit(" ", 1)
+            device_key[1] = device_key[1].rstrip(")").strip("(")
+            devices[tuple(device_key)].append(device)
     return dict(devices)
 
 
@@ -223,3 +226,5 @@ if __name__ == "__main__":
     print("RealSense cameras:", find_device_ids_by_keyword("RealSense"))
     print("LRCP cameras:", find_device_ids_by_keyword("LRCP"))
     print("Webcam cameras:", find_device_ids_by_keyword("Webcam"))
+    print("cam:", find_device_ids_by_keyword("cam"))
+    print("All cameras:", find_device_ids_by_keyword(""))

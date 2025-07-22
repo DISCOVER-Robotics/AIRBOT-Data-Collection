@@ -7,7 +7,6 @@ from airbot_data_collection.common.visualizers.opencv import (
     OpenCVisualizerConfig,
 )
 from airbot_data_collection.common.robot_devices.cameras.utils import (
-    find_camera_indices,
     find_device_ids_by_keyword,
 )
 from airbot_data_collection.utils import (
@@ -19,13 +18,15 @@ from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.utils import bcolors
 from collections import defaultdict
 import logging
-import argparse
 import yaml
 import cv2
 import os
 from pprint import pformat
 import subprocess
 import time
+import tyro
+from pydantic import BaseModel
+from typing import List, Literal, Annotated
 
 
 init_logging(logging.INFO)
@@ -68,24 +69,23 @@ def check_can_interfaces(expected_interfaces: list[str]) -> bool:
         return False
 
 
-parser = argparse.ArgumentParser(description="Setup script for data collection.")
-parser.add_argument(
-    "-ic",
-    "--ignore_cameras",
-    nargs="+",
-    default=[],
-    type=int,
-    help="Camera indices to ignore (default: []).",
-)
-parser.add_argument(
-    "-i",
-    "--can_interfaces",
-    nargs="+",
-    type=str,
-    help="List of CAN interfaces to use (default: all detected).",
-)
-args = parser.parse_args()
+class SetupConfig(BaseModel):
+    """Configuration for the setup script of data collection."""
 
+    # Ignore cameras by their indices.
+    # -1 means no camera will be ignored.
+    ignore_cameras: Annotated[List[str], tyro.conf.arg(aliases=["-ic"])] = []
+    # List of CAN interfaces to use.
+    # If not provided, all available CAN interfaces will be used.
+    can_interfaces: Annotated[List[str], tyro.conf.arg(aliases=["-can"])] = []
+    # Camera filter mode. If "none", all cameras will be used.
+    # If "even" or "odd", only cameras with even or odd indices will be used.
+    camera_filt_mode: Annotated[
+        Literal["none", "even", "odd"], tyro.conf.arg(aliases=["-fc"])
+    ] = "even"
+
+
+args = tyro.cli(SetupConfig)
 
 logger.info("Getting system information...")
 hw_uuid = SystemInfo.get_product(True)["uuid"]
@@ -156,29 +156,26 @@ if set(new_can) != set(can_itfs):
 else:
     logger.info(f"CAN {can_itfs} already bound correctly.")
 
-found_camera_indices = find_camera_indices()
+"""Process Cameras"""
 
-ignore_cameras: list = args.ignore_cameras
-if -1 in ignore_cameras:
-    ignore_cameras.remove(-1)
-# ignore realsense camera device ids
-if USE_REALSENSE:
-    realsense_cams = find_camera_device_ids()
-else:
-    realsense_cams = find_device_ids_by_keyword("RealSense")
-    logger.info(f"Found RealSense cameras: {realsense_cams}")
-for rs_ids in realsense_cams.values():
-    ignore_cameras.extend(rs_ids)
-for index in ignore_cameras:
-    if index in found_camera_indices:
-        found_camera_indices.remove(index)
-        logger.info(f"Removed camera index: {index}")
-    else:
-        logger.info(f"Device {index} not found")
+all_cam_devices = find_device_ids_by_keyword("")
+logger.info(bcolors.OKCYAN + f"Found v4l2 devices: \n{pformat(all_cam_devices)}")
+for device_key in list(all_cam_devices.keys()):
+    bus_id = device_key[1]
+    if bus_id in args.ignore_cameras:
+        all_cam_devices.pop(device_key)
+    elif "RealSense" in device_key[0]:
+        if not USE_REALSENSE:
+            logger.warning(f"Removed RealSense Camera: {device_key}")
+        all_cam_devices.pop(device_key)
+found_camera_indices = [cam_ids[0] for cam_ids in all_cam_devices.values()]
+
 # add realsene camera serial numbers
 if USE_REALSENSE:
+    realsense_cams = find_camera_device_ids()
+    # logger.info(bcolors.OKCYAN + f"Found RealSense Cameras: \n{pformat(realsense_cams)}")
     found_camera_indices.extend(realsense_cams.keys())
-logger.info(f"Found camera indices: {found_camera_indices}")
+logger.info(f"Used camera indices: {found_camera_indices}")
 
 cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []
