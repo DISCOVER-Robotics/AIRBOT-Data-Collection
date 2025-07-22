@@ -34,6 +34,13 @@ class ConfigBasis(ABC):
         assert config_type, "config must be annotated at top level class"
         if config is None:  # mainly used by yaml config, e.g. hydra
             config = config_type(**kwargs)
+            # check pydantic extra kwargs
+            if isinstance(config, BaseModel):
+                extra = kwargs.keys() - config.__class__.model_fields.keys()
+                if extra:
+                    self.get_logger().warning(
+                        f"Extra fields {extra} found in config, which will be ignored."
+                    )
         else:  # mainly used by instancing manually
             if kwargs:  # rarely used
                 if isinstance(config, BaseModel):
