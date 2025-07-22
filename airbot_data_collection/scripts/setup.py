@@ -78,11 +78,6 @@ class SetupConfig(BaseModel):
     # List of CAN interfaces to use.
     # If not provided, all available CAN interfaces will be used.
     can_interfaces: Annotated[List[str], tyro.conf.arg(aliases=["-can"])] = []
-    # Camera filter mode. If "none", all cameras will be used.
-    # If "even" or "odd", only cameras with even or odd indices will be used.
-    camera_filt_mode: Annotated[
-        Literal["none", "even", "odd"], tyro.conf.arg(aliases=["-fc"])
-    ] = "even"
 
 
 args = tyro.cli(SetupConfig)
@@ -91,8 +86,9 @@ logger.info("Getting system information...")
 hw_uuid = SystemInfo.get_product(True)["uuid"]
 logger.info(f"Hardware uuid: {hw_uuid}")
 
-cur_dir = os.path.abspath(os.path.dirname(__file__))
+"""Process Configs"""
 
+cur_dir = os.path.abspath(os.path.dirname(__file__))
 station_config_path = f"{cur_dir}/station_config.yaml"
 station_config = yaml.safe_load(open(station_config_path))
 NAME_CHOICES = station_config["choices"]
@@ -110,6 +106,8 @@ CAN_NAME_MAPPINGS = {
         "can3": "can_right",
     },
 }
+
+"""Process CAN Interfaces"""
 
 can_itfs = args.can_interfaces or sorted(get_can_interfaces())
 can_num = len(can_itfs)
