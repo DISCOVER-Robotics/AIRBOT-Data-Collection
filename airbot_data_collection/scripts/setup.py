@@ -162,20 +162,24 @@ all_cam_devices = find_device_ids_by_keyword("")
 logger.info(bcolors.OKCYAN + f"Found v4l2 devices: \n{pformat(all_cam_devices)}")
 for device_key in list(all_cam_devices.keys()):
     bus_id = device_key[1]
+    logger.info(f"Processing camera device: {device_key}")
     if bus_id in args.ignore_cameras:
+        logger.info(f"Ignored camera: {device_key}")
         all_cam_devices.pop(device_key)
     elif "RealSense" in device_key[0]:
         if not USE_REALSENSE:
-            logger.warning(f"Removed RealSense Camera: {device_key}")
+            logger.warning(f"Ignored RealSense Camera: {device_key}")
+            args.ignore_cameras.append(bus_id)
         all_cam_devices.pop(device_key)
-found_camera_indices = [cam_ids[0] for cam_ids in all_cam_devices.values()]
-
+logger.info(f"All ignored cameras: {args.ignore_cameras}")
+used_camera_indices = [cam_ids[0] for cam_ids in all_cam_devices.values()]
 # add realsene camera serial numbers
 if USE_REALSENSE:
     realsense_cams = find_camera_device_ids()
     # logger.info(bcolors.OKCYAN + f"Found RealSense Cameras: \n{pformat(realsense_cams)}")
-    found_camera_indices.extend(realsense_cams.keys())
-logger.info(f"Used camera indices: {found_camera_indices}")
+    used_camera_indices.extend(realsense_cams.keys())
+assert used_camera_indices, "No used cameras. Please check the args and connections."
+logger.info(f"Used camera indices: {used_camera_indices}")
 
 cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []
@@ -191,7 +195,7 @@ cfged_bus_serials = []
 cfged_names = []
 cfged_camera_types = []
 no_cfg_buses_indexes: list[int] = []
-for i, index in enumerate(list(found_camera_indices)):
+for i, index in enumerate(list(used_camera_indices)):
     is_realsense = index in realsense_cams
     if is_realsense:
         config = IntelRealSenseCameraConfig(camera_index=index, enable_depth=False)

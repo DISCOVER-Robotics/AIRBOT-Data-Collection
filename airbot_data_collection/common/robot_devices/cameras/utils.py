@@ -217,7 +217,7 @@ def find_device_ids_by_keyword(
                 if return_int:
                     device = int(device.replace("/dev/video", ""))
             device_key = current_name.rsplit(" ", 1)
-            device_key[1] = device_key[1].rstrip(")").strip("(")
+            device_key[1] = device_key[1].rstrip(":)").strip("(")
             devices[tuple(device_key)].append(device)
     return dict(devices)
 
