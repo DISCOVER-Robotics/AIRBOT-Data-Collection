@@ -32,12 +32,14 @@ class ConfigBasis(ABC):
     def __init__(self, config: BaseModel | None = None, **kwargs) -> None:
         config_type = self.__annotations__.get("config", None)
         assert config_type, "config must be annotated at top level class"
-        if config is None:
+        if config is None:  # mainly used by yaml config, e.g. hydra
             config = config_type(**kwargs)
-        else:
-            if kwargs:
+        else:  # mainly used by instancing manually
+            if kwargs:  # rarely used
                 if isinstance(config, BaseModel):
                     config = config.model_copy(update=kwargs)
+                    # re-validate
+                    config = config.model_validate(config.model_dump(warnings="none"))
                 else:  # dataclass
                     config = replace(config, **kwargs)
         self.config = config
