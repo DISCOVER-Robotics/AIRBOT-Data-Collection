@@ -476,10 +476,10 @@ class DemonstrateInterface:
             return False
         else:
             data = self.capture()
+            self._round_data["log_stamps"].append(time.time_ns())
             updated_data = self.sampler.update(data) or {}
             for key, value in updated_data.items():
                 self._round_data[key].append(value)
-            self._round_data["log_stamps"].append(time.time_ns())
             info.index += 1
             self._bar.update(info.index)
             return True
