@@ -27,11 +27,12 @@ import time
 import tyro
 from pydantic import BaseModel
 from typing import List, Annotated
+from importlib.metadata import version
 
 
 init_logging(logging.INFO)
 logger = logging.getLogger("data_collection_setup")
-
+logger.info(f"Version: {version('airbot-data-collection')}")
 
 try:
     from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
