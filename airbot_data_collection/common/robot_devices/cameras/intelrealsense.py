@@ -5,7 +5,6 @@ This file contains utilities for recording frames from Intel Realsense cameras.
 import math
 import time
 import traceback
-import re
 from threading import Event, Thread
 
 import numpy as np

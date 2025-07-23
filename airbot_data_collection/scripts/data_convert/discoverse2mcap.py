@@ -11,10 +11,8 @@ from mcap.writer import Writer
 import os
 import time
 import json
-import tyro
 from pydantic import BaseModel
-
-# This script converts DISCOVERSE data to MCAP format.
+from pydantic_settings import CliApp
 
 
 class Config(BaseModel):
@@ -31,7 +29,7 @@ class Config(BaseModel):
     output_dir: str = ""
 
 
-config = tyro.cli(Config)
+config = CliApp.run(Config)
 
 start = time.perf_counter()
 directory = f"{config.root}/{config.task_name}"
@@ -46,7 +44,11 @@ print(folders)
 config = AIRBOTMcapDataSamplerConfig(task_info=TaskInfo(task_name=config.task_name))
 
 for folder in folders:
-    episode = int(os.path.basename(folder))
+    fd_base = os.path.basename(folder)
+    if not fd_base.isdigit():
+        print(f"Skipping folder {folder} as it does not match the expected format.")
+        continue
+    episode = int(fd_base)
     output_file_path = f"{output_dir}/{episode + 4}.mcap"
     print(output_file_path)
     mcap_writer = Writer(output_file_path)
