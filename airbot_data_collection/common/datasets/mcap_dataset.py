@@ -421,15 +421,25 @@ if __name__ == "__main__":
 
     init_logging(logging.INFO)
 
-    root_dir = "/home/ghz/Work/OpenGHz/data-collection/airbot-data-collection/airbot_data_collection/data/arm1-001/"
+    root_dir = "/home/ghz/Work/airbot/DISCOVERSE/data/mcap/pick_jujube"
     # data_root = "0.mcap"
     data_root = root_dir
+    # keys = [
+    #     "/left/follow/arm/joint_state/position",
+    #     "/left/follow/eef/joint_state/position",
+    #     "/left/lead/arm/joint_state/position",
+    #     "/left/lead/eef/joint_state/position",
+    #     "/env_camera/env/color/image_raw",
+    # ]
     keys = [
-        "/left/follow/arm/joint_state/position",
-        "/left/follow/eef/joint_state/position",
-        "/left/lead/arm/joint_state/position",
-        "/left/lead/eef/joint_state/position",
-        "/env_camera/env/color/image_raw",
+        "/follow/arm/joint_state/position",
+        "/follow/eef/joint_state/position",
+    ] + [
+        # "/env_camera/color/image_raw",
+        # "/follow_camera/color/image_raw",
+        # discoverse camera keys
+        "cam_0/color/image_raw",
+        "cam_1/color/image_raw",
     ]
 
     # dataset = McapFlatbufferDataset(

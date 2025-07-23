@@ -76,7 +76,7 @@ for folder in folders:
             )
 
     def to_topic(group: str, component: str) -> str:
-        return f"{group}/{component}/joint_state/position"
+        return f"/{group}/{component}/joint_state/position"
 
     # load json dict
     groups = ["lead", "follow"]
