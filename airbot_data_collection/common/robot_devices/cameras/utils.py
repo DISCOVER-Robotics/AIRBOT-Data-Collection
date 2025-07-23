@@ -1,12 +1,9 @@
 import platform
-from enum import Enum
-from pathlib import Path
-from typing import Protocol, runtime_checkable, List
-
 import numpy as np
+
+from enum import Enum
+from typing import Protocol, runtime_checkable, List, Dict, Tuple, Optional
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
-import subprocess
-import re
 from collections import defaultdict
 
 
@@ -78,13 +75,42 @@ class CameraControl(BaseModel):
     exposure_dynamic_framerate: bool
 
 
+def find_video_capture_devices(
+    card_key: bool = False, cards: Optional[List[str]] = None
+) -> Dict[Tuple[str, str], List[str]]:
+    """
+    Finds all video capture devices on the system and returns a dictionary
+    with device information.
+    """
+    from linuxpy.video.device import iter_video_capture_devices
+
+    cards = cards or []
+    if isinstance(cards, str):
+        cards = [cards]
+    slices = slice(None, 2) if card_key else 1
+    devices = defaultdict(list)
+    for dev in iter_video_capture_devices():
+        with dev:
+            key = (dev.info.card, dev.info.bus_info)
+            use = True
+            if cards:
+                for card in cards:
+                    if card in key[0]:
+                        break
+                else:
+                    use = False
+            if use:
+                devices[key[slices]].append(str(dev.filename))
+    return dict(devices)
+
+
 def find_camera_indices(
     raise_when_empty: bool = False,
     max_index_search_range: int = 10,
     filt_mode: str = "none",
     sorting: bool = True,
 ) -> list[int]:
-    """Finds the available camera indices on the system.
+    """Finds the available camera (video capture devices) indices on the system.
     # The maximum opencv device index depends on your operating system. For instance,
     # if you have 3 cameras, they should be associated to index 0, 1, and 2. This is the case
     # on MacOS. However, on Ubuntu, the indices are different like 6, 16, 23.
@@ -92,14 +118,10 @@ def find_camera_indices(
     # treat the same cameras as new devices. Thus we select a higher bound to search indices.
     """
     if platform.system() == "Linux":
-        # Linux uses camera ports
-        print(
-            "Linux detected. Finding available camera indices through scanning '/dev/video*' ports"
-        )
-        possible_camera_ids = []
-        for port in Path("/dev").glob("video*"):
-            camera_idx = int(str(port).replace("/dev/video", ""))
-            possible_camera_ids.append(camera_idx)
+        possible_camera_ids = [
+            int(device[0].removeprefix("/dev/video"))
+            for device in find_video_capture_devices().values()
+        ]
     else:
         print(
             "Mac or Windows detected. Finding available camera indices through "
@@ -111,7 +133,9 @@ def find_camera_indices(
 
     if filt_mode in {"even", "odd"}:
         remainder = 4 - len(filt_mode)
-        camera_ids = [camera_id for camera_id in camera_ids if camera_id % 2 == remainder]
+        camera_ids = [
+            camera_id for camera_id in camera_ids if camera_id % 2 == remainder
+        ]
     if sorting:
         camera_ids = sorted(camera_ids)
 
@@ -125,106 +149,34 @@ def find_camera_indices(
 
 
 def get_video_device_bus_info():
+    """Returns a dictionary mapping video device paths to their bus info."""
+    from linuxpy.video.device import iter_video_capture_devices
+
     device_bus_info = {}
-    list_output = subprocess.check_output(["v4l2-ctl", "--list-devices"], text=True)
-    device_pattern = re.compile(r"^\t(/dev/video\d+)$", re.MULTILINE)
-    devices = device_pattern.findall(list_output)
-    for device in devices:
-        try:
-            device_output = subprocess.check_output(
-                ["v4l2-ctl", "--device", device, "--all"], text=True
-            )
-            bus_match = re.search(r"Bus info\s+:\s+(\S+)", device_output)
-            if bus_match:
-                device_bus_info[device] = bus_match.group(1)
-        except subprocess.CalledProcessError:
-            continue
+    for dev in iter_video_capture_devices():
+        with dev:
+            device_bus_info[str(dev.filename)] = dev.info.bus_info
     return device_bus_info
 
 
-def get_camera_index_by_bus_info(
-    bus_info: str, only_even: bool = True, sorting: bool = True
-) -> List[str]:
+def get_camera_index_by_bus_info(bus_info: str, sorting: bool = True) -> List[str]:
     """
     Get the camera index by its bus info.
-    :param bus_info: The bus info of the camera.
-    :return: The camera index or None if not found.
+    Args:
+        bus_info: The bus info of the camera.
+        sorting: Whether to sort the camera indices.
+    Return: The camera indices that match the bus info.
     """
-    device_bus_info = get_video_device_bus_info()
-    devices = []
-    for dev, bus in device_bus_info.items():
-        if bus == bus_info:
-            devices.append(dev)
-    if only_even:
-        devices = [
-            device
-            for device in devices
-            if int(device.replace("/dev/video", "")) % 2 == 0
-        ]
+    devices = find_video_capture_devices(False).get(bus_info, [])
     if sorting:
         devices = sorted(devices)
     return devices
 
 
-def get_v4l2_devices() -> dict[str, list[str]]:
-    result = subprocess.run(
-        ["v4l2-ctl", "--list-devices"], stdout=subprocess.PIPE, text=True
-    )
-    output = result.stdout
-
-    devices = {}
-    lines = output.splitlines()
-    current_name = None
-
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        if "(" in line and ":" in line:
-            current_name = line
-            usb_match = re.search(r"usb-[^)]+", current_name)
-            if usb_match:
-                usb_id = usb_match.group(0).split("-")[-1]
-                devices[usb_id] = []
-        elif line.startswith("/dev/"):
-            devices[usb_id].append(line)
-    return devices
-
-
-def find_device_ids_by_keyword(
-    keyword: str, only_video: bool = True, return_int: bool = True
-) -> dict[str, list[str]]:
-    result = subprocess.run(
-        ["v4l2-ctl", "--list-devices"], capture_output=True, text=True
-    )
-    output = result.stdout
-
-    devices = defaultdict(list)
-    lines = output.splitlines()
-    current_name = None
-
-    for line in lines:
-        if line.strip() == "":
-            current_name = None
-            continue
-        if not line.startswith("\t"):
-            current_name = line.strip()
-        elif current_name and keyword.lower() in current_name.lower():
-            device = line.strip()
-            if only_video:
-                if not device.startswith("/dev/video"):
-                    continue
-                if return_int:
-                    device = int(device.replace("/dev/video", ""))
-            device_key = current_name.rsplit(" ", 1)
-            device_key[1] = device_key[1].rstrip(":)").strip("(")
-            devices[tuple(device_key)].append(device)
-    return dict(devices)
-
-
 if __name__ == "__main__":
-    print("RealSense cameras:", find_device_ids_by_keyword("RealSense"))
-    print("LRCP cameras:", find_device_ids_by_keyword("LRCP"))
-    print("Webcam cameras:", find_device_ids_by_keyword("Webcam"))
-    print("cam:", find_device_ids_by_keyword("cam"))
-    print("All cameras:", find_device_ids_by_keyword(""))
+    print("RealSense cameras:", find_video_capture_devices(False, "RealSense"))
+    # print("LRCP cameras:", find_video_capture_devices(False, "LRCP"))
+    # print("Webcam cameras:", find_video_capture_devices(False, "Webcam"))
+    # print("cam:", find_video_capture_devices(False, "cam"))
+    # print("All cameras:", find_video_capture_devices(False, ""))
+    # print(get_video_device_bus_info())

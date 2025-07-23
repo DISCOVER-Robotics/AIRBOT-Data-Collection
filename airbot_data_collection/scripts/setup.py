@@ -7,7 +7,7 @@ from airbot_data_collection.common.visualizers.opencv import (
     OpenCVisualizerConfig,
 )
 from airbot_data_collection.common.robot_devices.cameras.utils import (
-    find_device_ids_by_keyword,
+    find_video_capture_devices,
 )
 from airbot_data_collection.utils import (
     init_logging,
@@ -26,7 +26,7 @@ import subprocess
 import time
 import tyro
 from pydantic import BaseModel
-from typing import List, Literal, Annotated
+from typing import List, Annotated
 
 
 init_logging(logging.INFO)
@@ -72,8 +72,7 @@ def check_can_interfaces(expected_interfaces: list[str]) -> bool:
 class SetupConfig(BaseModel):
     """Configuration for the setup script of data collection."""
 
-    # Ignore cameras by their indices.
-    # -1 means no camera will be ignored.
+    # Ignore cameras by their bus_info or serial_number.
     ignore_cameras: Annotated[List[str], tyro.conf.arg(aliases=["-ic"])] = []
     # List of CAN interfaces to use.
     # If not provided, all available CAN interfaces will be used.
@@ -156,28 +155,33 @@ else:
 
 """Process Cameras"""
 
-all_cam_devices = find_device_ids_by_keyword("")
+all_cam_devices = find_video_capture_devices(True)
+realsense_buses = []
 logger.info(bcolors.OKCYAN + f"Found v4l2 devices: \n{pformat(all_cam_devices)}")
 for device_key in list(all_cam_devices.keys()):
     bus_id = device_key[1]
-    logger.info(f"Processing camera device: {device_key}")
     if bus_id in args.ignore_cameras:
-        logger.info(f"Ignored camera: {device_key}")
         all_cam_devices.pop(device_key)
     elif "RealSense" in device_key[0]:
-        if not USE_REALSENSE:
-            logger.warning(f"Ignored RealSense Camera: {device_key}")
-            args.ignore_cameras.append(bus_id)
+        # remove realsense cameras from the v4l2 devices
+        # since we will use their serial numbers
         all_cam_devices.pop(device_key)
-logger.info(f"All ignored cameras: {args.ignore_cameras}")
+        realsense_buses.append(bus_id)
 used_camera_indices = [cam_ids[0] for cam_ids in all_cam_devices.values()]
 # add realsene camera serial numbers
 if USE_REALSENSE:
-    realsense_cams = find_camera_device_ids()
-    # logger.info(bcolors.OKCYAN + f"Found RealSense Cameras: \n{pformat(realsense_cams)}")
-    used_camera_indices.extend(realsense_cams.keys())
+    realsense_cams = find_camera_device_ids(True)
+    realsense_serials = set()
+    for ic in args.ignore_cameras:
+        for bus, serial in realsense_cams.items():
+            if ic != bus and ic != serial:
+                realsense_serials.add(serial)
+    used_camera_indices.extend(realsense_serials)
+else:
+    args.ignore_cameras.extend(realsense_buses)
 assert used_camera_indices, "No used cameras. Please check the args and connections."
-logger.info(f"Used camera indices: {used_camera_indices}")
+logger.info(bcolors.OKBLUE + f"All ignored cameras: {args.ignore_cameras}")
+logger.info(bcolors.OKBLUE + f"Used camera indices: {used_camera_indices}")
 
 cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []

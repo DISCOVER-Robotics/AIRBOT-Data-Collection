@@ -12,7 +12,7 @@ import numpy as np
 
 from airbot_data_collection.common.robot_devices.cameras.utils import (
     CameraRGBDConfig,
-    get_v4l2_devices,
+    find_video_capture_devices,
 )
 from airbot_data_collection.common.robot_devices.utils import (
     RobotDeviceAlreadyConnectedError,
@@ -29,17 +29,12 @@ from pyrealsense2 import context as RSContext  # noqa: N812
 
 
 def find_camera_indices(
-    raise_when_empty=True, mock=False, serial_number_index: int = 1
+    raise_when_empty=True, serial_number_index: int = 1
 ) -> list[int]:
     """
     Find the serial numbers of the Intel RealSense cameras
     connected to the computer.
     """
-    # if mock:
-    #     from airbot_data_collection.common.robot_devices.cameras.mock_pyrealsense2 import (
-    #         RSCameraInfo,
-    #         RSContext,
-    #     )
     camera_ids = []
     for device in RSContext().query_devices():
         serial_number = int(device.get_info(RSCameraInfo(serial_number_index)))
@@ -53,30 +48,24 @@ def find_camera_indices(
     return camera_ids
 
 
-def find_camera_device_ids(
-    only_video: bool = True, return_int: bool = True
-) -> dict[str, list[str | int]]:
+def find_camera_device_ids(bus_to_serial: bool = False) -> dict[str, list[str | int]]:
+    """Find the video capture devices corresponding to Intel RealSense cameras."""
     ctx = RSContext()
-    devices = get_v4l2_devices()
+    devices = find_video_capture_devices()
 
-    serial_to_video = {}
+    mappings = {}
 
     for dev in ctx.devices:
         serial = dev.get_info(RSCameraInfo.serial_number)
-        physical_port = dev.get_info(RSCameraInfo.physical_port)
-        match = re.search(r"usb\d+/(\d-\d+)", physical_port)
-        if match:
-            usb_port = match.group(1).split("-")[-1]
-            if usb_port in devices:
-                port_devs = devices[usb_port]
-                if only_video:
-                    for d in port_devs.copy():
-                        port_devs.remove(d)
-                        if d.startswith("/dev/video") and return_int:
-                            port_devs.append(int(d.replace("/dev/video", "")))
-                serial_to_video[serial] = port_devs
-
-    return serial_to_video
+        physical_port: str = dev.get_info(RSCameraInfo.physical_port)
+        device_path = physical_port.rsplit("/", 1)[-1]  # Get the last part of the path
+        for bus_info, video_devices in devices.items():
+            if f"/dev/{device_path}" in video_devices:
+                if bus_to_serial:
+                    mappings[bus_info] = serial
+                else:
+                    mappings[serial] = video_devices
+    return mappings
 
 
 class IntelRealSenseCameraConfig(CameraRGBDConfig):
@@ -385,3 +374,4 @@ class IntelRealSenseCamera:
 
 if __name__ == "__main__":
     print(find_camera_indices())
+    print(find_camera_device_ids())
