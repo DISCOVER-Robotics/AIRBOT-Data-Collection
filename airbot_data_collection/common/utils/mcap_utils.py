@@ -13,6 +13,7 @@ from enum import Enum
 import os
 import numpy as np
 from functools import cache
+import json
 
 
 class FlatbufferSchemas(Enum):
@@ -189,19 +190,21 @@ class McapFlatbufferReader:
         for attachment in self.reader.iter_attachments():
             name = attachment.name
             if name in names:
-                assert attachment.media_type in {
-                    "video/mp4"
-                }, f"Unsupported attachment {name} with media type: {attachment.media_type}"
+                media_type = attachment.media_type
                 attch_names.append(name)
-                coder = AvCoder()
-                iters.append(
-                    coder.iter_decode(
+                if media_type == "video/mp4":
+                    coder = AvCoder()
+                    attach_iter = coder.iter_decode(
                         attachment.data,
                         mismatch_tolerance=5,
                         ensure_base_stamp=True,
                         with_stamp=False,
                     )
-                )
+                elif media_type == "application/json":
+                    attach_iter = iter(json.loads(attachment.data))
+                else:
+                    raise ValueError(f"Unsupported media type: {media_type}")
+                iters.append(attach_iter)
                 if len(attch_names) == len(names):
                     break
         else:

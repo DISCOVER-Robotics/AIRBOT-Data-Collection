@@ -390,6 +390,9 @@ class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
             total_count += len(reader)
         return total_count
 
+    def __iter__(self) -> Iterator[Iterator[Dict[str, np.ndarray]]]:
+        return super().__iter__()
+
     def __getitem__(self, index: int) -> Dict[str, np.ndarray]:
         """
         Get a specific sample by index.
@@ -440,6 +443,7 @@ if __name__ == "__main__":
         # discoverse camera keys
         "cam_0/color/image_raw",
         "cam_1/color/image_raw",
+        "log_stamps",
     ]
 
     # dataset = McapFlatbufferDataset(
@@ -468,12 +472,12 @@ if __name__ == "__main__":
     dataset.load()
     print(dataset.all_files)
     print(f"Dataset length: {len(dataset)}")
-    pprint(dataset[0])
+    # pprint(dataset[0])
     for v1, v2 in zip(dataset[0].values(), dataset[0].values()):
         assert np.array_equal(v1, v2), "Samples are not equal"
     for v1, v2 in zip(dataset[0].values(), dataset[1].values()):
         if not np.array_equal(v1, v2):
-            print("Samples are not equal")
+            print("OK: Samples are not equal")
             break
     else:
         raise ValueError("Samples are all equal")
@@ -495,6 +499,8 @@ if __name__ == "__main__":
             i += 1
             if i == batch_size + 1:
                 break
+        else:
+            print(f"Processed {i} samples in episode {dataset.current_file}")
         times.pop(0)  # Remove the first sample time
 
         avg_time = sum(times) / len(times) if times else 0
