@@ -49,8 +49,8 @@ for folder in folders:
         print(f"Skipping folder {folder} as it does not match the expected format.")
         continue
     episode = int(fd_base)
-    output_file_path = f"{output_dir}/{episode + 4}.mcap"
-    print(output_file_path)
+    output_file_path = f"{output_dir}/{episode}.mcap"
+    print(f"{output_file_path=}")
     mcap_writer = Writer(output_file_path)
     mcap_writer.start()
     flb_writer = McapFlatbufferWriter()
@@ -63,7 +63,7 @@ for folder in folders:
     mp4_files = [
         f.path for f in os.scandir(folder) if f.is_file() and f.name.endswith(".mp4")
     ]
-    print(mp4_files)
+    print(f"{mp4_files=}")
     # add video attachments
     for mp4_file in mp4_files:
         with open(mp4_file, "rb") as f:
@@ -84,7 +84,7 @@ for folder in folders:
     slices = [slice(0, 6), slice(6, 7)]
     with open(f"{folder}/obs_action.json") as f:
         act_obs: dict = json.load(f)
-        print(act_obs.keys())
+        print(f"{act_obs.keys()=}")
         # register joint state channels
         for group in groups:
             for comp in components:
