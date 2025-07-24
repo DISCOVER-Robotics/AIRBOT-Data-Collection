@@ -68,7 +68,7 @@ for folder in folders:
     # add video attachments
     for mp4_file in mp4_files:
         with open(mp4_file, "rb") as f:
-            name = f"{os.path.basename(mp4_file).removesuffix('.mp4')}/color/image_raw"
+            name = f"/{os.path.basename(mp4_file).removesuffix('.mp4')}/color/image_raw"
             print(f"Adding video attachment: {name}")
             AIRBOTMcapDataSampler.add_video_attachment(
                 mcap_writer,
@@ -102,7 +102,6 @@ for folder in folders:
         ):
             stamp_ns = int(stamp * 1e9)
             for group, value in zip(groups, [act, obs]):
-                # print(value)
                 for component, slc in zip(components, slices):
                     flb_writer.add_field_array(
                         {"position": to_topic(group, component)},
@@ -111,10 +110,10 @@ for folder in folders:
                         log_time=stamp_ns,
                     )
             stamps_ns.append(stamp_ns)
-            AIRBOTMcapDataSampler.add_log_stamps_attachment(
-                mcap_writer,
-                stamps_ns,
-            )
+        AIRBOTMcapDataSampler.add_log_stamps_attachment(
+            mcap_writer,
+            stamps_ns,
+        )
     mcap_writer.finish()
 
 
