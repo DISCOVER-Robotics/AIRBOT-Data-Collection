@@ -62,7 +62,6 @@ class DemonstrateGroup(BaseModel):
 
 
 class ComponentsInstancer:
-
     def __init__(self, search_dirs: set[str]):
         self.search_dirs = search_dirs
 
@@ -139,9 +138,9 @@ class DemonstrateInterface:
         auto_control = self.config.auto_control
         self._use_auto_control = bool(auto_control.groups)
         if self._use_auto_control:
-            assert (
-                auto_control.mode is not AsyncMode.none
-            ), "Auto control mode must be set"
+            assert auto_control.mode is not AsyncMode.none, (
+                "Auto control mode must be set"
+            )
             if auto_control.mode is AsyncMode.thread:
                 event_cls = Event
                 self._auto_control_tp_cls = Thread

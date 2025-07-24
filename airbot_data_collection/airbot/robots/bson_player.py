@@ -64,14 +64,16 @@ class BsonPlayer(System):
                 if self.config.end_index is None:
                     self.config.end_index = self.total_samples
                 else:
-                    self.config.end_index = min(self.config.end_index, self.total_samples)
+                    self.config.end_index = min(
+                        self.config.end_index, self.total_samples
+                    )
 
                 self.current_index = self.config.start_index
                 self.get_logger().info(
                     f"加载 BSON 文件成功: {bson_path}, "
                     f"话题数: {len(self.data)}, "
                     f"样本数: {self.total_samples}, "
-                    f"播放范围: {self.config.start_index} - {self.config.end_index-1}"
+                    f"播放范围: {self.config.start_index} - {self.config.end_index - 1}"
                 )
                 return True
             else:
@@ -140,7 +142,9 @@ class BsonPlayer(System):
                 next_timestamp = sample_data[self.current_index + 1]["t"]
                 time_diff = (next_timestamp - current_timestamp) / 1000.0  # 转换为秒
 
-                expected_time = self.last_playback_time + time_diff / self.config.playback_rate
+                expected_time = (
+                    self.last_playback_time + time_diff / self.config.playback_rate
+                )
 
                 if current_time >= expected_time:
                     self.current_index += 1

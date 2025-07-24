@@ -128,9 +128,9 @@ class Ros2Backend:
         return self._joint_states
 
     def set_joint_state(self, comp: Component, target: List[float]):
-        assert (
-            len(target) == 7
-        ), f"Target state must have 7 elements, but got {len(target)}."
+        assert len(target) == 7, (
+            f"Target state must have 7 elements, but got {len(target)}."
+        )
         self._last_target_joint[comp] = target
 
     def get_pose(self, comp: Optional[Component] = None) -> tuple:
@@ -231,7 +231,6 @@ if __name__ == "__main__":
 
     cnt = 100
     for i in range(cnt):
-
         # get current joint state
         joint_position = backend.get_joint_state()["position"]
         # for comp in backend._arms:

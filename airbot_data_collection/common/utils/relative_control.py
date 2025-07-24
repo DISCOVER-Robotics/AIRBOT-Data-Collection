@@ -97,7 +97,6 @@ class RelativePoseControl:
 
 
 if __name__ == "__main__":
-
     control = RelativePoseControl()
 
     control.update(

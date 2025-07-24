@@ -32,9 +32,9 @@ class AIRBOTArm:
     def __init__(
         self, url: str, port: int, motor_types: List[str], frequency: int = 1000
     ):
-        assert (
-            len(motor_types) == 7
-        ), "There should be 7 motors for the AIRBOT arm with eef."
+        assert len(motor_types) == 7, (
+            "There should be 7 motors for the AIRBOT arm with eef."
+        )
         self._motors = []
         self._executors = []
         self.get_logger().info(
@@ -46,9 +46,9 @@ class AIRBOTArm:
             motor = airbot_hardware_py.Motor.create(
                 getattr(airbot_hardware_py.MotorType, motor_type), index + 1
             )
-            assert (
-                motor is not None
-            ), f"Motor type {motor_type} is not supported in index {index}."
+            assert motor is not None, (
+                f"Motor type {motor_type} is not supported in index {index}."
+            )
             motor.init(executor.get_io_context(), f"{url}{port}", frequency)
             self._motors.append(motor)
             self._executors.append(executor)
@@ -211,7 +211,6 @@ class AIRBOTArm:
 
 
 if __name__ == "__main__":
-
     from airbot_data_collection.utils import init_logging
     import logging
 

@@ -6,7 +6,10 @@
 import time
 from pathlib import Path
 
-from airbot_data_collection.airbot.robots.bson_player import BsonPlayer, BsonPlayerConfig
+from airbot_data_collection.airbot.robots.bson_player import (
+    BsonPlayer,
+    BsonPlayerConfig,
+)
 from airbot_data_collection.basis import SystemMode
 
 
@@ -17,7 +20,7 @@ def test_bson_player():
         playback_rate=1.0,
         loop=False,
         start_index=0,
-        end_index=10  # 只播放前10帧进行测试
+        end_index=10,  # 只播放前10帧进行测试
     )
 
     # 创建播放器

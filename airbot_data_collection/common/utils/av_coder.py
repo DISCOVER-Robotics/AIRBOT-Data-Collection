@@ -289,9 +289,9 @@ class AvCoder:
                         frames[index] = frame_arr
         # do not close since it will block the code
         # container.close()
-        assert (
-            len(frames) == exp_cnt
-        ), f"Frame count mismatch: {len(frames)} != {exp_cnt}; indices: {indices} frame_cnt: {frame_cnt}"
+        assert len(frames) == exp_cnt, (
+            f"Frame count mismatch: {len(frames)} != {exp_cnt}; indices: {indices} frame_cnt: {frame_cnt}"
+        )
         return frames
 
     @classmethod
@@ -394,7 +394,6 @@ class AvCoder:
 
 
 if __name__ == "__main__":
-
     av_coder = AvCoder(async_encode=False)
 
     video_path = "/home/ghz/视频/示教器问题.mp4"

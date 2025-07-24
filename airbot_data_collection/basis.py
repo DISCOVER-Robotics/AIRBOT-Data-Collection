@@ -87,7 +87,6 @@ class ConfigBasis(ABC):
 
 
 class Sensor(ConfigBasis):
-
     @abstractmethod
     def capture_observation(self) -> Dict[str, Any]:
         """Capture observation from the sensor"""
@@ -110,7 +109,6 @@ class Sensor(ConfigBasis):
 
 
 class System(Sensor):
-
     @abstractmethod
     def send_action(self, action: Any) -> Any: ...
 

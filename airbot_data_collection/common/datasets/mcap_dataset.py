@@ -319,9 +319,9 @@ class McapFlatbufferEpisodeDatasetConfig(McapDatasetConfig):
         if isinstance(v, str):
             v = [v]
         for dir in v:
-            assert os.path.isdir(
-                dir
-            ), "data_root must be a directory containing MCAP files"
+            assert os.path.isdir(dir), (
+                "data_root must be a directory containing MCAP files"
+            )
         return v
 
     def model_post_init(self, context):

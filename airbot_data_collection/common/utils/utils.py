@@ -199,7 +199,6 @@ def multi_slices_to_indexes(slices: SlicesType) -> List[int]:
 
 
 if __name__ == "__main__":
-
     assert multi_slices_to_indexes(()) == []
     assert multi_slices_to_indexes(10) == list(range(10))
     assert multi_slices_to_indexes((5, 10)) == list(range(5, 10))

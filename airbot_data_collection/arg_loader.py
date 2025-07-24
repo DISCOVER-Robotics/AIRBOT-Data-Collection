@@ -4,8 +4,11 @@ from typing import Optional, Tuple, Type, TypeVar, cast
 from argdantic.sources.base import FileBaseSettingsSource
 from argdantic.sources.dynamic import DynamicFileSource
 from pydantic import BaseModel
-from pydantic_settings import (BaseSettings, InitSettingsSource,
-                               PydanticBaseSettingsSource)
+from pydantic_settings import (
+    BaseSettings,
+    InitSettingsSource,
+    PydanticBaseSettingsSource,
+)
 
 T = TypeVar("T", bound=BaseModel)
 

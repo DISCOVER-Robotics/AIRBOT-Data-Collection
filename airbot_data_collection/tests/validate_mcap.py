@@ -15,27 +15,33 @@ def validate_mcap(mcap_file: str):
 
         # 获取摘要信息
         summary = reader.get_summary()
-        print(f"消息总数: {summary.message_count if hasattr(summary, 'message_count') else 'N/A'}")
-        print(f"通道数: {len(summary.channels) if hasattr(summary, 'channels') else 'N/A'}")
-        print(f"Schema数: {len(summary.schemas) if hasattr(summary, 'schemas') else 'N/A'}")
+        print(
+            f"消息总数: {summary.message_count if hasattr(summary, 'message_count') else 'N/A'}"
+        )
+        print(
+            f"通道数: {len(summary.channels) if hasattr(summary, 'channels') else 'N/A'}"
+        )
+        print(
+            f"Schema数: {len(summary.schemas) if hasattr(summary, 'schemas') else 'N/A'}"
+        )
 
         # 显示schemas
         print("\nSchemas:")
-        if hasattr(summary, 'schemas'):
+        if hasattr(summary, "schemas"):
             for schema_id, schema in summary.schemas.items():
                 print(f"  Schema ID {schema_id}: {schema.name}")
                 try:
                     schema_data = json.loads(schema.data)
                     print(f"    类型: {schema_data.get('type', 'unknown')}")
-                    if 'properties' in schema_data:
-                        props = list(schema_data['properties'].keys())
+                    if "properties" in schema_data:
+                        props = list(schema_data["properties"].keys())
                         print(f"    属性: {props}")
                 except json.JSONDecodeError:
                     print(f"    数据: {schema.data[:100]}...")
 
         # 显示channels
         print("\nChannels:")
-        if hasattr(summary, 'channels'):
+        if hasattr(summary, "channels"):
             for channel_id, channel in summary.channels.items():
                 print(f"  Channel ID {channel_id}: {channel.topic}")
                 print(f"    Schema ID: {channel.schema_id}")
@@ -59,9 +65,9 @@ def validate_mcap(mcap_file: str):
                     print(f"    数据类型: {type(msg_data)}")
                     if isinstance(msg_data, dict):
                         print(f"    数据键: {list(msg_data.keys())}")
-                        if 't' in msg_data:
+                        if "t" in msg_data:
                             print(f"    时间戳 (数据): {msg_data['t']}")
-                        if 'data' in msg_data and isinstance(msg_data['data'], dict):
+                        if "data" in msg_data and isinstance(msg_data["data"], dict):
                             print(f"    数据字段: {list(msg_data['data'].keys())}")
                 else:
                     print(f"    数据长度: {len(message.data)} bytes")

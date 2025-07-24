@@ -38,9 +38,9 @@ def decode_image(
     if pixel_format == "MJPEG":
         return cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     elif pixel_format == "YUYV":
-        assert (
-            width > 0 and height > 0
-        ), "Width and height must be provided for YUYV format"
+        assert width > 0 and height > 0, (
+            "Width and height must be provided for YUYV format"
+        )
         return cv2.cvtColor(
             np.frombuffer(data, np.uint8).reshape((height, width, 2)),
             cv2.COLOR_YUV2BGR_YUYV,

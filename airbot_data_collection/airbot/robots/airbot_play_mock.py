@@ -6,7 +6,6 @@ from numpy import random
 
 
 class AIRBOTArmMock:
-
     def __init__(self, config=None, **kwargs):
         self.value = [0.0] * 6
 

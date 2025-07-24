@@ -209,9 +209,9 @@ class McapFlatbufferReader:
                 if len(attch_names) == len(names):
                     break
         else:
-            assert (
-                not names
-            ), f"Not all requested attachments found: {names} vs {attch_names}"
+            assert not names, (
+                f"Not all requested attachments found: {names} vs {attch_names}"
+            )
 
         for values in zip(*iters):
             data = {}
@@ -315,8 +315,7 @@ class McapFlatbufferReader:
         if length == 0:
             if counts:
                 raise ValueError(
-                    "Not all topics have the same number of messages. "
-                    f"Counts: {counts}"
+                    f"Not all topics have the same number of messages. Counts: {counts}"
                 )
             else:
                 raise ValueError("No messages found in the MCAP file.")

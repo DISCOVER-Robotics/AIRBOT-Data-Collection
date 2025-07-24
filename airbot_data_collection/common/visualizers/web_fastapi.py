@@ -7,7 +7,10 @@ import fastapi.responses
 from uvicorn import Config, Server
 
 from airbot_data_collection.common.visualizers.basis import (
-    SampleInfo, VisualizerBasis, WebVisualizerConfig)
+    SampleInfo,
+    VisualizerBasis,
+    WebVisualizerConfig,
+)
 from airbot_data_collection.utils import run_event_loop
 
 
@@ -123,9 +126,9 @@ class FastAPIVisualizer(VisualizerBasis):
             key = key.replace("/", ".").removeprefix(".")
             # may be should use a check_data method and
             # use a warmup stage to check
-            assert isinstance(
-                img_bytes, bytes
-            ), f"frame must be bytes, but got {type(img_bytes)}"
+            assert isinstance(img_bytes, bytes), (
+                f"frame must be bytes, but got {type(img_bytes)}"
+            )
             self.frames[key] = img_bytes
             self.events[key].set()
         return True
@@ -147,7 +150,6 @@ class FastAPIVisualizer(VisualizerBasis):
 
 
 if __name__ == "__main__":
-
     import io
     import time
 

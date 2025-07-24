@@ -269,7 +269,6 @@ def main(controller: VRQuestController):
 
 
 if __name__ == "__main__":
-
     main(
         VRQuestController(
             TeleopConfig(

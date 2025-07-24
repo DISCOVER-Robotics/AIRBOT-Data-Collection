@@ -114,7 +114,6 @@ class StrEnum(str, ReprEnum):
 
 
 class CustomFormatter(logging.Formatter):
-
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
@@ -149,9 +148,9 @@ def init_logging(level):
 
 
 def run_event_loop() -> asyncio.AbstractEventLoop:
-    assert (
-        threading.current_thread() == threading.main_thread()
-    ), "Event loop must be run in the main thread"
+    assert threading.current_thread() == threading.main_thread(), (
+        "Event loop must be run in the main thread"
+    )
     event_loop = asyncio.get_event_loop()
     if not event_loop.is_running():
         event_loop = asyncio.new_event_loop()
@@ -271,7 +270,6 @@ class ProgressBar:
 
 
 class ImageCoder:
-
     @staticmethod
     def rgb2yuv(rgb: np.ndarray) -> np.ndarray:
         # The coefficients were taken from OpenCV https://github.com/opencv/opencv
@@ -451,9 +449,7 @@ def linear_map(
 
 def sort_index(order: list, name_list: list, value_list: list) -> tuple:
     order_dict = {val: idx for idx, val in enumerate(order)}
-    sorted_pairs = sorted(
-        zip(value_list, name_list), key=lambda x: order_dict[x[1]]
-    )
+    sorted_pairs = sorted(zip(value_list, name_list), key=lambda x: order_dict[x[1]])
     sorted_value_list, _ = zip(*sorted_pairs)
     return sorted_value_list
 
@@ -465,7 +461,6 @@ else:
 
 
 if __name__ == "__main__":
-
     # bar = ProgressBar(100, "Round 0")
     # for rd in range(10):
     #     for i in range(5):

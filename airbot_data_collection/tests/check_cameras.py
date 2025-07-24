@@ -24,8 +24,8 @@ def get_supported_formats(dev):
         cmd = ["v4l2-ctl", "--device", dev, "--list-formats-ext"]
         output = subprocess.check_output(cmd, text=True)
         return output
-    except:
-        return "Unable to retrieve formats"
+    except Exception as e:
+        return f"Unable to retrieve formats: {e}"
 
 
 def get_usb_path(dev):
@@ -36,8 +36,8 @@ def get_usb_path(dev):
         while not os.path.basename(usb_path).startswith("usb"):
             usb_path = os.path.dirname(usb_path)
         return usb_path
-    except:
-        return "Unknown"
+    except Exception as e:
+        return f"Unknown: {e}"
 
 
 def check_conflicts(device_paths):

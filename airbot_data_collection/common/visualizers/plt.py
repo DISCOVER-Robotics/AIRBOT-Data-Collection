@@ -6,9 +6,11 @@ from matplotlib.axes import Axes
 from matplotlib.image import AxesImage
 
 from airbot_data_collection.common.visualizers.basis import (
-    GUIVisualizerConfig, SampleInfo, VisualizerBasis)
-from airbot_data_collection.utils import (get_dpi, optimal_grid,
-                                          resolution_to_inches)
+    GUIVisualizerConfig,
+    SampleInfo,
+    VisualizerBasis,
+)
+from airbot_data_collection.utils import get_dpi, optimal_grid, resolution_to_inches
 
 
 class PltVisualizer(VisualizerBasis):
