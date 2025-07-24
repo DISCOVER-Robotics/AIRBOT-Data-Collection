@@ -171,9 +171,9 @@ for device_key in list(all_cam_devices.keys()):
         realsense_buses.append(bus_id)
 used_camera_indices = [cam_ids[0] for cam_ids in all_cam_devices.values()]
 # add realsene camera serial numbers
+realsense_serials = set()
 if USE_REALSENSE:
     realsense_cams = find_camera_device_ids(True)
-    realsense_serials = set()
     for ic in args.ignore_cameras:
         for bus, serial in realsense_cams.items():
             if ic != bus and ic != serial:
@@ -200,7 +200,7 @@ cfged_names = []
 cfged_camera_types = []
 no_cfg_buses_indexes: list[int] = []
 for i, index in enumerate(list(used_camera_indices)):
-    is_realsense = index in realsense_cams
+    is_realsense = index in realsense_serials
     if is_realsense:
         config = IntelRealSenseCameraConfig(camera_index=index, enable_depth=False)
         camera = IntelRealSenseCamera(config)
