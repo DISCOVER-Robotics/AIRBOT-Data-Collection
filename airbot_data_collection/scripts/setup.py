@@ -174,10 +174,9 @@ used_camera_indices = [cam_ids[0] for cam_ids in all_cam_devices.values()]
 realsense_serials = set()
 if USE_REALSENSE:
     realsense_cams = find_camera_device_ids(True)
-    for ic in args.ignore_cameras:
-        for bus, serial in realsense_cams.items():
-            if ic != bus and ic != serial:
-                realsense_serials.add(serial)
+    for bus, serial in realsense_cams.items():
+        if bus not in args.ignore_cameras and serial not in realsense_serials:
+            realsense_serials.add(serial)
     used_camera_indices.extend(realsense_serials)
 else:
     args.ignore_cameras.extend(realsense_buses)
@@ -201,13 +200,20 @@ cfged_camera_types = []
 no_cfg_buses_indexes: list[int] = []
 for i, index in enumerate(list(used_camera_indices)):
     is_realsense = index in realsense_serials
+    camera_config = {
+        "width": 640,
+        "height": 480,
+    }
     if is_realsense:
-        config = IntelRealSenseCameraConfig(camera_index=index, enable_depth=False)
+        camera_config["fps"] = 30
+        config = IntelRealSenseCameraConfig(
+            camera_index=index, enable_depth=False, **camera_config
+        )
         camera = IntelRealSenseCamera(config)
         camera_type = "realsense"
     else:
         config = V4L2CameraConfig(
-            camera_index=index, pixel_format="MJPEG", decode=False
+            camera_index=index, pixel_format="MJPEG", decode=False, **camera_config
         )
         camera = V4L2Camera(config)
         camera_type = "v4l2"
@@ -223,12 +229,7 @@ for i, index in enumerate(list(used_camera_indices)):
             else:
                 bus = camera.device.info.bus_info
                 file_name = camera.device.filename
-            camera_params[bus].update(
-                {
-                    "width": 640,
-                    "height": 480,
-                }
-            )
+            camera_params[bus] = camera_config
             logger.info(f"Camera {index} bus/serial info: {bus}")
             prefix = bus_name_mapping.get(bus, "None")
             if prefix == "None":
