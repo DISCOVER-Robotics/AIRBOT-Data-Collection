@@ -7,13 +7,14 @@ from foxglove_schemas_flatbuffer import CompressedImage, Time
 from foxglove_schemas_flatbuffer import get_schema
 from importlib.resources import read_binary
 import flatbuffers
-from airbot_data_collection.common.utils.av_coder import AvCoder
-from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from enum import Enum
 import os
 import numpy as np
 from functools import cache
 import json
+from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
+from airbot_data_collection.common.utils.av_coder import AvCoder
+from airbot_data_collection.utils import zip
 
 
 class FlatbufferSchemas(Enum):

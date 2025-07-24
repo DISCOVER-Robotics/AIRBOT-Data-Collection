@@ -31,6 +31,7 @@ from airbot_data_collection.utils import (
     bcolors,
     find_matching_files,
     get_items_by_ext,
+    zip,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
 import os

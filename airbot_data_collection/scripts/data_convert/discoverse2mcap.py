@@ -7,6 +7,7 @@ from airbot_data_collection.airbot.samplers.mcap_sampler import (
     AIRBOTMcapDataSamplerConfig,
     TaskInfo,
 )
+from airbot_data_collection.utils import zip
 from mcap.writer import Writer
 import os
 import time

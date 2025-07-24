@@ -8,6 +8,8 @@ from enum import Enum
 import numpy as np
 import subprocess
 from typing import List
+import sys
+from functools import partial
 
 
 def get_stamp_ms() -> int:
@@ -449,9 +451,17 @@ def linear_map(
 
 def sort_index(order: list, name_list: list, value_list: list) -> tuple:
     order_dict = {val: idx for idx, val in enumerate(order)}
-    sorted_pairs = sorted(zip(value_list, name_list), key=lambda x: order_dict[x[1]])
+    sorted_pairs = sorted(
+        zip(value_list, name_list), key=lambda x: order_dict[x[1]]
+    )
     sorted_value_list, _ = zip(*sorted_pairs)
     return sorted_value_list
+
+
+if sys.version_info >= (3, 10):
+    zip = partial(zip, strict=True)
+else:
+    from airbot_data_collection.utils import zip as zip  #  # noqa: F401
 
 
 if __name__ == "__main__":
@@ -465,9 +475,5 @@ if __name__ == "__main__":
 
     # print(linear_map(-0.1, (0, 1), (0, 100)))
 
-    class TestEnum(StrEnum):
-        A = "a"
-        B = "b"
-        C = "c"
-
-    print(f"{TestEnum.A}_ok")
+    for item in zip([1, 2], [3, 4, 5]):
+        print(item)

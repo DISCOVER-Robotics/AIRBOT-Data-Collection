@@ -6,7 +6,7 @@ from collections import defaultdict
 from functools import partial
 from enum import auto
 
-from airbot_data_collection.utils import linear_map, StrEnum
+from airbot_data_collection.utils import linear_map, StrEnum, zip
 from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.airbot.robots.common import ControlConfig

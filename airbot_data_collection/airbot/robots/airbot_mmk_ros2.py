@@ -1,5 +1,5 @@
 from enum import auto
-from airbot_data_collection.utils import StrEnum
+from airbot_data_collection.utils import StrEnum, zip
 from airbot_data_collection.common.utils.coordinate import CoordinateTools
 from rclpy.node import Node
 import rclpy

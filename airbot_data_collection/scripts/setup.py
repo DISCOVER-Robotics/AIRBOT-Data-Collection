@@ -13,6 +13,7 @@ from airbot_data_collection.utils import (
     init_logging,
     execute_shell_script,
     get_can_interfaces,
+    zip,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.utils import bcolors

@@ -4,6 +4,7 @@ import os
 from typing import (
     Any,
     Callable,
+    Generator,
     Iterable,
     Iterator,
     List,
@@ -19,7 +20,7 @@ from airbot_data_collection.common.utils.utils import (
     SlicesType,
     multi_slices_to_indexes,
 )
-from airbot_data_collection.utils import get_items_by_ext
+from airbot_data_collection.utils import get_items_by_ext, zip
 from abc import ABC, abstractmethod
 from functools import cached_property, cache
 from logging import getLogger
@@ -184,7 +185,7 @@ class IterableDatasetABC(IterableDataset, ABC):
         """
         raise NotImplementedError
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Generator[Any, None, None]:
         # TODO: really consider how to handle multi-process/multi-node sharding
         # 1. Get the original stream
         stream = self._read_stream()
@@ -209,7 +210,7 @@ class IterableDatasetABC(IterableDataset, ABC):
 
         yield from stream
 
-    def _shard_stream(self, stream: Iterable[Any]) -> Iterable[Any]:
+    def _shard_stream(self, stream: Iterable[Any]) -> Generator[Any, None, None]:
         """
         Shard the data stream based on worker and distributed rank, ensuring each sample is processed only once.
         """
@@ -226,7 +227,7 @@ class IterableDatasetABC(IterableDataset, ABC):
             if idx % total_parts == part_id:
                 yield sample
 
-    def _skip_samples(self, stream: Iterable[Any]) -> Iterable[Any]:
+    def _skip_samples(self, stream: Iterable[Any]) -> Generator[Any, None, None]:
         """
         Skip samples before resume_from_sample.
         """
@@ -237,7 +238,7 @@ class IterableDatasetABC(IterableDataset, ABC):
             if idx > self.cfg.resume_from_sample:
                 yield sample
 
-    def _shuffle_stream(self, stream: Iterable[Any]) -> Iterable[Any]:
+    def _shuffle_stream(self, stream: Iterable[Any]) -> Generator[Any, None, None]:
         """
         Use fixed-size buffer for streaming shuffle.
         """
@@ -285,7 +286,7 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
     def load(self):
         self.reader = McapFlatbufferReader(open(self.cfg.data_root, "rb"))
 
-    def _read_stream(self) -> Iterable[dict[str, Any]]:
+    def _read_stream(self) -> Generator[Dict[str, Any], None, None]:
         """
         Read MCAP file and return message stream.
         """
@@ -293,7 +294,7 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
 
     def _iter_a_file_samples(
         self, reader: McapFlatbufferReader
-    ) -> Iterable[dict[str, Any]]:
+    ) -> Generator[Dict[str, Any], None, None]:
         yield from reader.iter_samples(
             keys=self.cfg.keys,
             topics=self.cfg.topics,
@@ -361,7 +362,7 @@ class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
                 assert full_path not in self.reader, f"Duplicate file path: {full_path}"
                 self.reader[full_path] = McapFlatbufferReader(open(full_path, "rb"))
 
-    def _read_stream(self) -> Iterable[Iterable[dict[str, Any]]]:
+    def _read_stream(self) -> Generator[Iterable[dict[str, Any]], None, None]:
         """
         Read MCAP files and return episodic message stream.
         Each episode corresponds to one MCAP file.
