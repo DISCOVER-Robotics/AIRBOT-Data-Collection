@@ -30,3 +30,11 @@ python3 scripts/setup.py
 ```bash
 python3 main.py --path defaults/config_setup.yaml
 ```
+
+# Development
+
+```bash
+pip install pre-commit
+pre-commit run --all-files
+pre-commit install
+```
