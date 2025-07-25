@@ -498,20 +498,19 @@ if __name__ == "__main__":
             print("OK: Samples are not equal")
             break
     else:
-        raise ValueError("Samples are all equal")
+        raise ValueError("Samples are equal")
 
     for file_path, reader in dataset.reader.items():
         print(f"File: {file_path}, Messages: {len(reader)}")
-
     start = time.perf_counter()
-    batch_size = 64
+    batch_size = 50
     steps = 1
     for episode in dataset:
         next(episode)  # Skip the first sample
         start = time.perf_counter()
         for step, batch in enumerate(batched(episode, batch_size, strict=True)):
-            print(batch[0].keys())
-            if step >= steps:
+            print(f"{step=}", batch[0].keys())
+            if step + 1 >= steps:
                 break
         else:
             print(f"Processed {len(episode)} samples in episode {dataset.current_file}")
