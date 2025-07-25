@@ -2,7 +2,10 @@ import av
 import numpy as np
 import random
 
+
 av.logging.set_level(av.logging.VERBOSE)
+
+print("av version:", av.__version__)
 
 
 def random_frame(height: int, width: int) -> np.ndarray:
