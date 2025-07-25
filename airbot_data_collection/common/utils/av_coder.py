@@ -5,7 +5,6 @@ import fractions
 from typing import List, Optional, Union, Literal, Dict, Generator
 from turbojpeg import TurboJPEG
 from logging import getLogger
-import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from ast import literal_eval
@@ -19,12 +18,16 @@ class AvCoder:
     It can handle both NumPy arrays and raw byte data for frames.
     """
 
+    logging = av.logging
+
     def __init__(
         self,
         time_base: int = int(1e9),
         frame_format: str = "bgr24",
         async_encode: bool = True,
+        log_level: Optional[int] = None,
     ):
+        av.logging.set_level(log_level)
         self._time_base = fractions.Fraction(1, time_base)
         self._configured = False
         self._frame_format = frame_format
@@ -415,7 +418,7 @@ if __name__ == "__main__":
     from more_itertools import ilen
     from itertools import tee
 
-    av_coder = AvCoder(async_encode=False)
+    av_coder = AvCoder(async_encode=False, log_level=av.logging.VERBOSE)
 
     video_path = "/home/ghz/Work/airbot/DISCOVERSE/data/pick_jujube/001/cam_0.mp4"
 
@@ -423,6 +426,7 @@ if __name__ == "__main__":
 
     for frame, stamp in iters[0]:
         # print(frame.shape)
+        # print(stamp)
         pass
 
     print(ilen(iters[1]))
