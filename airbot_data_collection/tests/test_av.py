@@ -59,7 +59,7 @@ def generate_random_video(
 if __name__ == "__main__":
     random.seed()
     generate_random_video(
-        output_file="random.mp4",
+        output_file="random视频.mp4",
         width=640,
         height=480,
         fps=25,
