@@ -100,6 +100,7 @@ class AvCoder:
             timestamp (int): The timestamp for the frame in nanoseconds.
         """
         # start = time.monotonic()
+        assert isinstance(timestamp, int), "Timestamp must be an integer"
         if self._start_time == 0:
             assert timestamp > 0, "Timestamp must be greater than 0"
             self._start_time = timestamp
@@ -230,7 +231,12 @@ class AvCoder:
             )
             base_stamp = 0
         else:
-            base_stamp = int(base_stamp)
+            if not isinstance(base_stamp, int):
+                cls.get_logger().warning(
+                    f"Base timestamp is not an integer: {base_stamp}. "
+                    "Converting to integer."
+                )
+                base_stamp = int(base_stamp)
         return container, video_stream, base_stamp, video_stream.frames
 
     @classmethod
@@ -302,21 +308,33 @@ class AvCoder:
         frame_format: str = "bgr24",
         mismatch_tolerance: int = 0,
         ensure_base_stamp: bool = False,
-        with_stamp: bool = True,
+        target_time_base: int = int(1e9),
     ) -> Generator[Union[tuple[np.ndarray, int], np.ndarray], None, None]:
         """
-        Generator to decode frames from a video file.
-        This method yields frames one by one.
+        Generator to decode frames from a video file. This method yields frames one by one.
+        Args:
+            video (Union[bytes, str]): The video file path or the encoded video bytes.
+            thread_type (str): The threading type for decoding. Defaults to "AUTO".
+            frame_format (str): The format of the frames to decode. Defaults to "bgr24".
+            mismatch_tolerance (int): The number of frames that can be missing before raising an error.
+                Defaults to 0, which means no tolerance.
+            ensure_base_stamp (bool): If True, ensures that the base timestamp is present in the video metadata.
+                If not present, raises an error. Defaults to False.
+            target_time_base (int): The time base for the timestamps. Defaults to 1e9 (nanoseconds).
+        Yields:
+            Union[tuple[np.ndarray, int], np.ndarray]: A tuple of the frame and its absolute timestamp
+                if target_time_base > 0, otherwise just the frame.
         """
         container, video_stream, base_stamp, frame_cnt = cls._init_decode(
             video, thread_type, ensure_base_stamp
         )
         cnt = 0
+        time_factor = fractions.Fraction(target_time_base, 1) * video_stream.time_base
         for frame in container.decode(video=0):
             cnt += 1
             np_frame = frame.to_ndarray(format=frame_format)
-            abs_stamp = base_stamp + frame.pts
-            if with_stamp:
+            if target_time_base:
+                abs_stamp = (base_stamp + frame.pts) * time_factor
                 yield np_frame, abs_stamp
             else:
                 yield np_frame
@@ -327,7 +345,7 @@ class AvCoder:
                     f"Missing {mismatch} frames in video. Filling with last frame."
                 )
                 for _ in range(mismatch):
-                    if with_stamp:
+                    if target_time_base:
                         yield np_frame, abs_stamp
                     else:
                         yield np_frame

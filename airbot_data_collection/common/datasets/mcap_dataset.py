@@ -25,6 +25,7 @@ from abc import ABC, abstractmethod
 from functools import cached_property, cache
 from logging import getLogger
 import numpy as np
+from more_itertools import peekable, nth
 
 
 DictableSlicesType = Union[Dict[str, SlicesType], SlicesType]
@@ -264,6 +265,8 @@ class McapDatasetConfig(IterableDatasetConfig):
     keys: List[str] = []
     topics: Optional[List[str]] = []
     attachments: Optional[List[str]] = []
+    cache_items: bool = True
+    cache_iters: bool = False
 
     @field_validator("data_root")
     def validate_data_root(cls, v) -> str:
@@ -274,6 +277,7 @@ class McapDatasetConfig(IterableDatasetConfig):
         assert not self.slices.sample, "not implemented yet"
         assert not self.slices.episode, "not implemented yet"
         assert isinstance(self.slices.dataset, dict), "dataset slices must be a dict"
+        assert not self.cache_iters, "iters now are not cached"
 
 
 class McapFlatbufferSampleDataset(IterableDatasetABC):
@@ -284,6 +288,19 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
     cfg: McapDatasetConfig
 
     def load(self):
+        self._init_reader()
+        if self.cfg.cache_items:
+            self._indexed_stream = peekable(self._flatten_iter())
+
+    def _flatten_iter(self):
+        """Flatten"""
+        return self
+
+    def _init_reader(self):
+        """
+        Initialize the MCAP reader.
+        This is called in the constructor to set up the reader.
+        """
         self.reader = McapFlatbufferReader(open(self.cfg.data_root, "rb"))
 
     def _read_stream(self) -> Generator[Dict[str, Any], None, None]:
@@ -307,6 +324,22 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
     def __len__(self) -> int:
         """Get the total number of messages in the MCAP file."""
         return len(self.reader)
+
+    def __getitem__(self, index: int):
+        """
+        Get a specific sample by index.
+        This is not efficient for large datasets, use with caution.
+        """
+        # TODO: should support 2-dim indexing, e.g.
+        # dataset[episode_index][sample_index] or
+        # dataset[episode_index, sample_index]?
+        # This may be configurable in the future.
+        if index < 0:
+            index += len(self)
+        if self.cfg.cache_items:
+            return self._indexed_stream[index]
+        else:
+            return nth(self._flatten_iter(), index)
 
 
 class McapFlatbufferEpisodeDatasetConfig(McapDatasetConfig):
@@ -352,10 +385,12 @@ class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
         self._dataset_files = dataset_files
         self.reader: Dict[str, McapFlatbufferReader] = {}
 
-    def load(self):
-        """
-        Load the dataset into memory or prepare it for streaming.
-        """
+    def _flatten_iter(self):
+        for episode in self:
+            for sample in episode:
+                yield sample
+
+    def _init_reader(self):
         for dataset, file_paths in self._dataset_files.items():
             for file_path in file_paths:
                 full_path = os.path.join(dataset, file_path)
@@ -394,34 +429,15 @@ class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
     def __iter__(self) -> Iterator[Iterator[Dict[str, np.ndarray]]]:
         return super().__iter__()
 
-    def __getitem__(self, index: int) -> Dict[str, np.ndarray]:
-        """
-        Get a specific sample by index.
-        This is not efficient for large datasets, use with caution.
-        """
-        # TODO: should support 2-dim indexing, e.g.
-        # dataset[episode_index][sample_index] or
-        # dataset[episode_index, sample_index]?
-        # This may be configurable in the future.
-        raw_index = index
-        if index < 0:
-            index += len(self)
-        if index < 0 or index >= len(self):
-            raise IndexError(
-                f"Index {raw_index} out of range: [-{len(self)}, {len(self)})"
-            )
-        for episode in self:
-            for sample in episode:
-                if index == 0:
-                    return sample
-                index -= 1
-        raise RuntimeError(f"Index {index} not found in dataset")
+    def __getitem__(self, index) -> Dict[str, np.ndarray]:
+        return super().__getitem__(index)
 
 
 if __name__ == "__main__":
     from airbot_data_collection.utils import init_logging, logging
     from pprint import pprint
     import time
+    from more_itertools import batched
 
     init_logging(logging.INFO)
 
@@ -442,8 +458,8 @@ if __name__ == "__main__":
         # "/env_camera/color/image_raw",
         # "/follow_camera/color/image_raw",
         # discoverse camera keys
-        "cam_0/color/image_raw",
-        "cam_1/color/image_raw",
+        "/cam_0/color/image_raw",
+        "/cam_1/color/image_raw",
         "log_stamps",
     ]
 
@@ -468,14 +484,15 @@ if __name__ == "__main__":
             rearrange=DataRearrangeConfig(
                 episode="sort",
             ),
+            cache_items=True,
         )
     )
     dataset.load()
     print(dataset.all_files)
     print(f"Dataset length: {len(dataset)}")
-    # pprint(dataset[0])
+    pprint(dataset[0].keys())
     for v1, v2 in zip(dataset[0].values(), dataset[0].values()):
-        assert np.array_equal(v1, v2), "Samples are not equal"
+        assert np.array_equal(v1, v2), f"{v1=} != {v2=}"
     for v1, v2 in zip(dataset[0].values(), dataset[1].values()):
         if not np.array_equal(v1, v2):
             print("OK: Samples are not equal")
@@ -487,25 +504,19 @@ if __name__ == "__main__":
         print(f"File: {file_path}, Messages: {len(reader)}")
 
     start = time.perf_counter()
-    i = 0
     batch_size = 64
-    times = []
+    steps = 1
     for episode in dataset:
-        # print(f"Processing: {dataset.current_file}")
-        for sample in episode:
-            elapsed = time.perf_counter() - start
-            times.append(elapsed)
-            # pprint(sample)
-            start = time.perf_counter()
-            i += 1
-            if i == batch_size + 1:
+        next(episode)  # Skip the first sample
+        start = time.perf_counter()
+        for step, batch in enumerate(batched(episode, batch_size, strict=True)):
+            print(batch[0].keys())
+            if step >= steps:
                 break
         else:
-            print(f"Processed {i} samples in episode {dataset.current_file}")
-        times.pop(0)  # Remove the first sample time
-
-        avg_time = sum(times) / len(times) if times else 0
+            print(f"Processed {len(episode)} samples in episode {dataset.current_file}")
+        total_time = time.perf_counter() - start
+        avg_time = total_time / batch_size
         print(f"Average time per sample: {avg_time:.5f} seconds")
-        print(f"Total samples processed: {batch_size}")
-        print(f"Total time taken: {sum(times):.5f} seconds")
+        print(f"Total time taken for {batch_size=}: {total_time:.5f} seconds")
         break  # Only process the first episode

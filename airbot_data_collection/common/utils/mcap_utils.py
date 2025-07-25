@@ -199,7 +199,7 @@ class McapFlatbufferReader:
                         attachment.data,
                         mismatch_tolerance=5,
                         ensure_base_stamp=True,
-                        with_stamp=False,
+                        target_time_base=0,
                     )
                 elif media_type == "application/json":
                     attach_iter = iter(json.loads(attachment.data))
