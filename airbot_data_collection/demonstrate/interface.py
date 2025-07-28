@@ -225,7 +225,12 @@ class DemonstrateInterface:
             self.get_logger().info(
                 f"Setting post capture for group {group_name}: {post_capture}"
             )
-            group.leader[0].set_post_capture(post_capture)
+            if group.leader:
+                group.leader[0].set_post_capture(post_capture)
+            else:
+                self.get_logger().warning(
+                    f"Group: {group_name} has no leader, post capture will not be set"
+                )
         return True
 
     def _configure_components(

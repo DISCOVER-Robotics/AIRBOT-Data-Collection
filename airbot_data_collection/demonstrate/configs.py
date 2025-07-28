@@ -247,7 +247,7 @@ class DemonstrateState(StrEnum):
 
 class AutoControlConfig(BaseModel):
     # the group names where the leader states
-    # are used to control follower states
+    # are used to control the follower states
     # None means all group names are used
     # if empty, the control should be implicitly implemented when
     # switching to the active / passive mode
