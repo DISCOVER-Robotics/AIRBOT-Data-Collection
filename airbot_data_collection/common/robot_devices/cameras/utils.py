@@ -159,7 +159,9 @@ def get_video_device_bus_info():
     return device_bus_info
 
 
-def get_camera_index_by_bus_info(bus_info: str, sorting: bool = True) -> List[str]:
+def get_camera_index_by_bus_info(
+    bus_info: str, sorting: bool = False, allow_empty: bool = False
+) -> List[str]:
     """
     Get the camera index by its bus info.
     Args:
@@ -168,6 +170,7 @@ def get_camera_index_by_bus_info(bus_info: str, sorting: bool = True) -> List[st
     Return: The camera indices that match the bus info.
     """
     devices = find_video_capture_devices(False).get(bus_info, [])
+    assert allow_empty or devices, f"No camera indexes found with bus info: {bus_info}"
     if sorting:
         devices = sorted(devices)
     return devices
