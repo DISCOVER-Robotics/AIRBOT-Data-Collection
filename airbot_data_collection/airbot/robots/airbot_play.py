@@ -85,6 +85,7 @@ class AIRBOTPlay(System):
             self._init_relative_control()
             # check if the robot components are available
             info = self.interface.get_product_info()
+            self.get_logger().info(f"Robot info: {info}")
             info["arm_types"] = [info["product_type"]]
             for component in self.config.components:
                 if info[f"{component}_types"][0] == "none":
