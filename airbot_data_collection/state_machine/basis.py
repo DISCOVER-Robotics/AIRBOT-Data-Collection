@@ -88,7 +88,6 @@ class StateMachineConfig(BaseModel):
 
 
 class StateMachineBasis:
-
     def __init__(self, config: StateMachineConfig):
         getLogger("transitions").setLevel(LogLevel.get(config.log_level))
         self.machine = LockedMachine(

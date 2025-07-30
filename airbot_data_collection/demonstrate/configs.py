@@ -14,9 +14,9 @@ class ComponentRole(StrEnum):
     """The role of the component in the group."""
 
     # the leader of the group
-    l = auto()
+    l = auto()  #  # noqa: E741
     # the follower of the group
-    f = auto()
+    f = auto()  #  # noqa: E741
     # the other components in the group
     # e.g. the sensors such as cameras,
     # imus, tactiles, etc.
@@ -103,16 +103,16 @@ class ComponentGroupsConfig(BaseModel):
         name_length = len(self.names)
         if len(self.paths) == 1:
             self.paths = [self.paths[0]] * name_length
-        assert name_length == len(
-            self.paths
-        ), "names and paths must have the same length"
+        assert name_length == len(self.paths), (
+            "names and paths must have the same length"
+        )
         if not self.params:
             self.params = [{}] * name_length
         elif len(self.params) == 1:
             self.params = [self.params[0]] * name_length
-        assert name_length == len(
-            self.params
-        ), "names and params must have the same length"
+        assert name_length == len(self.params), (
+            "names and params must have the same length"
+        )
         self.params = [
             literal_eval(param) if isinstance(param, str) else param
             for param in self.params
@@ -129,16 +129,19 @@ class ComponentGroupsConfig(BaseModel):
         # 以及至少一个follower，否则引发异常，如果没有指定角色，则默认每组第一个robot为leader
         # 其余为follower，例如：groups=[0, 0, 0, 1, 1], 则rules为[l, f, f, l, f]
         if not self.indicate_from_name:
-            assert group_num == len(
-                self.names
-            ), "groups must have the same length as names"
-            assert role_num == len(
-                self.groups
-            ), "roles must have the same length as groups"
+            assert group_num == len(self.names), (
+                "groups must have the same length as names"
+            )
+            assert role_num == len(self.groups), (
+                "roles must have the same length as groups"
+            )
             # check if each group has one and only one leader robot
             # and no less than one follower robot
             group_set = set(self.groups)
-            get_all_index = lambda x: [i for i, j in enumerate(self.groups) if j == x]
+
+            def get_all_index(x):
+                return [i for i, j in enumerate(self.groups) if j == x]
+
             for group in group_set:
                 indexes = get_all_index(group)
                 group_roles = [self.roles[i] for i in indexes]
@@ -149,7 +152,9 @@ class ComponentGroupsConfig(BaseModel):
                 assert leader_cnt in [
                     0,
                     1,
-                ], f"each group can have zero or only one leader robot, but {group} has {leader_cnt} leaders"
+                ], (
+                    f"each group can have zero or only one leader robot, but {group} has {leader_cnt} leaders"
+                )
                 follower_cnt = 0
                 follower_cnt += group_counter[ComponentRole.f]
                 if leader_cnt > 0 and follower_cnt == 0:
@@ -157,9 +162,9 @@ class ComponentGroupsConfig(BaseModel):
                         f"each group must have at least one robot when there is one leader, but {group} has {follower_cnt} followers"
                     )
         else:
-            assert (
-                len(self.roles) + len(self.groups) == 0
-            ), "roles and groups must be empty when indicate_from_name is True"
+            assert len(self.roles) + len(self.groups) == 0, (
+                "roles and groups must be empty when indicate_from_name is True"
+            )
             raise NotImplementedError(
                 "indicate_from_name is not implemented yet, please set groups and roles manually"
             )

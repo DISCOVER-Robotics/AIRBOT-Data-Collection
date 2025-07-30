@@ -8,9 +8,14 @@ from mmk2_types.types import (
     ControllerTypes,
     JointNames,
 )
-from mmk2_types.grpc_msgs import JointState,Time, MoveServoParams,ForwardPositionParams,TrajectoryParams
+from mmk2_types.grpc_msgs import (
+    JointState,
+    Time,
+    MoveServoParams,
+    ForwardPositionParams,
+    TrajectoryParams,
+)
 from airbot_py.airbot_mmk2 import AirbotMMK2
-from pydantic import BaseModel, PositiveInt
 from typing import Optional, List, Union, Dict, Tuple
 import numpy as np
 import time
@@ -18,6 +23,7 @@ from turbojpeg import TurboJPEG
 from time import time_ns
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -39,6 +45,7 @@ class AIRBOTMMKConfig(BaseModel):
         for cam in list(self.cameras.keys()):
             if isinstance(cam, str):
                 self.cameras[MMK2Components[cam.upper()]] = self.cameras.pop(cam)
+
 
 class AIRBOTMMK(System):
     config: AIRBOTMMKConfig
@@ -115,9 +122,9 @@ class AIRBOTMMK(System):
             # 尝试多种可能的数据格式和命名空间
             possible_keys = [
                 f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
-                f"{comp_name}/joint_state",           # 简化格式
-                f"action/{comp_name}/joint_state",    # action 命名空间
-                f"observation/{comp_name}/joint_state"  # observation 命名空间
+                f"{comp_name}/joint_state",  # 简化格式
+                f"action/{comp_name}/joint_state",  # action 命名空间
+                f"observation/{comp_name}/joint_state",  # observation 命名空间
             ]
 
             found_data = False
@@ -128,7 +135,9 @@ class AIRBOTMMK(System):
                     # 处理不同的数据结构
                     pos_data = None
                     if isinstance(joint_data, dict):
-                        if "data" in joint_data and isinstance(joint_data["data"], dict):
+                        if "data" in joint_data and isinstance(
+                            joint_data["data"], dict
+                        ):
                             pos_data = joint_data["data"].get("position", [])
                         elif "position" in joint_data:
                             pos_data = joint_data["position"]
@@ -143,7 +152,9 @@ class AIRBOTMMK(System):
                         break
 
             if not found_data:
-                self.get_logger().warning(f"未找到组件 {comp_name} 的关节数据，尝试的键: {possible_keys}")
+                self.get_logger().warning(
+                    f"未找到组件 {comp_name} 的关节数据，尝试的键: {possible_keys}"
+                )
 
         if not action:
             self.get_logger().error("无法从观察数据中提取任何关节位置信息")
@@ -163,9 +174,13 @@ class AIRBOTMMK(System):
 
     def _action_check(self, action):
         """检查动作向量的维度是否正确"""
-        expected_dim = sum(len(self._joint_names[comp.value]) for comp in self.config.components)
+        expected_dim = sum(
+            len(self._joint_names[comp.value]) for comp in self.config.components
+        )
         if len(action) != expected_dim:
-            raise ValueError(f"Action dimension mismatch: expected {expected_dim}, got {len(action)}")
+            raise ValueError(
+                f"Action dimension mismatch: expected {expected_dim}, got {len(action)}"
+            )
 
     def enter_traj_mode(self):
         self.traj_mode = True
@@ -210,7 +225,12 @@ class AIRBOTMMK(System):
                     },
                 }
         if self.config.demonstrate:
-            for comp in [MMK2Components.LEFT_ARM, MMK2Components.RIGHT_ARM, MMK2Components.HEAD, MMK2Components.SPINE]:
+            for comp in [
+                MMK2Components.LEFT_ARM,
+                MMK2Components.RIGHT_ARM,
+                MMK2Components.HEAD,
+                MMK2Components.SPINE,
+            ]:
                 # print(f"[DEBUG] Processing component: {comp}, topic: {self._action_topics.get(comp)}")
                 if comp in MMK2ComponentsGroup.ARMS:
                     arm_jn = self._joint_names[comp.value]
@@ -237,7 +257,9 @@ class AIRBOTMMK(System):
 
                 if comp in MMK2ComponentsGroup.HEAD_SPINE:
                     # print(f"[DEBUG] HEAD_SPINE component: {comp}, topic: {self._action_topics.get(comp)}")
-                    listened_data = self.interface.get_listened(self._action_topics[comp])
+                    listened_data = self.interface.get_listened(
+                        self._action_topics[comp]
+                    )
                     if listened_data and listened_data.data:  # 检查是否有数据
                         jq = list(listened_data.data)
                         data[f"action/{comp.value}/joint_state"] = {
@@ -252,9 +274,7 @@ class AIRBOTMMK(System):
                         print(f"[WARNING] No data received for component: {comp}")
         return data
 
-    def _set_js_field(
-        self, data: dict, comp: MMK2Components, t: float, js: JointState
-    ):
+    def _set_js_field(self, data: dict, comp: MMK2Components, t: float, js: JointState):
         comp_data = {"t": t, "data": {}}
         for field in ["position", "velocity", "effort"]:
             value = self.interface.get_joint_values_by_names(

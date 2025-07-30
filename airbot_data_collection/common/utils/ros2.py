@@ -88,7 +88,6 @@ class TransformListenerPro(TransformListener):
 
 
 class TFDiscover:
-
     def __init__(self, node: Node, tf_topic: str = "tf"):
         """TFDiscover is a ROS2 node that listens for coordinate frame transformations.
         It uses a TransformListenerPro to manage the buffer of transforms and provides a method to get the transform between two frames.

@@ -31,6 +31,7 @@ from airbot_data_collection.utils import (
     bcolors,
     find_matching_files,
     get_items_by_ext,
+    zip,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
 import os
@@ -61,7 +62,6 @@ class DemonstrateGroup(BaseModel):
 
 
 class ComponentsInstancer:
-
     def __init__(self, search_dirs: set[str]):
         self.search_dirs = search_dirs
 
@@ -138,9 +138,9 @@ class DemonstrateInterface:
         auto_control = self.config.auto_control
         self._use_auto_control = bool(auto_control.groups)
         if self._use_auto_control:
-            assert (
-                auto_control.mode is not AsyncMode.none
-            ), "Auto control mode must be set"
+            assert auto_control.mode is not AsyncMode.none, (
+                "Auto control mode must be set"
+            )
             if auto_control.mode is AsyncMode.thread:
                 event_cls = Event
                 self._auto_control_tp_cls = Thread
@@ -476,10 +476,10 @@ class DemonstrateInterface:
             return False
         else:
             data = self.capture()
-            if self.sampler.update(data) is not None:
-                for key, value in data.items():
-                    self._round_data[key].append(value)
-                self._round_data["log_stamps"].append(time.time_ns())
+            self._round_data["log_stamps"].append(time.time_ns())
+            updated_data = self.sampler.update(data) or {}
+            for key, value in updated_data.items():
+                self._round_data[key].append(value)
             info.index += 1
             self._bar.update(info.index)
             return True

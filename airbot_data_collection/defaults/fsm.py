@@ -1,6 +1,5 @@
 from airbot_data_collection.state_machine.basis import ToDestConfig
-from airbot_data_collection.state_machine.fsm import \
-    DemonstrateAction as Action
+from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from airbot_data_collection.state_machine.fsm import DemonstrateState as State
 from airbot_data_collection.state_machine.fsm import StateMachineConfig
 

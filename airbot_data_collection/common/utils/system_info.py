@@ -6,7 +6,6 @@ import os
 
 
 class SystemInfo:
-
     @classmethod
     def get_product(cls, with_sudo: bool = False) -> Dict[str, Any]:
         if with_sudo:
@@ -119,9 +118,13 @@ class SystemInfo:
             # 首先检查lspci命令是否可用
             subprocess.check_call("which lspci > /dev/null 2>&1", shell=True)
 
-            output = subprocess.check_output("lspci | grep -i 'vga\\|3d\\|display'", shell=True, text=True)
+            output = subprocess.check_output(
+                "lspci | grep -i 'vga\\|3d\\|display'", shell=True, text=True
+            )
             if not output.strip():
-                return {"info": "No GPU detected or information not available in container"}
+                return {
+                    "info": "No GPU detected or information not available in container"
+                }
 
             lines = output.strip().split("\n")
 
@@ -157,7 +160,9 @@ class SystemInfo:
                         line,
                     )
                     if match:
-                        pci_address, device_type, vendor_model, revision = match.groups()
+                        pci_address, device_type, vendor_model, revision = (
+                            match.groups()
+                        )
 
                         # 清理字符串
                         pci_address = pci_address.strip()
@@ -184,7 +189,11 @@ class SystemInfo:
             # 尝试使用nvidia-smi获取NVIDIA GPU信息
             try:
                 subprocess.check_call("which nvidia-smi > /dev/null 2>&1", shell=True)
-                output = subprocess.check_output("nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader", shell=True, text=True)
+                output = subprocess.check_output(
+                    "nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader",
+                    shell=True,
+                    text=True,
+                )
 
                 devices = {}
                 for i, line in enumerate(output.strip().split("\n"), 1):
@@ -194,11 +203,13 @@ class SystemInfo:
                             "vendor": "NVIDIA",
                             "model": parts[0].strip(),
                             "driver_version": parts[1].strip(),
-                            "memory": parts[2].strip()
+                            "memory": parts[2].strip(),
                         }
                 return devices
             except subprocess.CalledProcessError:
-                return {"info": "GPU information not available in container environment"}
+                return {
+                    "info": "GPU information not available in container environment"
+                }
         except Exception as e:
             print(f"Error getting GPU info: {e}")
             return {"info": f"Error retrieving GPU information: {str(e)}"}
@@ -207,8 +218,9 @@ class SystemInfo:
     def is_in_docker() -> bool:
         """检测是否在Docker容器中运行"""
         return (
-            os.path.exists('/.dockerenv') or
-            os.path.isfile('/proc/self/cgroup') and any('docker' in line for line in open('/proc/self/cgroup'))
+            os.path.exists("/.dockerenv")
+            or os.path.isfile("/proc/self/cgroup")
+            and any("docker" in line for line in open("/proc/self/cgroup"))
         )
 
     @staticmethod
@@ -221,10 +233,10 @@ class SystemInfo:
 
             # 尝试获取容器ID
             try:
-                with open('/proc/self/cgroup') as f:
+                with open("/proc/self/cgroup") as f:
                     for line in f:
-                        if 'docker' in line:
-                            container_id = line.split('/')[-1].strip()
+                        if "docker" in line:
+                            container_id = line.split("/")[-1].strip()
                             platform_info["container_id"] = container_id
                             break
             except Exception:

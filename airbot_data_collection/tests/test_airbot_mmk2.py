@@ -25,6 +25,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class AIRBOTMMK2Config:
     name: str = "mmk2"
@@ -33,12 +34,23 @@ class AIRBOTMMK2Config:
     port: int = 50055
     default_action: Optional[List[float]] = field(
         default_factory=lambda: [
-            -0.233,-0.73, 1.088, 1.774, -1.1475, -0.1606,    # left_arm (6 joints)
-            0.0,                             # left_arm_eef (1 joint)
-            0.2258, -0.6518, 0.9543, -1.777, 1.0615, 0.3588,    # right_arm (6 joints)
-            0.0,                             # right_arm_eef (1 joint)
-            0.0, -0.5,                       # head (2 joints)
-            0.15                             # spine (1 joint)
+            -0.233,
+            -0.73,
+            1.088,
+            1.774,
+            -1.1475,
+            -0.1606,  # left_arm (6 joints)
+            0.0,  # left_arm_eef (1 joint)
+            0.2258,
+            -0.6518,
+            0.9543,
+            -1.777,
+            1.0615,
+            0.3588,  # right_arm (6 joints)
+            0.0,  # right_arm_eef (1 joint)
+            0.0,
+            -0.5,  # head (2 joints)
+            0.15,  # spine (1 joint)
         ]
     )
     # cameras: Dict[str, List[str]] = field(default_factory=lambda: {})
@@ -46,7 +58,7 @@ class AIRBOTMMK2Config:
         default_factory=lambda: {
             MMK2Components.HEAD_CAMERA: [ImageTypes.COLOR],
             MMK2Components.LEFT_CAMERA: [ImageTypes.COLOR],
-            MMK2Components.RIGHT_CAMERA: [ImageTypes.COLOR]
+            MMK2Components.RIGHT_CAMERA: [ImageTypes.COLOR],
         }
     )
     components: List[str] = field(
@@ -56,7 +68,7 @@ class AIRBOTMMK2Config:
             MMK2Components.RIGHT_ARM.value,
             MMK2Components.RIGHT_ARM_EEF.value,
             MMK2Components.HEAD.value,
-            MMK2Components.SPINE.value
+            MMK2Components.SPINE.value,
         ]
     )
     demonstrate: bool = True
@@ -240,9 +252,9 @@ class AIRBOTMMK2:
         self._state_mode = mode
 
     def _action_check(self, action):
-        assert (
-            len(action) == self.joint_num
-        ), f"Invalid action {action} with length: {len(action)}"
+        assert len(action) == self.joint_num, (
+            f"Invalid action {action} with length: {len(action)}"
+        )
 
     def _action_to_goal(self, action) -> Dict[MMK2Components, JointState]:
         self._action_check(action)

@@ -1,5 +1,7 @@
 from airbot_data_collection.common.visualizers.web_fastapi import (
-    FastAPIVisualizer, WebVisualizerConfig)
+    FastAPIVisualizer,
+    WebVisualizerConfig,
+)
 
 
 class AIRBOTBsonFastAPIVisualizer(FastAPIVisualizer):

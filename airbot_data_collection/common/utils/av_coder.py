@@ -5,7 +5,6 @@ import fractions
 from typing import List, Optional, Union, Literal, Dict, Generator
 from turbojpeg import TurboJPEG
 from logging import getLogger
-import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from ast import literal_eval
@@ -19,12 +18,16 @@ class AvCoder:
     It can handle both NumPy arrays and raw byte data for frames.
     """
 
+    logging = av.logging
+
     def __init__(
         self,
         time_base: int = int(1e9),
         frame_format: str = "bgr24",
         async_encode: bool = True,
+        log_level: Optional[int] = None,
     ):
+        av.logging.set_level(log_level)
         self._time_base = fractions.Fraction(1, time_base)
         self._configured = False
         self._frame_format = frame_format
@@ -100,6 +103,7 @@ class AvCoder:
             timestamp (int): The timestamp for the frame in nanoseconds.
         """
         # start = time.monotonic()
+        assert isinstance(timestamp, int), "Timestamp must be an integer"
         if self._start_time == 0:
             assert timestamp > 0, "Timestamp must be greater than 0"
             self._start_time = timestamp
@@ -230,7 +234,12 @@ class AvCoder:
             )
             base_stamp = 0
         else:
-            base_stamp = int(base_stamp)
+            if not isinstance(base_stamp, int):
+                cls.get_logger().warning(
+                    f"Base timestamp is not an integer: {base_stamp}. "
+                    "Converting to integer."
+                )
+                base_stamp = int(base_stamp)
         return container, video_stream, base_stamp, video_stream.frames
 
     @classmethod
@@ -289,9 +298,9 @@ class AvCoder:
                         frames[index] = frame_arr
         # do not close since it will block the code
         # container.close()
-        assert (
-            len(frames) == exp_cnt
-        ), f"Frame count mismatch: {len(frames)} != {exp_cnt}; indices: {indices} frame_cnt: {frame_cnt}"
+        assert len(frames) == exp_cnt, (
+            f"Frame count mismatch: {len(frames)} != {exp_cnt}; indices: {indices} frame_cnt: {frame_cnt}"
+        )
         return frames
 
     @classmethod
@@ -302,21 +311,33 @@ class AvCoder:
         frame_format: str = "bgr24",
         mismatch_tolerance: int = 0,
         ensure_base_stamp: bool = False,
-        with_stamp: bool = True,
+        target_time_base: int = int(1e9),
     ) -> Generator[Union[tuple[np.ndarray, int], np.ndarray], None, None]:
         """
-        Generator to decode frames from a video file.
-        This method yields frames one by one.
+        Generator to decode frames from a video file. This method yields frames one by one.
+        Args:
+            video (Union[bytes, str]): The video file path or the encoded video bytes.
+            thread_type (str): The threading type for decoding. Defaults to "AUTO".
+            frame_format (str): The format of the frames to decode. Defaults to "bgr24".
+            mismatch_tolerance (int): The number of frames that can be missing before raising an error.
+                Defaults to 0, which means no tolerance.
+            ensure_base_stamp (bool): If True, ensures that the base timestamp is present in the video metadata.
+                If not present, raises an error. Defaults to False.
+            target_time_base (int): The time base for the timestamps. Defaults to 1e9 (nanoseconds).
+        Yields:
+            Union[tuple[np.ndarray, int], np.ndarray]: A tuple of the frame and its absolute timestamp
+                if target_time_base > 0, otherwise just the frame.
         """
         container, video_stream, base_stamp, frame_cnt = cls._init_decode(
             video, thread_type, ensure_base_stamp
         )
         cnt = 0
+        time_factor = fractions.Fraction(target_time_base, 1) * video_stream.time_base
         for frame in container.decode(video=0):
             cnt += 1
             np_frame = frame.to_ndarray(format=frame_format)
-            abs_stamp = base_stamp + frame.pts
-            if with_stamp:
+            if target_time_base:
+                abs_stamp = (base_stamp + frame.pts) * time_factor
                 yield np_frame, abs_stamp
             else:
                 yield np_frame
@@ -327,7 +348,7 @@ class AvCoder:
                     f"Missing {mismatch} frames in video. Filling with last frame."
                 )
                 for _ in range(mismatch):
-                    if with_stamp:
+                    if target_time_base:
                         yield np_frame, abs_stamp
                     else:
                         yield np_frame
@@ -394,68 +415,18 @@ class AvCoder:
 
 
 if __name__ == "__main__":
+    from more_itertools import ilen
+    from itertools import tee
 
-    av_coder = AvCoder(async_encode=False)
+    av_coder = AvCoder(async_encode=False, log_level=av.logging.VERBOSE)
 
-    video_path = "/home/ghz/视频/示教器问题.mp4"
+    video_path = "/home/ghz/Work/airbot/DISCOVERSE/data/pick_jujube/001/cam_0.mp4"
 
-    def test_all_decode():
-        def test_decode(video, indices=None):
-            """
-            Test encoding a single frame.
-            """
-            start = time.monotonic()
-            frames = av_coder.decode(video, indices)
-            print(f"Frame resolution: {frames[0].shape}")
-            cost_time = time.monotonic() - start
-            print(f"Decode cost time: {cost_time:.2f} seconds for {len(frames)} frames")
-            print(
-                f"Time cost decoding per frame: {cost_time / len(frames):.4f} seconds"
-            )
-            return frames
+    iters = tee(av_coder.iter_decode(video_path), 2)
 
-        def test_iter_decode(video):
-            """
-            Test iterating over decoded frames.
-            """
-            frames = []
-            start = time.monotonic()
-            for frame, stamp in av_coder.iter_decode(video):
-                frames.append(frame)
-            print(f"Frame resolution: {frames[0].shape}")
-            cost_time = time.monotonic() - start
-            print(
-                f"Iter decode cost time: {cost_time:.2f} seconds for  {len(frames)} frames"
-            )
-            print(
-                f"Time cost iter decoding per frame: {cost_time / len(frames):.4f} seconds"
-            )
-            return frames
+    for frame, stamp in iters[0]:
+        # print(frame.shape)
+        # print(stamp)
+        pass
 
-        # frames = test_decode(video_path)
-        frames = test_iter_decode(video_path)
-
-        print("*********Encoding frames...*********")
-        start = time.monotonic()
-        init_stamp = time.time_ns()
-        for i, frame in enumerate(frames):
-            stamp = init_stamp + i * 1e9 // 30
-            # print(
-            #     f"Encoding frame {i} with shape {frame.shape} and dtype {frame.dtype} and timestamp {stamp}"
-            # )
-            av_coder.encode_frame(frame, stamp)
-        encoded_data = av_coder.end()
-        print(f"Encoded data size: {len(encoded_data)} bytes")
-        print(f"Encoding cost time: {time.monotonic() - start:.2f} seconds")
-        print(
-            f"Time cost encoding per frame: {(time.monotonic() - start) / len(frames):.4f} seconds"
-        )
-
-        print("*********Decoding encoded frames...*********")
-        # Test decoding the encoded data
-        # frames = test_decode(encoded_data)
-        frames = test_iter_decode(encoded_data)
-        # test_decode(encoded_data, [0, 2, 4]).keys()
-
-    # test_all_decode()
-    AvCoder.seek_frames()
+    print(ilen(iters[1]))

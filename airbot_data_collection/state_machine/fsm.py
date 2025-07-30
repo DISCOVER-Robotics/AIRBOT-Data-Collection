@@ -25,7 +25,6 @@ class DemonstrateFSMConfig(BaseModel):
 
 
 class DemonstrateFSM(StateMachineBasis):
-
     def __init__(self, config: DemonstrateFSMConfig):
         super().__init__(config.state_machine)
         self.config = config

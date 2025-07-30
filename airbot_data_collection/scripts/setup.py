@@ -7,30 +7,33 @@ from airbot_data_collection.common.visualizers.opencv import (
     OpenCVisualizerConfig,
 )
 from airbot_data_collection.common.robot_devices.cameras.utils import (
-    find_camera_indices,
-    find_device_ids_by_keyword,
+    find_video_capture_devices,
 )
 from airbot_data_collection.utils import (
     init_logging,
     execute_shell_script,
     get_can_interfaces,
+    zip,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.utils import bcolors
 from collections import defaultdict
 import logging
-import argparse
 import yaml
 import cv2
 import os
 from pprint import pformat
 import subprocess
 import time
+import tyro
+from pydantic import BaseModel
+from typing import List, Annotated
+from importlib.metadata import version
 
 
 init_logging(logging.INFO)
 logger = logging.getLogger("data_collection_setup")
-
+logger.info(f"Version: {version('airbot-data-collection')}")
 
 try:
     from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
@@ -68,31 +71,25 @@ def check_can_interfaces(expected_interfaces: list[str]) -> bool:
         return False
 
 
-parser = argparse.ArgumentParser(description="Setup script for data collection.")
-parser.add_argument(
-    "-ic",
-    "--ignore_cameras",
-    nargs="+",
-    default=[],
-    type=int,
-    help="Camera indices to ignore (default: []).",
-)
-parser.add_argument(
-    "-i",
-    "--can_interfaces",
-    nargs="+",
-    type=str,
-    help="List of CAN interfaces to use (default: all detected).",
-)
-args = parser.parse_args()
+class SetupConfig(BaseModel):
+    """Configuration for the setup script of data collection."""
 
+    # Ignore cameras by their bus_info or serial_number.
+    ignore_cameras: Annotated[List[str], tyro.conf.arg(aliases=["-ic"])] = []
+    # List of CAN interfaces to use.
+    # If not provided, all available CAN interfaces will be used.
+    can_interfaces: Annotated[List[str], tyro.conf.arg(aliases=["-can"])] = []
+
+
+args = tyro.cli(SetupConfig)
 
 logger.info("Getting system information...")
 hw_uuid = SystemInfo.get_product(True)["uuid"]
 logger.info(f"Hardware uuid: {hw_uuid}")
 
-cur_dir = os.path.abspath(os.path.dirname(__file__))
+"""Process Configs"""
 
+cur_dir = os.path.abspath(os.path.dirname(__file__))
 station_config_path = f"{cur_dir}/station_config.yaml"
 station_config = yaml.safe_load(open(station_config_path))
 NAME_CHOICES = station_config["choices"]
@@ -110,6 +107,8 @@ CAN_NAME_MAPPINGS = {
         "can3": "can_right",
     },
 }
+
+"""Process CAN Interfaces"""
 
 can_itfs = args.can_interfaces or sorted(get_can_interfaces())
 can_num = len(can_itfs)
@@ -156,29 +155,34 @@ if set(new_can) != set(can_itfs):
 else:
     logger.info(f"CAN {can_itfs} already bound correctly.")
 
-found_camera_indices = find_camera_indices()
+"""Process Cameras"""
 
-ignore_cameras: list = args.ignore_cameras
-if -1 in ignore_cameras:
-    ignore_cameras.remove(-1)
-# ignore realsense camera device ids
-if USE_REALSENSE:
-    realsense_cams = find_camera_device_ids()
-else:
-    realsense_cams = find_device_ids_by_keyword("RealSense")
-    logger.info(f"Found RealSense cameras: {realsense_cams}")
-for rs_ids in realsense_cams.values():
-    ignore_cameras.extend(rs_ids)
-for index in ignore_cameras:
-    if index in found_camera_indices:
-        found_camera_indices.remove(index)
-        logger.info(f"Removed camera index: {index}")
-    else:
-        logger.info(f"Device {index} not found")
+all_cam_devices = find_video_capture_devices(True)
+realsense_buses = []
+logger.info(bcolors.OKCYAN + f"Found v4l2 devices: \n{pformat(all_cam_devices)}")
+for device_key in list(all_cam_devices.keys()):
+    bus_id = device_key[1]
+    if bus_id in args.ignore_cameras:
+        all_cam_devices.pop(device_key)
+    elif "RealSense" in device_key[0]:
+        # remove realsense cameras from the v4l2 devices
+        # since we will use their serial numbers
+        all_cam_devices.pop(device_key)
+        realsense_buses.append(bus_id)
+used_camera_indices = [cam_ids[0] for cam_ids in all_cam_devices.values()]
 # add realsene camera serial numbers
+realsense_serials = set()
 if USE_REALSENSE:
-    found_camera_indices.extend(realsense_cams.keys())
-logger.info(f"Found camera indices: {found_camera_indices}")
+    realsense_cams = find_camera_device_ids(True)
+    for bus, serial in realsense_cams.items():
+        if bus not in args.ignore_cameras and serial not in realsense_serials:
+            realsense_serials.add(serial)
+    used_camera_indices.extend(realsense_serials)
+else:
+    args.ignore_cameras.extend(realsense_buses)
+assert used_camera_indices, "No used cameras. Please check the args and connections."
+logger.info(bcolors.OKBLUE + f"All ignored cameras: {args.ignore_cameras}")
+logger.info(bcolors.OKBLUE + f"Used camera indices: {used_camera_indices}")
 
 cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []
@@ -194,15 +198,22 @@ cfged_bus_serials = []
 cfged_names = []
 cfged_camera_types = []
 no_cfg_buses_indexes: list[int] = []
-for i, index in enumerate(list(found_camera_indices)):
-    is_realsense = index in realsense_cams
+for i, index in enumerate(list(used_camera_indices)):
+    is_realsense = index in realsense_serials
+    camera_config = {
+        "width": 640,
+        "height": 480,
+    }
     if is_realsense:
-        config = IntelRealSenseCameraConfig(camera_index=index, enable_depth=False)
+        camera_config["fps"] = 30
+        config = IntelRealSenseCameraConfig(
+            camera_index=index, enable_depth=False, **camera_config
+        )
         camera = IntelRealSenseCamera(config)
         camera_type = "realsense"
     else:
         config = V4L2CameraConfig(
-            camera_index=index, pixel_format="MJPEG", decode=False
+            camera_index=index, pixel_format="MJPEG", decode=False, **camera_config
         )
         camera = V4L2Camera(config)
         camera_type = "v4l2"
@@ -218,12 +229,7 @@ for i, index in enumerate(list(found_camera_indices)):
             else:
                 bus = camera.device.info.bus_info
                 file_name = camera.device.filename
-            camera_params[bus].update(
-                {
-                    "width": 640,
-                    "height": 480,
-                }
-            )
+            camera_params[bus] = camera_config
             logger.info(f"Camera {index} bus/serial info: {bus}")
             prefix = bus_name_mapping.get(bus, "None")
             if prefix == "None":

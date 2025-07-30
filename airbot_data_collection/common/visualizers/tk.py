@@ -5,11 +5,13 @@ import numpy as np
 from PIL import Image, ImageTk
 
 from airbot_data_collection.common.visualizers.basis import (
-    GUIVisualizerConfig, SampleInfo, VisualizerBasis)
+    GUIVisualizerConfig,
+    SampleInfo,
+    VisualizerBasis,
+)
 
 
 class TkinterVisualizer(VisualizerBasis):
-
     config: GUIVisualizerConfig
 
     def on_configure(self):

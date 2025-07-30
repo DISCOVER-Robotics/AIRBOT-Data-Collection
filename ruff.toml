@@ -1,0 +1,6 @@
+[lint]
+ignore = ["F841", "F401"]
+exclude = [
+    "airbot_data_collection/common/utils/transformations.py",
+    "airbot_data_collection/tests/*",
+]

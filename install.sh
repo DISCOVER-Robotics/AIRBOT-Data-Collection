@@ -6,7 +6,7 @@ set -e
 
 arg=$1
 
-sudo apt-get install -y libturbojpeg gcc python3-dev v4l-utils
+sudo apt-get install -y pip python3-dev libturbojpeg gcc v4l-utils
 pip install -e ."[all]" -i https://pypi.mirrors.ustc.edu.cn/simple
 
 if  [ "$arg" == "realsense" ]; then
@@ -15,8 +15,8 @@ if  [ "$arg" == "realsense" ]; then
     PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
 
     if [ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 12 ]; then
-        pip install pyrealsense2
+        pip install pyrealsense2 -i https://pypi.mirrors.ustc.edu.cn/simple
     else
-        pip install pyrealsense2-beta
+        pip install pyrealsense2-beta -i https://pypi.mirrors.ustc.edu.cn/simple
     fi
 fi

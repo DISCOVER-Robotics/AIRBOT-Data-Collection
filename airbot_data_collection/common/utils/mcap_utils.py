@@ -7,11 +7,14 @@ from foxglove_schemas_flatbuffer import CompressedImage, Time
 from foxglove_schemas_flatbuffer import get_schema
 from importlib.resources import read_binary
 import flatbuffers
-from airbot_data_collection.common.utils.av_coder import AvCoder
-from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from enum import Enum
 import os
 import numpy as np
+from functools import cache
+import json
+from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
+from airbot_data_collection.common.utils.av_coder import AvCoder
+from airbot_data_collection.utils import zip
 
 
 class FlatbufferSchemas(Enum):
@@ -143,12 +146,13 @@ class McapFlatbufferReader:
     """Class to handle reading MCAP files with Flatbuffer schemas."""
 
     def __init__(self, file: IO[bytes]):
+        self.file_io = file
         self.reader = make_reader(file)
         self._decoders = {"airbot_fbs.FloatArray": self._decode_array}
 
     def _decode_array(self, data: bytes) -> np.ndarray:
         """Decode a FloatArray Flatbuffer message."""
-        fb = FloatArray.FloatArray.GetRootAsFloatArray(data, 0)
+        fb = FloatArray.FloatArray.GetRootAs(data, 0)
         return fb.ValuesAsNumpy()
 
     def iter_message_samples(
@@ -186,27 +190,29 @@ class McapFlatbufferReader:
         iters: List[Generator] = []
         for attachment in self.reader.iter_attachments():
             name = attachment.name
-            print(name)
             if name in names:
-                assert attachment.media_type in {
-                    "video/mp4"
-                }, f"Unsupported attachment {name} with media type: {attachment.media_type}"
+                media_type = attachment.media_type
                 attch_names.append(name)
-                coder = AvCoder()
-                iters.append(
-                    coder.iter_decode(
+                if media_type == "video/mp4":
+                    coder = AvCoder()
+                    attach_iter = coder.iter_decode(
                         attachment.data,
-                        mismatch_tolerance=0,
+                        mismatch_tolerance=5,
                         ensure_base_stamp=True,
-                        with_stamp=False,
+                        target_time_base=0,
                     )
-                )
+                elif media_type == "application/json":
+                    attach_iter = iter(json.loads(attachment.data))
+                else:
+                    raise ValueError(f"Unsupported media type: {media_type}")
+                iters.append(attach_iter)
                 if len(attch_names) == len(names):
                     break
         else:
-            raise ValueError(
+            assert not names, (
                 f"Not all requested attachments found: {names} vs {attch_names}"
             )
+
         for values in zip(*iters):
             data = {}
             for name, value in zip(attch_names, values):
@@ -238,25 +244,34 @@ class McapFlatbufferReader:
         all_attachments = self.all_attachment_names()
         topics = set(topics) if topics is not None else all_topics
         attachments = set(attachments) if attachments is not None else all_attachments
-        if keys is not None:
-            for key in keys:
-                flag = 0
-                if key in all_topics:
-                    topics.add(key)
-                    flag += 1
-                if key in all_attachments:
-                    attachments.add(key)
-                    flag += 1
-                if flag == 0:
-                    raise ValueError(f"Key '{key}' not found in topics or attachments.")
-                elif flag > 1:
-                    raise ValueError(
-                        f"Key '{key}' found in both topics and attachments, please specify only one."
-                    )
-        for msg_data, att_data in zip(
-            self.iter_message_samples(topics),
-            self.iter_attachment_samples(attachments),
-        ):
+        keys = keys or []
+        for key in keys:
+            flag = 0
+            if key in all_topics:
+                topics.add(key)
+                flag += 1
+            if key in all_attachments:
+                attachments.add(key)
+                flag += 1
+            if flag == 0:
+                raise ValueError(
+                    f"Key '{key}' not found in topics or attachments. Available topics: {all_topics}, attachments: {all_attachments}."
+                )
+            elif flag > 1:
+                raise ValueError(
+                    f"Key '{key}' found in both topics and attachments, please specify only one."
+                )
+
+        def empty_iter():
+            for _ in range(len(self)):
+                yield {}
+
+        # The first iteration costs more time since it needs to create these iterators.
+        topic_iter = self.iter_message_samples(topics) if topics else empty_iter()
+        attachment_iter = (
+            self.iter_attachment_samples(attachments) if attachments else empty_iter()
+        )
+        for msg_data, att_data in zip(topic_iter, attachment_iter):
             data = {}
             data.update(msg_data)
             data.update(att_data)
@@ -291,6 +306,20 @@ class McapFlatbufferReader:
             if count != first_count:
                 return 0
         return first_count
+
+    @cache
+    def __len__(self) -> int:
+        """Get the total number of messages in the MCAP file."""
+        counts = self.topic_message_counts()
+        length = self.equal_message_counts(counts)
+        if length == 0:
+            if counts:
+                raise ValueError(
+                    f"Not all topics have the same number of messages. Counts: {counts}"
+                )
+            else:
+                raise ValueError("No messages found in the MCAP file.")
+        return length
 
 
 def h264_attachment_to_compressed_images(

@@ -16,10 +16,6 @@ from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from airbot_data_collection.utils import bcolors
 
 
-from enum import Enum
-from pydantic import BaseModel
-from typing import Dict
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -55,8 +51,11 @@ class JoyCallbackConfig(BaseModel):
         Action.remove: JoyButton.LB,
         Action.finish: JoyButton.RB,
     }
-
     instruction_button: Dict[str, str] = {}
+    action_axis: Dict[Action, JoyAxis] = {
+        Action.abandon: JoyAxis.DPAD_X,
+    }
+    instruction_axis: Dict[str, str] = {}
 
     def model_post_init(self, context):
         action_info = {
@@ -69,16 +68,6 @@ class JoyCallbackConfig(BaseModel):
         }
         for action, btn in self.action_button.items():
             self.instruction_button[f"button_{btn.value}"] = action_info[action]
-
-    action_axis: Dict[Action, JoyAxis] = {
-        Action.abandon: JoyAxis.DPAD_X,
-    }
-    instruction_axis: Dict[str, str] = {}
-
-    def model_post_init(self, context):
-        action_info = {
-            Action.abandon: "Abandon current sampling without saving",
-        }
         for action, axis in self.action_axis.items():
             self.instruction_axis[f"axis_{axis.value}"] = action_info[action]
 
@@ -103,7 +92,6 @@ class JoyCallbackManager(DemonstrateManagerBasis):
     def _init_ros2(self):
         """初始化ROS2节点和订阅"""
         try:
-
             rclpy.init()
             self.ros_initialized = True
             self.node = Node("mmk2_robot_subscriber")

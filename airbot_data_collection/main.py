@@ -1,14 +1,16 @@
 import time
 from logging import getLogger
-from typing import Dict
-
 from airbot_data_collection.config import DataCollectionArgs
 from airbot_data_collection.demonstrate.interface import ComponentsInstancer
 from airbot_data_collection.managers.basis import DemonstrateManager
-from airbot_data_collection.state_machine.fsm import (DemonstrateFSM,
-                                                      DemonstrateFSMConfig,
-                                                      DemonstrateState)
+from airbot_data_collection.state_machine.fsm import (
+    DemonstrateFSM,
+    DemonstrateFSMConfig,
+    DemonstrateState,
+)
 from airbot_data_collection.utils import init_logging
+from importlib.metadata import version
+
 
 if __name__ == "__main__":
     import logging
@@ -18,8 +20,7 @@ if __name__ == "__main__":
     init_logging(logging.INFO)
     logger = getLogger("airbot_data_collection")
 
-    from airbot_data_collection.common.visualizers.opencv import \
-        prepare_cv2_imshow
+    from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
 
     prepare_cv2_imshow(logger)
 
@@ -30,6 +31,7 @@ if __name__ == "__main__":
         """
         The main manager of data collection.
         """
+        logger.info(f"Version: {version('airbot-data-collection')}")
         fsm = DemonstrateFSM(
             DemonstrateFSMConfig(state_machine=config.fsm, interface=config)
         )

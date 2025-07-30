@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Tuple, Any, Iterable
+from typing import List, Union, Dict, Tuple, Any, Iterable, Set
 from pydantic import PositiveInt
 
 from time import time_ns
@@ -6,7 +6,7 @@ from collections import defaultdict
 from functools import partial
 from enum import auto
 
-from airbot_data_collection.utils import linear_map, StrEnum
+from airbot_data_collection.utils import linear_map, StrEnum, zip
 from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.airbot.robots.common import ControlConfig
@@ -42,6 +42,7 @@ class AIRBOTPlayConfig(ControlConfig):
     speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
+    components: Set[str] = {"arm", "eef"}
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
@@ -82,6 +83,16 @@ class AIRBOTPlay(System):
         if self.interface.connect():
             self.interface.set_speed_profile(self.config.speed_profile)
             self._init_relative_control()
+            # check if the robot components are available
+            info = self.interface.get_product_info()
+            info["arm_types"] = [info["product_type"]]
+            for component in self.config.components:
+                if info[f"{component}_types"][0] == "none":
+                    self.get_logger().error(
+                        f"Component {component} is not available. "
+                        "Please check the configuration or the robot connection."
+                    )
+                    return False
             return True
         return False
 
@@ -123,7 +134,6 @@ class AIRBOTPlay(System):
         )
         self._js_fields = {"position", "velocity", "effort"}
         self._pose_fields = {"position", "orientation"}
-        self._components = {"arm", "eef"}
         self._post_capture = defaultdict(dict)
         self._default_limit: Dict[str, Dict[str, Dict[int, Tuple]]] = {
             "E2B": {"eef/joint_state/position": {0: (0, 0.0471)}},
@@ -180,18 +190,19 @@ class AIRBOTPlay(System):
     ) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}
+        # FIXME: Currently, the robot arm will have a large shake when acquiring pose
         # if self.config.use_pose:
-        pose = self.interface.get_end_pose()
-        if self.config.relative_observation:
-            pose = self.rela_obs_ctrl.to_relative(*pose)
-        obs["arm/pose"] = {
-            "t": time_ns(),
-            "data": {
-                "position": pose[0],
-                "orientation": pose[1],
-            },
-        }
-        for component in self._components:
+        # pose = self.interface.get_end_pose()
+        # if self.config.relative_observation:
+        #     pose = self.rela_obs_ctrl.to_relative(*pose)
+        # obs["arm/pose"] = {
+        #     "t": time_ns(),
+        #     "data": {
+        #         "position": pose[0],
+        #         "orientation": pose[1],
+        #     },
+        # }
+        for component in self.config.components:
             obs[f"{component}/joint_state"] = {
                 "t": time_ns(),
                 "data": {

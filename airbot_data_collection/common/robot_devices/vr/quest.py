@@ -264,7 +264,6 @@ class VRQuest(ConfigBasis):
 
 
 if __name__ == "__main__":
-
     from airbot_data_collection.utils import init_logging
     from pprint import pprint
     import logging

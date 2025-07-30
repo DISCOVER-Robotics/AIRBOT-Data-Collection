@@ -70,10 +70,7 @@ def load_mcap(mcap_file: str) -> dict:
                     # 转换时间戳（纳秒转毫秒）
                     timestamp_ms = message.log_time / 1e6
 
-                    messages_by_topic[topic].append({
-                        "t": timestamp_ms,
-                        "data": values
-                    })
+                    messages_by_topic[topic].append({"t": timestamp_ms, "data": values})
                 except Exception as e:
                     logger.warning(f"解析 FlatBuffers 消息失败 (话题: {topic}): {e}")
                     continue
@@ -92,9 +89,9 @@ def load_data_file(file_path: str) -> dict:
     """自动检测文件格式并加载数据"""
     file_path = Path(file_path)
 
-    if file_path.suffix.lower() == '.bson':
+    if file_path.suffix.lower() == ".bson":
         return load_bson(str(file_path))
-    elif file_path.suffix.lower() == '.mcap':
+    elif file_path.suffix.lower() == ".mcap":
         return load_mcap(str(file_path))
     else:
         raise ValueError(f"不支持的文件格式: {file_path.suffix}")
@@ -178,13 +175,15 @@ class MMK2Replayer:
 
         # 启用相机资源
         if self.cameras:
-            self.robot.enable_resources({
-                comp: {
-                    "rgb_camera.color_profile": "640,480,30",
-                    "enable_depth": "false",
+            self.robot.enable_resources(
+                {
+                    comp: {
+                        "rgb_camera.color_profile": "640,480,30",
+                        "enable_depth": "false",
+                    }
+                    for comp in self.cameras
                 }
-                for comp in self.cameras
-            })
+            )
 
     def reset(self, sleep_time=0):
         """重置机器人到默认位置"""
@@ -234,7 +233,9 @@ class MMK2Replayer:
         logger.info("已切换到伺服模式")
 
 
-def parse_actions_from_data(data: dict, components: Dict[MMK2Components, ComponentTypes]) -> List[List[float]]:
+def parse_actions_from_data(
+    data: dict, components: Dict[MMK2Components, ComponentTypes]
+) -> List[List[float]]:
     """从数据中解析动作序列"""
     all_actions = []
 
@@ -270,8 +271,13 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
 
         for component in components:
             # 根据数据格式选择话题名称
-            topic_prefix = "mmk/observation/" if "observation" in component_topic else \
-                         "mmk/action/" if "action" in component_topic else "mmk/"
+            topic_prefix = (
+                "mmk/observation/"
+                if "observation" in component_topic
+                else "mmk/action/"
+                if "action" in component_topic
+                else "mmk/"
+            )
 
             if component_topic.endswith("/position"):
                 # MCAP 格式：每个字段单独的话题
@@ -303,7 +309,9 @@ def parse_actions_from_data(data: dict, components: Dict[MMK2Components, Compone
     return all_actions
 
 
-def replay_actions(replayer: MMK2Replayer, actions: List[List[float]], frequency: float = 10.0):
+def replay_actions(
+    replayer: MMK2Replayer, actions: List[List[float]], frequency: float = 10.0
+):
     """重放动作序列"""
     logger.info(f"开始重放 {len(actions)} 个动作，频率: {frequency} Hz")
 
@@ -362,6 +370,7 @@ def main():
     except Exception as e:
         logger.error(f"程序执行失败: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

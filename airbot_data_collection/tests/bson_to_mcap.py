@@ -39,7 +39,7 @@ def analyze_all_timestamps(data, topics):
 
         # 判断是否为相对时间戳
         if min_ts < 1000000:  # 小于1970年后1000秒
-            print(f"  -> 相对时间戳")
+            print("  -> 相对时间戳")
             # 获取该话题的start_time
             topic_config = topics.get(topic, {})
             start_time = topic_config.get("start_time", 0)
@@ -49,23 +49,23 @@ def analyze_all_timestamps(data, topics):
                     "type": "relative",
                     "base": start_time,
                     "min": min_ts,
-                    "max": max_ts
+                    "max": max_ts,
                 }
             else:
-                print(f"  -> 警告：没有start_time，使用0作为基准")
+                print("  -> 警告：没有start_time，使用0作为基准")
                 timestamp_info[topic] = {
                     "type": "relative",
                     "base": 0,
                     "min": min_ts,
-                    "max": max_ts
+                    "max": max_ts,
                 }
         else:
-            print(f"  -> 绝对时间戳")
+            print("  -> 绝对时间戳")
             timestamp_info[topic] = {
                 "type": "absolute",
                 "base": 0,
                 "min": min_ts,
-                "max": max_ts
+                "max": max_ts,
             }
 
     return timestamp_info
@@ -100,7 +100,9 @@ def create_float_array_message(builder, values):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert BSON file to MCAP with FlatBuffers format")
+    parser = argparse.ArgumentParser(
+        description="Convert BSON file to MCAP with FlatBuffers format"
+    )
     parser.add_argument("bson_file", type=str, help="Path to the BSON file")
     args = parser.parse_args()
 
@@ -215,7 +217,10 @@ def main():
                 # 分析时间戳间隔
                 if len(values) > 1:
                     timestamps = [value["t"] for value in values]
-                    time_diffs = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+                    time_diffs = [
+                        timestamps[i + 1] - timestamps[i]
+                        for i in range(len(timestamps) - 1)
+                    ]
                     avg_interval = sum(time_diffs) / len(time_diffs)
                     actual_fps = 1000.0 / avg_interval if avg_interval > 0 else 0
                     print(f"  实际频率: {actual_fps:.2f} Hz")

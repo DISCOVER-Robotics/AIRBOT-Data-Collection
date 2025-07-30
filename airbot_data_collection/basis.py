@@ -32,12 +32,21 @@ class ConfigBasis(ABC):
     def __init__(self, config: BaseModel | None = None, **kwargs) -> None:
         config_type = self.__annotations__.get("config", None)
         assert config_type, "config must be annotated at top level class"
-        if config is None:
+        if config is None:  # mainly used by yaml config, e.g. hydra
             config = config_type(**kwargs)
-        else:
-            if kwargs:
+            # check pydantic extra kwargs
+            if isinstance(config, BaseModel):
+                extra = kwargs.keys() - config.__class__.model_fields.keys()
+                if extra:
+                    self.get_logger().warning(
+                        f"Extra fields {extra} found in config, which will be ignored."
+                    )
+        else:  # mainly used by instancing manually
+            if kwargs:  # rarely used
                 if isinstance(config, BaseModel):
                     config = config.model_copy(update=kwargs)
+                    # re-validate
+                    config = config.model_validate(config.model_dump(warnings="none"))
                 else:  # dataclass
                     config = replace(config, **kwargs)
         self.config = config
@@ -78,7 +87,6 @@ class ConfigBasis(ABC):
 
 
 class Sensor(ConfigBasis):
-
     @abstractmethod
     def capture_observation(self) -> Dict[str, Any]:
         """Capture observation from the sensor"""
@@ -101,7 +109,6 @@ class Sensor(ConfigBasis):
 
 
 class System(Sensor):
-
     @abstractmethod
     def send_action(self, action: Any) -> Any: ...
 

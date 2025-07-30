@@ -8,6 +8,8 @@ from enum import Enum
 import numpy as np
 import subprocess
 from typing import List
+import sys
+from functools import partial
 
 
 def get_stamp_ms() -> int:
@@ -112,7 +114,6 @@ class StrEnum(str, ReprEnum):
 
 
 class CustomFormatter(logging.Formatter):
-
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
@@ -147,9 +148,9 @@ def init_logging(level):
 
 
 def run_event_loop() -> asyncio.AbstractEventLoop:
-    assert (
-        threading.current_thread() == threading.main_thread()
-    ), "Event loop must be run in the main thread"
+    assert threading.current_thread() == threading.main_thread(), (
+        "Event loop must be run in the main thread"
+    )
     event_loop = asyncio.get_event_loop()
     if not event_loop.is_running():
         event_loop = asyncio.new_event_loop()
@@ -269,7 +270,6 @@ class ProgressBar:
 
 
 class ImageCoder:
-
     @staticmethod
     def rgb2yuv(rgb: np.ndarray) -> np.ndarray:
         # The coefficients were taken from OpenCV https://github.com/opencv/opencv
@@ -454,8 +454,13 @@ def sort_index(order: list, name_list: list, value_list: list) -> tuple:
     return sorted_value_list
 
 
-if __name__ == "__main__":
+if sys.version_info >= (3, 10):
+    zip = partial(zip, strict=True)
+else:
+    from airbot_data_collection.utils import zip as zip  #  # noqa: F401
 
+
+if __name__ == "__main__":
     # bar = ProgressBar(100, "Round 0")
     # for rd in range(10):
     #     for i in range(5):
@@ -465,9 +470,5 @@ if __name__ == "__main__":
 
     # print(linear_map(-0.1, (0, 1), (0, 100)))
 
-    class TestEnum(StrEnum):
-        A = "a"
-        B = "b"
-        C = "c"
-
-    print(f"{TestEnum.A}_ok")
+    for item in zip([1, 2], [3, 4, 5]):
+        print(item)

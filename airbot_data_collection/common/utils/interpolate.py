@@ -157,7 +157,7 @@ class Interpolate:
         while True:
             try:
                 y_interp = CubicSpline(t, y, bc_type=bc_type)(t_interp)
-            except:
+            except Exception:
                 # Handle duplicates or non-strictly increasing sequence
                 t[-cnt] += 0.0003 / cnt
             else:

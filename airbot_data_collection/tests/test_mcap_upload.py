@@ -36,26 +36,34 @@ def load_mcap_file(mcap_file: str) -> dict:
         for metadata in reader.iter_metadata():
             try:
                 # 修复API差异，使用正确的属性名
-                metadata_data = getattr(metadata, 'data', getattr(metadata, 'metadata', b''))
-                metadata_value = json.loads(metadata_data.decode('utf-8'))
+                metadata_data = getattr(
+                    metadata, "data", getattr(metadata, "metadata", b"")
+                )
+                metadata_value = json.loads(metadata_data.decode("utf-8"))
                 data["metadata"][metadata.name] = metadata_value
                 logger.info(f"读取元数据: {metadata.name}")
-            except:
+            except Exception:
                 try:
-                    metadata_data = getattr(metadata, 'data', getattr(metadata, 'metadata', b''))
-                    data["metadata"][metadata.name] = metadata_data.decode('utf-8', errors='ignore')
-                except:
+                    metadata_data = getattr(
+                        metadata, "data", getattr(metadata, "metadata", b"")
+                    )
+                    data["metadata"][metadata.name] = metadata_data.decode(
+                        "utf-8", errors="ignore"
+                    )
+                except Exception:
                     data["metadata"][metadata.name] = str(metadata)
                     logger.warning(f"无法解析元数据: {metadata.name}")
 
         # 读取附件
         for attachment in reader.iter_attachments():
-            attachment_data = getattr(attachment, 'data', b'')
+            attachment_data = getattr(attachment, "data", b"")
             data["attachments"][attachment.name] = {
-                "media_type": getattr(attachment, 'media_type', 'unknown'),
-                "data_size": len(attachment_data)
+                "media_type": getattr(attachment, "media_type", "unknown"),
+                "data_size": len(attachment_data),
             }
-            logger.info(f"读取附件: {attachment.name} ({getattr(attachment, 'media_type', 'unknown')})")
+            logger.info(
+                f"读取附件: {attachment.name} ({getattr(attachment, 'media_type', 'unknown')})"
+            )
 
         # 收集所有消息
         messages_by_topic = {}
@@ -79,10 +87,7 @@ def load_mcap_file(mcap_file: str) -> dict:
                     # 转换时间戳（纳秒转毫秒）
                     timestamp_ms = message.log_time / 1e6
 
-                    messages_by_topic[topic].append({
-                        "t": timestamp_ms,
-                        "data": values
-                    })
+                    messages_by_topic[topic].append({"t": timestamp_ms, "data": values})
                 except Exception as e:
                     logger.warning(f"解析 FlatBuffers 消息失败 (话题: {topic}): {e}")
                     continue
@@ -100,17 +105,20 @@ def load_mcap_file(mcap_file: str) -> dict:
     return data
 
 
-def upload_mcap_to_cloud(file_path: str, project_id: int, endpoint: str = '192.168.215.80',
-                        username: str = 'admin', password: str = '123456') -> bool:
+def upload_mcap_to_cloud(
+    file_path: str,
+    project_id: int,
+    endpoint: str = "192.168.215.80",
+    username: str = "admin",
+    password: str = "123456",
+) -> bool:
     """上传MCAP文件到云端"""
     try:
         from dataloop import DataLoopClient
 
         # 初始化 DataLoop 客户端
         dataloop = DataLoopClient(
-            endpoint=endpoint,
-            username=username,
-            password=password
+            endpoint=endpoint, username=username, password=password
         )
 
         # 生成唯一的样本ID
@@ -120,7 +128,7 @@ def upload_mcap_to_cloud(file_path: str, project_id: int, endpoint: str = '192.1
         file_size = os.path.getsize(file_path)
         file_name = os.path.basename(file_path)
 
-        logger.info(f"开始上传文件到云端:")
+        logger.info("开始上传文件到云端:")
         logger.info(f"  文件路径: {file_path}")
         logger.info(f"  文件名: {file_name}")
         logger.info(f"  文件大小: {file_size} bytes")
@@ -132,10 +140,10 @@ def upload_mcap_to_cloud(file_path: str, project_id: int, endpoint: str = '192.1
             project_id=project_id,
             sample_id=uid,
             sample_type="Sequential",
-            file_path=file_path
+            file_path=file_path,
         )
 
-        logger.info(f"文件上传成功!")
+        logger.info("文件上传成功!")
         logger.info(f"服务器响应: {message}")
         return True
 
@@ -159,7 +167,9 @@ def analyze_mcap_content(data: dict):
         logger.info("元数据:")
         for key, value in data["metadata"].items():
             if isinstance(value, dict):
-                logger.info(f"  {key}: {json.dumps(value, indent=2, ensure_ascii=False)}")
+                logger.info(
+                    f"  {key}: {json.dumps(value, indent=2, ensure_ascii=False)}"
+                )
             else:
                 logger.info(f"  {key}: {value}")
 
@@ -171,8 +181,10 @@ def analyze_mcap_content(data: dict):
             if messages:
                 first_msg = messages[0]
                 last_msg = messages[-1]
-                logger.info(f"    时间范围: {first_msg['t']:.2f} - {last_msg['t']:.2f} ms")
-                if 'data' in first_msg:
+                logger.info(
+                    f"    时间范围: {first_msg['t']:.2f} - {last_msg['t']:.2f} ms"
+                )
+                if "data" in first_msg:
                     logger.info(f"    数据维度: {len(first_msg['data'])}")
 
     # 分析附件
@@ -186,10 +198,14 @@ def main():
     parser = argparse.ArgumentParser(description="MCAP文件云端上传测试工具")
     parser.add_argument("mcap_file", help="MCAP文件路径")
     parser.add_argument("--project-id", type=int, default=120, help="DataLoop项目ID")
-    parser.add_argument("--endpoint", default='192.168.215.80', help="DataLoop服务器地址")
-    parser.add_argument("--username", default='admin', help="用户名")
-    parser.add_argument("--password", default='123456', help="密码")
-    parser.add_argument("--analyze-only", action="store_true", help="仅分析文件内容，不上传")
+    parser.add_argument(
+        "--endpoint", default="192.168.215.80", help="DataLoop服务器地址"
+    )
+    parser.add_argument("--username", default="admin", help="用户名")
+    parser.add_argument("--password", default="123456", help="密码")
+    parser.add_argument(
+        "--analyze-only", action="store_true", help="仅分析文件内容，不上传"
+    )
 
     args = parser.parse_args()
 
@@ -200,7 +216,7 @@ def main():
             logger.error(f"文件不存在: {mcap_path}")
             return 1
 
-        if mcap_path.suffix.lower() != '.mcap':
+        if mcap_path.suffix.lower() != ".mcap":
             logger.error(f"不是MCAP文件: {mcap_path}")
             return 1
 
@@ -225,7 +241,7 @@ def main():
             project_id=args.project_id,
             endpoint=args.endpoint,
             username=args.username,
-            password=args.password
+            password=args.password,
         )
 
         if success:
@@ -238,6 +254,7 @@ def main():
     except Exception as e:
         logger.error(f"程序执行失败: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

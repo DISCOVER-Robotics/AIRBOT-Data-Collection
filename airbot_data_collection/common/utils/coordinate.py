@@ -6,6 +6,7 @@ import numpy as np
 
 Pose = Tuple[np.ndarray, np.ndarray]  # (position:ndarray, orientation:ndarray)
 
+
 class CoordinateConverter:
     """坐标系转换类：将左手坐标系(Z前)转换为右手坐标系(X前,Y左,Z上)"""
 
@@ -205,16 +206,12 @@ class CoordinateTools:
             return cls.tf_compute_series(args[0], cls.tf_chain_compute(*args[1:]))
 
     @classmethod
-    def to_world_coordinate(
-        cls, target_in_robot: Pose, robot_in_world: Pose
-    ) -> Pose:
+    def to_world_coordinate(cls, target_in_robot: Pose, robot_in_world: Pose) -> Pose:
         """目标在机器人坐标系下的位姿转换为在世界坐标系下的位姿"""
         return cls.tf_compute_series(robot_in_world, target_in_robot)
 
     @classmethod
-    def to_robot_coordinate(
-        cls, target_in_world: Pose, robot_in_world: Pose
-    ) -> Pose:
+    def to_robot_coordinate(cls, target_in_world: Pose, robot_in_world: Pose) -> Pose:
         """目标在世界坐标系下的位姿转换为在机器人坐标系下的位姿"""
         return cls.tf_compute_parallel(robot_in_world, target_in_world)
 
@@ -231,7 +228,9 @@ class CoordinateTools:
         )
 
     @classmethod
-    def custom_to_raw(cls, custom_pose: tuple, raw_in_custom=None, custom_in_raw=None) -> tuple:
+    def custom_to_raw(
+        cls, custom_pose: tuple, raw_in_custom=None, custom_in_raw=None
+    ) -> tuple:
         """将自定义参考系下的位姿转换为原始参考系下的位姿"""
         if raw_in_custom is not None:
             return cls.tf_compute_series(custom_pose, raw_in_custom)
@@ -335,7 +334,7 @@ class CoordinateTools:
 
     @staticmethod
     def change_to_half_pi_scope(
-        direction: Union[float, np.ndarray]
+        direction: Union[float, np.ndarray],
     ) -> Union[float, np.ndarray]:
         """将方向角从[-pi,pi]转换为[-pi/2,pi/2]（一般用于使轴线重合而不要求同向）"""
         if isinstance(direction, np.ndarray):
@@ -350,7 +349,7 @@ class CoordinateTools:
 
     @staticmethod
     def change_to_pi_scope(
-        direction: Union[float, np.ndarray]
+        direction: Union[float, np.ndarray],
     ) -> Union[float, np.ndarray]:
         """将角度从[-2pi,2pi]转换为[-pi,pi]（一般用于通过优弧对齐姿态）"""
         if isinstance(direction, np.ndarray):

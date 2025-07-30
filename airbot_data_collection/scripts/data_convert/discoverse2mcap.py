@@ -7,14 +7,13 @@ from airbot_data_collection.airbot.samplers.mcap_sampler import (
     AIRBOTMcapDataSamplerConfig,
     TaskInfo,
 )
+from airbot_data_collection.utils import zip
 from mcap.writer import Writer
 import os
 import time
 import json
-import tyro
 from pydantic import BaseModel
-
-# This script converts DISCOVERSE data to MCAP format.
+from pydantic_settings import CliApp
 
 
 class Config(BaseModel):
@@ -31,7 +30,7 @@ class Config(BaseModel):
     output_dir: str = ""
 
 
-config = tyro.cli(Config)
+config = CliApp.run(Config)
 
 start = time.perf_counter()
 directory = f"{config.root}/{config.task_name}"
@@ -46,9 +45,13 @@ print(folders)
 config = AIRBOTMcapDataSamplerConfig(task_info=TaskInfo(task_name=config.task_name))
 
 for folder in folders:
-    episode = int(os.path.basename(folder))
-    output_file_path = f"{output_dir}/{episode + 4}.mcap"
-    print(output_file_path)
+    fd_base = os.path.basename(folder)
+    if not fd_base.isdigit():
+        print(f"Skipping folder {folder} as it does not match the expected format.")
+        continue
+    episode = int(fd_base)
+    output_file_path = f"{output_dir}/{episode}.mcap"
+    print(f"{output_file_path=}")
     mcap_writer = Writer(output_file_path)
     mcap_writer.start()
     flb_writer = McapFlatbufferWriter()
@@ -61,11 +64,11 @@ for folder in folders:
     mp4_files = [
         f.path for f in os.scandir(folder) if f.is_file() and f.name.endswith(".mp4")
     ]
-    print(mp4_files)
+    print(f"{mp4_files=}")
     # add video attachments
     for mp4_file in mp4_files:
         with open(mp4_file, "rb") as f:
-            name = f"{os.path.basename(mp4_file).removesuffix('.mp4')}/color/image_raw"
+            name = f"/{os.path.basename(mp4_file).removesuffix('.mp4')}/color/image_raw"
             print(f"Adding video attachment: {name}")
             AIRBOTMcapDataSampler.add_video_attachment(
                 mcap_writer,
@@ -74,7 +77,7 @@ for folder in folders:
             )
 
     def to_topic(group: str, component: str) -> str:
-        return f"{group}/{component}/joint_state/position"
+        return f"/{group}/{component}/joint_state/position"
 
     # load json dict
     groups = ["lead", "follow"]
@@ -82,7 +85,7 @@ for folder in folders:
     slices = [slice(0, 6), slice(6, 7)]
     with open(f"{folder}/obs_action.json") as f:
         act_obs: dict = json.load(f)
-        print(act_obs.keys())
+        print(f"{act_obs.keys()=}")
         # register joint state channels
         for group in groups:
             for comp in components:
@@ -99,7 +102,6 @@ for folder in folders:
         ):
             stamp_ns = int(stamp * 1e9)
             for group, value in zip(groups, [act, obs]):
-                # print(value)
                 for component, slc in zip(components, slices):
                     flb_writer.add_field_array(
                         {"position": to_topic(group, component)},
@@ -108,10 +110,10 @@ for folder in folders:
                         log_time=stamp_ns,
                     )
             stamps_ns.append(stamp_ns)
-            AIRBOTMcapDataSampler.add_log_stamps_attachment(
-                mcap_writer,
-                stamps_ns,
-            )
+        AIRBOTMcapDataSampler.add_log_stamps_attachment(
+            mcap_writer,
+            stamps_ns,
+        )
     mcap_writer.finish()
 
 

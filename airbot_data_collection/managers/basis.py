@@ -4,8 +4,11 @@ from typing import Protocol, final, runtime_checkable
 from pydantic import BaseModel
 
 from airbot_data_collection.basis import ConfigBasis
-from airbot_data_collection.state_machine.fsm import (DemonstrateAction,
-                                                      DemonstrateFSM, State)
+from airbot_data_collection.state_machine.fsm import (
+    DemonstrateAction,
+    DemonstrateFSM,
+    State,
+)
 
 
 @runtime_checkable

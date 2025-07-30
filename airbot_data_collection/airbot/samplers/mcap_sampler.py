@@ -204,6 +204,9 @@ class AIRBOTMcapDataSampler(DataSampler):
                         f"Data type {data_type} not implemented for MCAP saving."
                     )
                 if data_type:
+                    assert len(log_stamps) == len(values), (
+                        f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
+                    )
                     _ = [
                         self._mf_writer.add_message(
                             data_type,
