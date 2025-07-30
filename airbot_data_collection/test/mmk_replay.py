@@ -108,11 +108,15 @@ class AIRBOTMMK2Config:
     port: int = 50055
     default_action: Optional[List[float]] = field(
         default_factory=lambda: [
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # left_arm
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # right_arm
-            0.0, -1.0, 0.15                      # head, spine
+            -0.233, -0.73, 1.088, 1.774, -1.1475, -0.1606,    # left_arm (6 joints)
+            0.0,                             # left_arm_eef (1 joint)
+            0.2258, -0.6518, 0.9543, -1.777, 1.0615, 0.3588,    # right_arm (6 joints)
+            0.0,                             # right_arm_eef (1 joint)
+            0.0, -1.0,                       # head (2 joints)
+            0.15,                            # spine (1 joint)
         ]
     )
+
     cameras: Dict[str, str] = field(default_factory=dict)
     components: List[str] = field(
         default_factory=lambda: [
@@ -125,7 +129,6 @@ class AIRBOTMMK2Config:
         ]
     )
     demonstrate: bool = False
-
 
 class MMK2Replayer:
     """MMK2 机器人重放器"""
@@ -216,6 +219,10 @@ class MMK2Replayer:
             j_cnt = end
         return goal
 
+    def control_arm_joint_servo(self, action: List[float]):
+        goal = self._action_to_goal(action)
+        self.robot.set_goal(goal, MoveServoParams())
+
     def enter_traj_mode(self):
         """进入轨迹模式"""
         self.traj_mode = True
@@ -304,7 +311,7 @@ def replay_actions(replayer: MMK2Replayer, actions: List[List[float]], frequency
         start_time = time.time()
 
         try:
-            replayer.send_action(action)
+            replayer.control_arm_joint_servo(action)
         except Exception as e:
             logger.error(f"动作 {i} 执行失败: {e}")
             continue
