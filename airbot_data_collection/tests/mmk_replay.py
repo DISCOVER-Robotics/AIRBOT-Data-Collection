@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from mmk2_types.types import (
-    MMK2Components,
+    RobotComponents,
     JointNames,
     ComponentTypes,
     TopicNames,
-    MMK2ComponentsGroup,
+    RobotComponentsGroup,
     ImageTypes,
     ControllerTypes,
 )
@@ -117,12 +117,12 @@ class AIRBOTMMK2Config:
     cameras: Dict[str, str] = field(default_factory=dict)
     components: List[str] = field(
         default_factory=lambda: [
-            MMK2Components.LEFT_ARM.value,
-            MMK2Components.LEFT_ARM_EEF.value,
-            MMK2Components.RIGHT_ARM.value,
-            MMK2Components.RIGHT_ARM_EEF.value,
-            MMK2Components.HEAD.value,
-            MMK2Components.SPINE.value,
+            RobotComponents.LEFT_ARM.value,
+            RobotComponents.LEFT_ARM_EEF.value,
+            RobotComponents.RIGHT_ARM.value,
+            RobotComponents.RIGHT_ARM_EEF.value,
+            RobotComponents.HEAD.value,
+            RobotComponents.SPINE.value,
         ]
     )
     demonstrate: bool = False
@@ -151,19 +151,19 @@ class MMK2Replayer:
     def _setup_components(self):
         """设置组件和关节信息"""
         self.joint_names = {}
-        self.cameras: Dict[MMK2Components, str] = {}
-        self.components: Dict[MMK2Components, ComponentTypes] = {}
+        self.cameras: Dict[RobotComponents, str] = {}
+        self.components: Dict[RobotComponents, ComponentTypes] = {}
 
         all_joint_names = JointNames()
         self.joint_num = 0
 
         # 设置相机
         for k, v in self.config.cameras.items():
-            self.cameras[MMK2Components(k)] = ImageTypes(v)
+            self.cameras[RobotComponents(k)] = ImageTypes(v)
 
         # 设置组件
         for comp_str in self.config.components:
-            comp = MMK2Components(comp_str)
+            comp = RobotComponents(comp_str)
             self.components[comp] = ComponentTypes.UNKNOWN
             names = all_joint_names.__dict__[comp_str]
             self.joint_names[comp] = names
@@ -205,7 +205,7 @@ class MMK2Replayer:
         else:
             self.robot.set_goal(goal, MoveServoParams())
 
-    def _action_to_goal(self, action: List[float]) -> Dict[MMK2Components, JointState]:
+    def _action_to_goal(self, action: List[float]) -> Dict[RobotComponents, JointState]:
         """将动作列表转换为关节状态目标"""
         if len(action) != self.joint_num:
             raise ValueError(f"动作长度 {len(action)} 与关节数 {self.joint_num} 不匹配")
@@ -234,7 +234,7 @@ class MMK2Replayer:
 
 
 def parse_actions_from_data(
-    data: dict, components: Dict[MMK2Components, ComponentTypes]
+    data: dict, components: Dict[RobotComponents, ComponentTypes]
 ) -> List[List[float]]:
     """从数据中解析动作序列"""
     all_actions = []
