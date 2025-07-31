@@ -6,7 +6,8 @@ set -e
 
 arg=$1
 
-sudo apt-get install -y pip python3-dev libturbojpeg gcc v4l-utils
+sudo apt-get install -y pip python3-dev libturbojpeg gcc
+pip install --upgrade pip setuptools wheel -i https://pypi.mirrors.ustc.edu.cn/simple
 pip install -e ."[all]" -i https://pypi.mirrors.ustc.edu.cn/simple
 
 if  [ "$arg" == "realsense" ]; then
