@@ -69,7 +69,17 @@ class AIRBOTMMK(System):
         print(f"[DEBUG] Action topics ALL: {self._action_topics}")
         self.interface.listen_to(self._action_topics.values())
         self.interface.enable_resources(self.config.cameras)
-        self._joint_names = JointNames().__dict__
+        # self._joint_names = JointNames().__dict__
+        self._joint_names = {
+            "left_arm": JointNames.LEFT_ARM.value,
+            "right_arm": JointNames.RIGHT_ARM.value,
+            "left_arm_eef": JointNames.LEFT_ARM_EEF.value,
+            "right_arm_eef": JointNames.RIGHT_ARM_EEF.value,
+            "spine": JointNames.SPINE.value,
+            "head": JointNames.HEAD.value,
+            "base": JointNames.BASE.value
+        }
+
         self.cameras = {cam: [ImageTypes.COLOR] for cam in self.config.cameras}
 
         print(f"[DEBUG] _joint_names: {self._joint_names}")
