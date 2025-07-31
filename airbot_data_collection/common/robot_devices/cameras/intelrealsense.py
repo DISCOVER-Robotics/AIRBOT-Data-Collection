@@ -6,7 +6,7 @@ import math
 import time
 import traceback
 from threading import Event, Thread
-
+from typing import Union, Optional
 import numpy as np
 
 from airbot_data_collection.common.robot_devices.cameras.utils import (
@@ -47,7 +47,9 @@ def find_camera_indices(
     return camera_ids
 
 
-def find_camera_device_ids(bus_to_serial: bool = False) -> dict[str, list[str | int]]:
+def find_camera_device_ids(
+    bus_to_serial: bool = False,
+) -> dict[str, list[Union[str, int]]]:
     """Find the video capture devices corresponding to Intel RealSense cameras."""
     ctx = RSContext()
     devices = find_video_capture_devices()
@@ -91,7 +93,7 @@ class IntelRealSenseCameraConfig(CameraRGBDConfig):
 class IntelRealSenseCamera:
     def __init__(
         self,
-        config: IntelRealSenseCameraConfig | None = None,
+        config: Optional[IntelRealSenseCameraConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -215,8 +217,8 @@ class IntelRealSenseCamera:
         return self.is_connected
 
     def read(
-        self, temporary_color: str | None = None
-    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        self, temporary_color: Optional[str] = None
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         """Read a frame from the camera returned in the format height x width x channels (e.g. 480 x 640 x 3)
         of type `np.uint8`, contrarily to the pytorch format which is float channel first.
 
@@ -293,7 +295,7 @@ class IntelRealSenseCamera:
         else:
             return color_image
 
-    def capture_observation(self) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    def capture_observation(self) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         return self.read()
 
     def read_loop(self):

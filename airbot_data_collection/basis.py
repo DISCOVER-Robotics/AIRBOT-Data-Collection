@@ -3,7 +3,17 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, replace
 from enum import Enum, auto
 from logging import getLogger
-from typing import Any, Dict, Protocol, Union, List, Tuple, final, runtime_checkable
+from typing import (
+    Any,
+    Dict,
+    Protocol,
+    Union,
+    List,
+    Tuple,
+    Optional,
+    final,
+    runtime_checkable,
+)
 from pydantic import BaseModel
 
 
@@ -29,7 +39,7 @@ class PostCaptureConfig(BaseModel):
 
 
 class ConfigBasis(ABC):
-    def __init__(self, config: BaseModel | None = None, **kwargs) -> None:
+    def __init__(self, config: Optional[BaseModel] = None, **kwargs) -> None:
         config_type = self.__annotations__.get("config", None)
         assert config_type, "config must be annotated at top level class"
         if config is None:  # mainly used by yaml config, e.g. hydra

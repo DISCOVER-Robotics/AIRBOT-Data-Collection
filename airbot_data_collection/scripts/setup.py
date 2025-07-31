@@ -135,6 +135,7 @@ if set(new_can) != set(can_itfs):
         ],
         with_sudo=True,
     )
+    # TODO: detect whether the CAN interfaces are bound correctly
     logger.info(
         bcolors.OKCYAN
         + "Please reconnect the robotic arms and press `Enter` to continue..."

@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Tuple, Any, Iterable, Set
+from typing import List, Union, Dict, Tuple, Any, Iterable, Set, Optional
 from pydantic import PositiveInt
 
 from time import time_ns
@@ -39,7 +39,7 @@ class InterfaceType(StrEnum):
 class AIRBOTPlayConfig(ControlConfig):
     url: str = "localhost"
     port: PositiveInt = 50050
-    speed_profile: SpeedProfile | str | None = SpeedProfile.FAST
+    speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
     components: Set[str] = {"arm", "eef"}
@@ -97,7 +97,7 @@ class AIRBOTPlay(System):
             return True
         return False
 
-    def send_action(self, action: List[float] | Dict[str, Any]) -> None:
+    def send_action(self, action: Union[List[float], Dict[str, Any]]) -> None:
         mode = self.interface.get_control_mode()
         if isinstance(action, dict):
             for key, value in action.items():

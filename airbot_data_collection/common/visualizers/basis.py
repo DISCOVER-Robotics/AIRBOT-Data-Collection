@@ -58,7 +58,7 @@ class WebVisualizerConfig(BaseModel):
 
     host: str = "127.0.0.0"
     port: NonNegativeInt = 8000
-    log_level: str | int | None = None
+    log_level: Optional[Union[str, int]] = None
     access_log: bool = False
 
 

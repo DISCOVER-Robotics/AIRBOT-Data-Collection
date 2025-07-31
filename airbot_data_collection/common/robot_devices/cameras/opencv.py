@@ -9,7 +9,7 @@ import time
 from logging import getLogger
 from pathlib import Path
 from threading import Thread
-
+from typing import Optional, Union
 import cv2
 import numpy as np
 
@@ -36,7 +36,7 @@ class OpenCVCamera:
 
     def __init__(
         self,
-        config: CameraRGBConfig | None = None,
+        config: Optional[CameraRGBConfig] = None,
         **kwargs,
     ):
         if config is None:
@@ -161,7 +161,7 @@ class OpenCVCamera:
 
         self.is_connected = True
 
-    def read(self, temporary_color_mode: str | None = None) -> np.ndarray:
+    def read(self, temporary_color_mode: Optional[str] = None) -> np.ndarray:
         """Read a frame from the camera returned in the format (height, width, channels)
         (e.g. 480 x 640 x 3), contrarily to the pytorch format which is channel first.
 

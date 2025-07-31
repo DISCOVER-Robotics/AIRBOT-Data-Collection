@@ -7,7 +7,7 @@ import time
 from enum import Enum
 import numpy as np
 import subprocess
-from typing import List
+from typing import List, Optional
 import sys
 from functools import partial
 
@@ -35,9 +35,8 @@ def find_matching_files(
     strict: bool = False,
     ignore_path: bool = False,
     ignore_empty: bool = True,
-) -> list[str | None]:
-    # 对于每个 filename，单独搜索
-    result: list[str | None] = []
+) -> list[Optional[str]]:
+    result: list[Optional[str]] = []
     search_dirs = [os.path.abspath(dir) for dir in search_dirs]
     for name in filenames:
         if ignore_empty and not name:
@@ -260,7 +259,7 @@ class ProgressBar:
         )
         self.progress_bar.refresh()
 
-    def reset(self, total: int = 0, desc: str | None = None):
+    def reset(self, total: int = 0, desc: Optional[str] = None):
         self.progress_bar.reset(total=total or self.total)
         self.progress_bar.desc = desc
         self.progress_bar.clear()

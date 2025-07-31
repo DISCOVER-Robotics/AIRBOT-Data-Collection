@@ -3,7 +3,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Future
 import multiprocessing as mp
 from logging import getLogger
 from threading import Event, Lock, Thread
-from typing import Any, List, Union, Callable
+from typing import Any, List, Union, Callable, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -66,7 +66,7 @@ class ComponentsInstancer:
         self.search_dirs = search_dirs
 
     def instance(
-        self, config: ComponentConfig | ComponentsConfig, name_dict: bool = False
+        self, config: Union[ComponentConfig, ComponentsConfig], name_dict: bool = False
     ) -> Any:
         if isinstance(config, ComponentConfig):
             config.path = find_matching_files(self.search_dirs, (config.path,))[0]
@@ -149,7 +149,7 @@ class DemonstrateInterface:
                 self._auto_control_tp_cls = mp.Process
             self._auto_control_stop_event = event_cls()
             self._auto_control_pause_event = event_cls()
-            self._auto_control_tp: Thread | mp.Process | None = None
+            self._auto_control_tp: Optional[Union[Thread, mp.Process]] = None
         self._role_mode_set = {}
         self._round_data = defaultdict(list)
 
@@ -310,7 +310,7 @@ class DemonstrateInterface:
                     return False
         return True
 
-    def set_auto_control(self, start: bool | None = True) -> bool:
+    def set_auto_control(self, start: Optional[bool] = True) -> bool:
         """Start/Stop the auto control loop."""
         event = self._auto_control_pause_event
         if start is None:
@@ -329,7 +329,7 @@ class DemonstrateInterface:
         self.get_logger().error("Failed to start auto control")
         return False
 
-    def set_role_mode(self, role: ComponentRole, mode: SystemMode | None) -> bool:
+    def set_role_mode(self, role: ComponentRole, mode: Optional[SystemMode]) -> bool:
         """Set the mode of all the components of a role."""
         if mode is None:
             if self._role_mode_set[role] is SystemMode.PASSIVE:

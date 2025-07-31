@@ -26,7 +26,7 @@ from omegaconf import DictConfig
 import sys
 import locale
 
-from typing import Union, List
+from typing import Union, List, Optional
 
 
 SlicesType = Union[List[tuple], tuple, int]
@@ -67,7 +67,7 @@ def _relative_path_between(path1: Path, path2: Path) -> Path:
 
 
 def init_hydra_config(
-    config_path: str, overrides: list[str] | None = None
+    config_path: str, overrides: Optional[list[str]] = None
 ) -> DictConfig:
     """Initialize a Hydra config given only the path to the relevant config file.
 

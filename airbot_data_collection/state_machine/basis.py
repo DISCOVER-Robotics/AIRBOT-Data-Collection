@@ -63,7 +63,7 @@ class StateMachineConfig(BaseModel):
     # ignored rather than raising an invalid transition exception.
     ignore_invalid_triggers: bool = True
     # If a name is set, it will be used as a prefix for logger output
-    name: str | None = None
+    name: Optional[str] = None
     # # When True, processes transitions sequentially. A trigger
     # # executed in a state callback function will be queued and executed later.
     # # Due to the nature of the queued processing, all transitions will
@@ -155,8 +155,8 @@ class StateMachineBasis:
         source: State,
         success: ToDestConfig,
         failure: ToDestConfig,
-        not_only_success: list[ToDestConfig] | None = None,
-        not_only_failure: list[ToDestConfig] | None = None,
+        not_only_success: Optional[list[ToDestConfig]] = None,
+        not_only_failure: Optional[list[ToDestConfig]] = None,
     ):
         action_name = self.get_action_name(action)
         assert not self.is_action_source_added(action_name, source)
@@ -172,7 +172,7 @@ class StateMachineBasis:
         action_name: str,
         source: State,
         only: ToDestConfig,
-        not_only: list[ToDestConfig] | None = None,
+        not_only: Optional[list[ToDestConfig]] = None,
         kind: str = "success",
     ):
         not_only = not_only or []
@@ -211,7 +211,9 @@ class StateMachineBasis:
                 **to_dest.model_dump(),
             )
 
-    def is_action_source_added(self, action: str, source: State | tuple[State]) -> bool:
+    def is_action_source_added(
+        self, action: str, source: Union[State, tuple[State]]
+    ) -> bool:
         """Check if the action source is added."""
         if not isinstance(source, tuple):
             source = (source,)

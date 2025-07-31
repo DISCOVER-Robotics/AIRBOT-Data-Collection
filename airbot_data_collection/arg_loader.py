@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Tuple, Type, TypeVar, cast
+from typing import Optional, Type, TypeVar, cast
 
 from argdantic.sources.base import FileBaseSettingsSource
 from argdantic.sources.dynamic import DynamicFileSource
@@ -15,7 +15,7 @@ T = TypeVar("T", bound=BaseModel)
 
 def from_file(
     loader: type[FileBaseSettingsSource],
-    use_field: str | None = None,
+    use_field: Optional[str] = None,
     required: bool = True,
 ):
     def decorator(cls: type[T]) -> type[T]:

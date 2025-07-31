@@ -1,5 +1,5 @@
 from numpy import ndarray
-
+from typing import Union
 from airbot_data_collection.common.robot_devices.cameras.v4l2 import (
     V4L2Camera,
     V4L2CameraConfig,
@@ -12,7 +12,7 @@ class BsonV4L2Camera(V4L2Camera):
 
     def capture_observation(
         self,
-    ) -> dict[str, dict[str, int | bytes | ndarray]]:
+    ) -> dict[str, dict[str, Union[ndarray, int, bytes]]]:
         return {
             "color/image_raw": {
                 "t": time_ns(),

@@ -2,7 +2,7 @@ import os
 from ast import literal_eval
 from collections import Counter
 from enum import auto
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
 
@@ -79,7 +79,7 @@ class ComponentGroupsConfig(BaseModel):
     # paths to the robot hydra config yaml files
     paths: list[str] = []
     # params to override the robot config in the yaml file
-    params: list[str | dict] = []
+    params: list[Union[str, dict]] = []
     # the groups to which the robot belongs,
     # each group must have one and only one leader robot
     # and no less than one follower robot
@@ -312,7 +312,7 @@ class DemonstrateConfig(BaseModel):
     send_actions: Dict[DemonstrateAction, GroupsSendActionConfig] = {}
     # the sampler to be used to collect and save the data
     # if None, a mock sampler will be used
-    sampler: ComponentConfig | None = None
+    sampler: Optional[ComponentConfig] = None
     # the sampled data will be passed to the visualizers at each update
     visualizers: ComponentsConfig = ComponentsConfig()
     # TODO: should use a dict to set the async mode for

@@ -2,7 +2,7 @@ import platform
 import numpy as np
 
 from enum import Enum
-from typing import Protocol, runtime_checkable, List, Dict, Tuple, Optional
+from typing import Protocol, runtime_checkable, List, Dict, Tuple, Optional, Union
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 from collections import defaultdict
 
@@ -11,20 +11,20 @@ from collections import defaultdict
 class Camera(Protocol):
     def connect(self): ...
     def read(
-        self, temporary_color: str | None = None
-    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]: ...
+        self, temporary_color: Optional[str] = None
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]: ...
     def async_read(self) -> np.ndarray: ...
     def disconnect(self): ...
 
 
 class CameraRGBConfig(BaseModel):
-    camera_index: int | str | None = None
-    fps: int | None = None
-    width: int | None = None
-    height: int | None = None
+    camera_index: Optional[Union[int, str]] = None
+    fps: Optional[int] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
     color_mode: str = Field(default="bgr", pattern="^(rgb|bgr)$")
     mock: bool = False
-    pixel_format: str | Enum | None = None
+    pixel_format: Optional[Union[str, Enum]] = None
 
 
 class CameraRGBDConfig(CameraRGBConfig):

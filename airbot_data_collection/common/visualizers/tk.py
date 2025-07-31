@@ -1,9 +1,7 @@
 from tkinter import Canvas, Tk, Toplevel
-from typing import Dict, Union
-
+from typing import Union
 import numpy as np
 from PIL import Image, ImageTk
-
 from airbot_data_collection.common.visualizers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
@@ -22,7 +20,7 @@ class TkinterVisualizer(VisualizerBasis):
         self.canvas = Canvas(self.root, width=self.config.width, height=40, bg="gray")
         self.canvas.pack()
         self.text_ids = {}
-        self.windows: dict[str, dict[str, Canvas | Toplevel]] = {}
+        self.windows: dict[str, dict[str, Union[Canvas, Toplevel]]] = {}
         return True
 
     def update(self, data: dict[str, np.ndarray], info: SampleInfo):

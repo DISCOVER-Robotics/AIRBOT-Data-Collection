@@ -329,7 +329,7 @@ def h264_attachment_to_compressed_images(
     Convert H.264 attachments in an MCAP file to compressed images.
 
     Args:
-        file (str | IO[bytes]): Path to the MCAP file or a file-like object.
+        file (IO[bytes]): Path to the MCAP file or a file-like object.
         output_path (str): Path to save the output MCAP file with compressed images.
         quality (int): JPEG compression quality (default: 85).
         finish (bool): Whether to finalize the writer after processing (default: True).

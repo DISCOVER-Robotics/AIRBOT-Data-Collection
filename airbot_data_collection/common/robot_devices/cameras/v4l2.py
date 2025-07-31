@@ -1,6 +1,6 @@
 import asyncio
 from threading import Event
-
+from typing import Union, Optional
 import numpy as np
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
@@ -21,9 +21,9 @@ class V4L2CameraConfig(CameraRGBConfig):
     width: int = 640
     height: int = 480
     nb_buffers: int = 2
-    mode: str | int | None = None
+    mode: Optional[Union[str, int]] = None
     decode: bool = True
-    pixel_format: PixelFormat | str = PixelFormat.MJPEG
+    pixel_format: Union[PixelFormat, str] = PixelFormat.MJPEG
 
     def model_post_init(self, context):
         self.mode = {
@@ -71,7 +71,7 @@ class V4L2Camera(Sensor):
         self._visualizer = None
         return True
 
-    def capture_observation(self) -> bytes | np.ndarray:
+    def capture_observation(self) -> Union[bytes, np.ndarray]:
         self.event.wait()
         self.event.clear()
         frame_bytes = bytes(self.frame)
