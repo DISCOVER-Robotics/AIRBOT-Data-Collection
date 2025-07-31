@@ -154,7 +154,16 @@ class MMK2Replayer:
         self.cameras: Dict[RobotComponents, str] = {}
         self.components: Dict[RobotComponents, ComponentTypes] = {}
 
-        all_joint_names = JointNames()
+        # all_joint_names = JointNames()
+        all_joint_names = {
+            "left_arm": JointNames.LEFT_ARM.value,
+            "right_arm": JointNames.RIGHT_ARM.value,
+            "left_arm_eef": JointNames.LEFT_ARM_EEF.value,
+            "right_arm_eef": JointNames.RIGHT_ARM_EEF.value,
+            "spine": JointNames.SPINE.value,
+            "head": JointNames.HEAD.value,
+            "base": JointNames.BASE.value
+        }
         self.joint_num = 0
 
         # 设置相机
@@ -165,7 +174,7 @@ class MMK2Replayer:
         for comp_str in self.config.components:
             comp = RobotComponents(comp_str)
             self.components[comp] = ComponentTypes.UNKNOWN
-            names = all_joint_names.__dict__[comp_str]
+            names = all_joint_names[comp_str]
             self.joint_names[comp] = names
             self.joint_num += len(names)
 
@@ -247,7 +256,7 @@ def parse_actions_from_data(
         # f"mmk/{first_component.value}/joint_state",  # BSON 格式
         # f"mmk/{first_component.value}/joint_state/position",  # MCAP 格式
         # f"mmk/observation/{first_component.value}/joint_state/position",  # MCAP 格式带observation前缀
-        f"mmk/action/{first_component.value}/joint_state/position",  # MCAP 格式带action前缀
+        f"mmk//action/{first_component.value}/joint_state/position",  # MCAP 格式带action前缀
     ]
 
     component_topic = None
@@ -279,6 +288,7 @@ def parse_actions_from_data(
                 else "mmk/"
             )
 
+            print(topic_prefix)
             if component_topic.endswith("/position"):
                 # MCAP 格式：每个字段单独的话题
                 pos_topic = f"{topic_prefix}{component.value}/joint_state/position"

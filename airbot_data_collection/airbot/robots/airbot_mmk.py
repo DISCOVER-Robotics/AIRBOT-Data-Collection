@@ -131,9 +131,9 @@ class AIRBOTMMK(System):
 
             # 尝试多种可能的数据格式和命名空间
             possible_keys = [
-                f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
-                f"/action/{comp_name}/joint_state",  # action 命名空间
-                f"/observation/{comp_name}/joint_state",  # observation 命名空间
+                # f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
+                f"mmk/action/{comp_name}/joint_state",  # action 命名空间
+                # f"mmk/observation/{comp_name}/joint_state",  # observation 命名空间
             ]
 
             found_data = False
@@ -225,7 +225,7 @@ class AIRBOTMMK(System):
                     base_vel.y,
                     base_vel.omega,
                 ]
-                data[f"/observation/{comp_name}/joint_state"] = {
+                data[f"observation/{comp_name}/joint_state"] = {
                     "t": t,
                     "data": {
                         "position": data_pose,
@@ -247,7 +247,7 @@ class AIRBOTMMK(System):
                     eef_jn = self._joint_names[comp_eef]
                     js = self.interface.get_listened(self._action_topics[comp])
                     jq = self.interface.get_joint_values_by_names(js, arm_jn + eef_jn)
-                    data[f"/action/{comp.value}/joint_state"] = {
+                    data[f"action/{comp.value}/joint_state"] = {
                         "t": t,
                         "data": {
                             "position": jq[:-1],
@@ -255,7 +255,7 @@ class AIRBOTMMK(System):
                             "effort": [0.0] * len(arm_jn),
                         },
                     }
-                    data[f"/action/{comp_eef}/joint_state"] = {
+                    data[f"action/{comp_eef}/joint_state"] = {
                         "t": t,
                         "data": {
                             "position": [jq[-1]],
@@ -271,7 +271,7 @@ class AIRBOTMMK(System):
                     )
                     if listened_data and listened_data.data:  # 检查是否有数据
                         jq = list(listened_data.data)
-                        data[f"/action/{comp.value}/joint_state"] = {
+                        data[f"action/{comp.value}/joint_state"] = {
                             "t": t,
                             "data": {
                                 "position": jq,
