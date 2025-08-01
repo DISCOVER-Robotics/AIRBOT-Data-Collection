@@ -114,10 +114,11 @@ class AIRBOTMcapDataSampler(DataSampler):
     def update(self, data: dict):
         """Update the data with the latest frames."""
         # TODO: add message immediately
-        for key in list(data.keys()):
-            if "color" in key:
-                frame = data.pop(key)
-                self._coders[key].encode_frame(frame["data"], frame["t"])
+        if self.config.save_type.image == "h264":
+            for key in list(data.keys()):
+                if "color" in key:
+                    frame = data.pop(key)
+                    self._coders[key].encode_frame(frame["data"], frame["t"])
         return data
 
     def save(self, path: str, data: dict) -> str:
@@ -203,7 +204,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                     raise NotImplementedError(
                         f"Data type {data_type} not implemented for MCAP saving."
                     )
-                if data_type:
+                if data_type != "h264":
                     assert len(log_stamps) == len(values), (
                         f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
                     )
@@ -218,16 +219,17 @@ class AIRBOTMcapDataSampler(DataSampler):
                         )
                         for i, value in enumerate(values)
                     ]
-            futures = []
-            for key, coder in self._coders.items():
-                # futures.append(
-                #     self._executor.submit(
-                #         self._add_video_attachment, writer, key, coder
-                #     )
-                # )
-                self.add_video_attachment(writer, key, coder.end())
+            if self.config.save_type.image == "h264":
+                futures = []
+                for key, coder in self._coders.items():
+                    # futures.append(
+                    #     self._executor.submit(
+                    #         self._add_video_attachment, writer, key, coder
+                    #     )
+                    # )
+                    self.add_video_attachment(writer, key, coder.end())
 
-            [_ for _ in as_completed(futures)]
+                [_ for _ in as_completed(futures)]
 
             writer.finish()
 
