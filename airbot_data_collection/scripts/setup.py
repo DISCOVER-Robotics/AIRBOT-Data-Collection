@@ -84,7 +84,7 @@ class SetupConfig(BaseModel):
 args = tyro.cli(SetupConfig)
 
 logger.info("Getting system information...")
-hw_uuid = SystemInfo.get_product(True)["uuid"]
+hw_uuid = SystemInfo.get_product(True).get("uuid", "unknown")
 logger.info(f"Hardware uuid: {hw_uuid}")
 
 """Process Configs"""
