@@ -21,7 +21,7 @@ sampler:
     task_info:
       operator: hanyang
       station: mmk-MK11QWZ025170023
-      task_name: grasp place and stack wooden_blocks
+      task_name: pick wooden blocks and place and stack
       task_description: pick the wooden blocks from the bowl with the gripper,and place all wooden blocks on the desktop,and stack the wooden blocks one by one
       task_description_zh: 用夹爪从碗中拾取木制积木,将木制积木放置在桌面上,将木制积木逐个堆叠
       task_id: 120
@@ -31,9 +31,8 @@ sampler:
       skill:
         - grasp
         - place
-        - stack
       object:
-        - wooden_blocks
+        - wooden blocks
         - bowl
       scene: desktop
       subtasks:

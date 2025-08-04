@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from mmk2_types.types import (
-    MMK2Components,
+    RobotComponents,
     JointNames,
     ComponentTypes,
     TopicNames,
-    MMK2ComponentsGroup,
+    RobotComponentsGroup,
     ImageTypes,
     ControllerTypes,
 )
@@ -105,38 +105,27 @@ class AIRBOTMMK2Config:
     port: int = 50055
     default_action: Optional[List[float]] = field(
         default_factory=lambda: [
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,  # left_arm
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,  # right_arm
-            0.0,
-            -1.0,
-            0.15,  # head, spine
+            -0.233, -0.73, 1.088, 1.774, -1.1475, -0.1606,    # left_arm (6 joints)
+            0.0,                             # left_arm_eef (1 joint)
+            0.2258, -0.6518, 0.9543, -1.777, 1.0615, 0.3588,    # right_arm (6 joints)
+            0.0,                             # right_arm_eef (1 joint)
+            0.0, -1.0,                       # head (2 joints)
+            0.15,                            # spine (1 joint)
         ]
     )
+
     cameras: Dict[str, str] = field(default_factory=dict)
     components: List[str] = field(
         default_factory=lambda: [
-            MMK2Components.LEFT_ARM.value,
-            MMK2Components.LEFT_ARM_EEF.value,
-            MMK2Components.RIGHT_ARM.value,
-            MMK2Components.RIGHT_ARM_EEF.value,
-            MMK2Components.HEAD.value,
-            MMK2Components.SPINE.value,
+            RobotComponents.LEFT_ARM.value,
+            RobotComponents.LEFT_ARM_EEF.value,
+            RobotComponents.RIGHT_ARM.value,
+            RobotComponents.RIGHT_ARM_EEF.value,
+            RobotComponents.HEAD.value,
+            RobotComponents.SPINE.value,
         ]
     )
     demonstrate: bool = False
-
 
 class MMK2Replayer:
     """MMK2 机器人重放器"""
@@ -162,21 +151,30 @@ class MMK2Replayer:
     def _setup_components(self):
         """设置组件和关节信息"""
         self.joint_names = {}
-        self.cameras: Dict[MMK2Components, str] = {}
-        self.components: Dict[MMK2Components, ComponentTypes] = {}
+        self.cameras: Dict[RobotComponents, str] = {}
+        self.components: Dict[RobotComponents, ComponentTypes] = {}
 
-        all_joint_names = JointNames()
+        # all_joint_names = JointNames()
+        all_joint_names = {
+            "left_arm": JointNames.LEFT_ARM.value,
+            "right_arm": JointNames.RIGHT_ARM.value,
+            "left_arm_eef": JointNames.LEFT_ARM_EEF.value,
+            "right_arm_eef": JointNames.RIGHT_ARM_EEF.value,
+            "spine": JointNames.SPINE.value,
+            "head": JointNames.HEAD.value,
+            "base": JointNames.BASE.value
+        }
         self.joint_num = 0
 
         # 设置相机
         for k, v in self.config.cameras.items():
-            self.cameras[MMK2Components(k)] = ImageTypes(v)
+            self.cameras[RobotComponents(k)] = ImageTypes(v)
 
         # 设置组件
         for comp_str in self.config.components:
-            comp = MMK2Components(comp_str)
+            comp = RobotComponents(comp_str)
             self.components[comp] = ComponentTypes.UNKNOWN
-            names = all_joint_names.__dict__[comp_str]
+            names = all_joint_names[comp_str]
             self.joint_names[comp] = names
             self.joint_num += len(names)
 
@@ -216,7 +214,7 @@ class MMK2Replayer:
         else:
             self.robot.set_goal(goal, MoveServoParams())
 
-    def _action_to_goal(self, action: List[float]) -> Dict[MMK2Components, JointState]:
+    def _action_to_goal(self, action: List[float]) -> Dict[RobotComponents, JointState]:
         """将动作列表转换为关节状态目标"""
         if len(action) != self.joint_num:
             raise ValueError(f"动作长度 {len(action)} 与关节数 {self.joint_num} 不匹配")
@@ -228,6 +226,10 @@ class MMK2Replayer:
             goal[comp] = JointState(position=action[j_cnt:end])
             j_cnt = end
         return goal
+
+    def control_arm_joint_servo(self, action: List[float]):
+        goal = self._action_to_goal(action)
+        self.robot.set_goal(goal, MoveServoParams())
 
     def enter_traj_mode(self):
         """进入轨迹模式"""
@@ -241,7 +243,7 @@ class MMK2Replayer:
 
 
 def parse_actions_from_data(
-    data: dict, components: Dict[MMK2Components, ComponentTypes]
+    data: dict, components: Dict[RobotComponents, ComponentTypes]
 ) -> List[List[float]]:
     """从数据中解析动作序列"""
     all_actions = []
@@ -254,7 +256,7 @@ def parse_actions_from_data(
         # f"mmk/{first_component.value}/joint_state",  # BSON 格式
         # f"mmk/{first_component.value}/joint_state/position",  # MCAP 格式
         # f"mmk/observation/{first_component.value}/joint_state/position",  # MCAP 格式带observation前缀
-        f"mmk/action/{first_component.value}/joint_state/position",  # MCAP 格式带action前缀
+        f"mmk//action/{first_component.value}/joint_state/position",  # MCAP 格式带action前缀
     ]
 
     component_topic = None
@@ -286,6 +288,7 @@ def parse_actions_from_data(
                 else "mmk/"
             )
 
+            print(topic_prefix)
             if component_topic.endswith("/position"):
                 # MCAP 格式：每个字段单独的话题
                 pos_topic = f"{topic_prefix}{component.value}/joint_state/position"
@@ -326,7 +329,7 @@ def replay_actions(
         start_time = time.time()
 
         try:
-            replayer.send_action(action)
+            replayer.control_arm_joint_servo(action)
         except Exception as e:
             logger.error(f"动作 {i} 执行失败: {e}")
             continue

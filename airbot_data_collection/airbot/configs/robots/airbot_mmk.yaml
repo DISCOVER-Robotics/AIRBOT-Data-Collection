@@ -29,6 +29,6 @@ default_action:
     0.0,                             # left_arm_eef (1 joint)
     0.2258, -0.6518, 0.9543, -1.777, 1.0615, 0.3588,    # right_arm (6 joints)
     0.0,                             # right_arm_eef (1 joint)
-    0.0, -0.5,                       # head (2 joints)
+    0.0, -1.0,                       # head (2 joints)
     0.15                             # spine (1 joint)
   ]

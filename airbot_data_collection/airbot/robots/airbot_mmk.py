@@ -1,10 +1,10 @@
 from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.basis import System
 from mmk2_types.types import (
-    MMK2Components,
+    RobotComponents,
     ImageTypes,
     TopicNames,
-    MMK2ComponentsGroup,
+    RobotComponentsGroup,
     ControllerTypes,
     JointNames,
 )
@@ -33,18 +33,18 @@ class AIRBOTMMKConfig(BaseModel):
     port: PositiveInt = 50055
     name: Optional[str] = None
     domain_id: Optional[int] = None
-    components: List[Union[str, MMK2Components]] = []
+    components: List[Union[str, RobotComponents]] = []
     default_action: Optional[List[float]] = None
-    cameras: Dict[Union[str, MMK2Components], Dict[str, str]] = {}
+    cameras: Dict[Union[str, RobotComponents], Dict[str, str]] = {}
     demonstrate: bool = True
 
     def model_post_init(self, context):
         for i, component in enumerate(self.components):
             if isinstance(component, str):
-                self.components[i] = MMK2Components[component.upper()]
+                self.components[i] = RobotComponents[component.upper()]
         for cam in list(self.cameras.keys()):
             if isinstance(cam, str):
-                self.cameras[MMK2Components[cam.upper()]] = self.cameras.pop(cam)
+                self.cameras[RobotComponents[cam.upper()]] = self.cameras.pop(cam)
 
 
 class AIRBOTMMK(System):
@@ -55,7 +55,7 @@ class AIRBOTMMK(System):
         self.traj_mode = False  # 添加traj_mode属性
         self._action_topics = {
             comp: TopicNames.tracking.format(component=comp.value)
-            for comp in MMK2ComponentsGroup.ARMS
+            for comp in RobotComponentsGroup.ARMS
         }
         self._action_topics.update(
             {
@@ -63,13 +63,23 @@ class AIRBOTMMK(System):
                     component=comp.value,
                     controller=ControllerTypes.FORWARD_POSITION.value,
                 )
-                for comp in MMK2ComponentsGroup.HEAD_SPINE
+                for comp in RobotComponentsGroup.HEAD_SPINE
             }
         )
         print(f"[DEBUG] Action topics ALL: {self._action_topics}")
         self.interface.listen_to(self._action_topics.values())
         self.interface.enable_resources(self.config.cameras)
-        self._joint_names = JointNames().__dict__
+        # self._joint_names = JointNames().__dict__
+        self._joint_names = {
+            "left_arm": JointNames.LEFT_ARM.value,
+            "right_arm": JointNames.RIGHT_ARM.value,
+            "left_arm_eef": JointNames.LEFT_ARM_EEF.value,
+            "right_arm_eef": JointNames.RIGHT_ARM_EEF.value,
+            "spine": JointNames.SPINE.value,
+            "head": JointNames.HEAD.value,
+            "base": JointNames.BASE.value
+        }
+
         self.cameras = {cam: [ImageTypes.COLOR] for cam in self.config.cameras}
 
         print(f"[DEBUG] _joint_names: {self._joint_names}")
@@ -93,7 +103,7 @@ class AIRBOTMMK(System):
     def _move_by_traj(self, goal: dict):
         if self.config.demonstrate:
             # TODO: since the arms and eefs are controlled by the teleop bag
-            for comp in MMK2ComponentsGroup.ARMS_EEFS:
+            for comp in RobotComponentsGroup.ARMS_EEFS:
                 goal.pop(comp)
         if goal:
             self.interface.set_goal(goal, TrajectoryParams())
@@ -121,10 +131,9 @@ class AIRBOTMMK(System):
 
             # 尝试多种可能的数据格式和命名空间
             possible_keys = [
-                f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
-                f"{comp_name}/joint_state",  # 简化格式
-                f"action/{comp_name}/joint_state",  # action 命名空间
-                f"observation/{comp_name}/joint_state",  # observation 命名空间
+                # f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
+                f"mmk/action/{comp_name}/joint_state",  # action 命名空间
+                # f"mmk/observation/{comp_name}/joint_state",  # observation 命名空间
             ]
 
             found_data = False
@@ -162,7 +171,7 @@ class AIRBOTMMK(System):
 
         return action
 
-    def _action_to_goal(self, action) -> Dict[MMK2Components, JointState]:
+    def _action_to_goal(self, action) -> Dict[RobotComponents, JointState]:
         self._action_check(action)
         goal = {}
         j_cnt = 0
@@ -202,7 +211,7 @@ class AIRBOTMMK(System):
         for comp in self.config.components:
             comp_name = comp.value
             self._set_js_field(data, comp, t, all_joints)
-            if comp == MMK2Components.BASE:
+            if comp == RobotComponents.BASE:
                 base_pose = robot_state.base_state.pose
                 base_vel = robot_state.base_state.velocity
                 data_pose = [
@@ -226,13 +235,13 @@ class AIRBOTMMK(System):
                 }
         if self.config.demonstrate:
             for comp in [
-                MMK2Components.LEFT_ARM,
-                MMK2Components.RIGHT_ARM,
-                MMK2Components.HEAD,
-                MMK2Components.SPINE,
+                RobotComponents.LEFT_ARM,
+                RobotComponents.RIGHT_ARM,
+                RobotComponents.HEAD,
+                RobotComponents.SPINE,
             ]:
                 # print(f"[DEBUG] Processing component: {comp}, topic: {self._action_topics.get(comp)}")
-                if comp in MMK2ComponentsGroup.ARMS:
+                if comp in RobotComponentsGroup.ARMS:
                     arm_jn = self._joint_names[comp.value]
                     comp_eef = comp.value + "_eef"
                     eef_jn = self._joint_names[comp_eef]
@@ -255,7 +264,7 @@ class AIRBOTMMK(System):
                         },
                     }
 
-                if comp in MMK2ComponentsGroup.HEAD_SPINE:
+                if comp in RobotComponentsGroup.HEAD_SPINE:
                     # print(f"[DEBUG] HEAD_SPINE component: {comp}, topic: {self._action_topics.get(comp)}")
                     listened_data = self.interface.get_listened(
                         self._action_topics[comp]
@@ -274,7 +283,7 @@ class AIRBOTMMK(System):
                         print(f"[WARNING] No data received for component: {comp}")
         return data
 
-    def _set_js_field(self, data: dict, comp: MMK2Components, t: float, js: JointState):
+    def _set_js_field(self, data: dict, comp: RobotComponents, t: float, js: JointState):
         comp_data = {"t": t, "data": {}}
         for field in ["position", "velocity", "effort"]:
             value = self.interface.get_joint_values_by_names(
@@ -285,7 +294,7 @@ class AIRBOTMMK(System):
 
     def _capture_images(self) -> Tuple[Dict[str, bytes], Dict[str, Time]]:
         images = {}
-        img_stamps: Dict[MMK2Components, Time] = {}
+        img_stamps: Dict[RobotComponents, Time] = {}
         before_camread_t = time.perf_counter()
         comp_images = self.interface.get_image(self.cameras)
         for comp, image in comp_images.items():
@@ -320,7 +329,7 @@ class AIRBOTMMK(System):
 
     def _check_joints(self, joint_names: List[str]):
         required_joints = []
-        for component in MMK2ComponentsGroup.ARMS_EEFS + MMK2ComponentsGroup.HEAD_SPINE:
+        for component in RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE:
             required_joints.extend(self._joint_names[component.value])
         missing = [j for j in required_joints if j not in joint_names]
         if missing:
@@ -335,21 +344,21 @@ if __name__ == "__main__":
     mmk = AIRBOTMMK(
         AIRBOTMMKConfig(
             ip="192.168.11.200",
-            components=MMK2ComponentsGroup.ARMS_EEFS + MMK2ComponentsGroup.HEAD_SPINE,
+            components=RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE,
             cameras={
-                MMK2Components.HEAD_CAMERA: {
+                RobotComponents.HEAD_CAMERA: {
                     "camera_type": "REALSENSE",
                     "rgb_camera.color_profile": "640,480,30",
                     "enable_depth": "false",
                 },
-                MMK2Components.LEFT_CAMERA: {
+                RobotComponents.LEFT_CAMERA: {
                     "camera_type": "USB",
                     "video_device": "/dev/left_camera",
                     "image_width": "640",
                     "image_height": "480",
                     "framerate": "25",
                 },
-                MMK2Components.RIGHT_CAMERA: {
+                RobotComponents.RIGHT_CAMERA: {
                     "camera_type": "USB",
                     "video_device": "/dev/right_camera",
                     "image_width": "640",
