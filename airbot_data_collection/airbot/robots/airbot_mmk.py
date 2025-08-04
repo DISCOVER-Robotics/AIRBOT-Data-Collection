@@ -77,7 +77,7 @@ class AIRBOTMMK(System):
             "right_arm_eef": JointNames.RIGHT_ARM_EEF.value,
             "spine": JointNames.SPINE.value,
             "head": JointNames.HEAD.value,
-            "base": JointNames.BASE.value
+            "base": JointNames.BASE.value,
         }
 
         self.cameras = {cam: [ImageTypes.COLOR] for cam in self.config.cameras}
@@ -283,7 +283,9 @@ class AIRBOTMMK(System):
                         print(f"[WARNING] No data received for component: {comp}")
         return data
 
-    def _set_js_field(self, data: dict, comp: RobotComponents, t: float, js: JointState):
+    def _set_js_field(
+        self, data: dict, comp: RobotComponents, t: float, js: JointState
+    ):
         comp_data = {"t": t, "data": {}}
         for field in ["position", "velocity", "effort"]:
             value = self.interface.get_joint_values_by_names(
@@ -329,7 +331,9 @@ class AIRBOTMMK(System):
 
     def _check_joints(self, joint_names: List[str]):
         required_joints = []
-        for component in RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE:
+        for component in (
+            RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE
+        ):
             required_joints.extend(self._joint_names[component.value])
         missing = [j for j in required_joints if j not in joint_names]
         if missing:
