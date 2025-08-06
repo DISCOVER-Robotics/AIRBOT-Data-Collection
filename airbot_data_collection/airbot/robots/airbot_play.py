@@ -18,6 +18,7 @@ from airbot_data_collection.basis import (
 )
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.common.utils.coordinate import CoordinateTools
+import numpy as np
 
 
 AVAILABLE_BACKEND = set()
@@ -116,18 +117,33 @@ class AIRBOTPlay(System):
     def send_action(self, action: Union[List[float], Dict[str, Any]]) -> None:
         mode = self.interface.get_control_mode()
         if isinstance(action, dict):
+            act = False
             for key, value in action.items():
-                component, dtype = key.removeprefix("/").split("/", 1)
+                splited = key.removeprefix("/").split("/", 2)
+                if len(splited) == 2:
+                    component, dtype = splited
+                    target = value["data"]["position"]
+                elif len(splited) == 3:
+                    component, dtype, field = splited
+                    target = value
+                else:
+                    raise ValueError(f"Invalid action key format: {key}.")
                 if (self.config.pose_action and dtype != "pose") or (
                     not self.config.pose_action and dtype != "joint_state"
                 ):
                     continue
+                act = True
                 act_cfg = self._comp_act[component]
-                target = value["data"]["position"]
+                if isinstance(target, np.ndarray):
+                    target = target.tolist()
                 if callable(act_cfg):
                     act_cfg(target)
                 else:
                     act_cfg[mode](target)
+            if not act:
+                self.get_logger().warning(
+                    f"No valid action found in the input action: {action.keys()}"
+                )
         else:
             if self.config.pose_action:
                 arm_end_index = 7
@@ -294,7 +310,6 @@ if __name__ == "__main__":
     from airbot_data_collection.common.utils.transformations import (
         quaternion_from_euler,
     )
-    import numpy as np
     import logging
 
     init_logging(logging.INFO)
