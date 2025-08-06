@@ -156,7 +156,7 @@ class McapFlatbufferReader:
         return fb.ValuesAsNumpy()
 
     def iter_message_samples(
-        self, topics: Optional[Iterable[str]] = None
+        self, topics: Optional[Iterable[str]] = None, reverse: bool = False
     ) -> Generator[Dict[str, Any], None, None]:
         """Iterate over messages in the MCAP file."""
         # TODO: support iter through a reference topic
@@ -170,7 +170,9 @@ class McapFlatbufferReader:
                 f"Topics {diff} not found. Available: {self.all_topic_names()}"
             )
         messages = {}
-        for schema, channel, message in self.reader.iter_messages(topics):
+        for schema, channel, message in self.reader.iter_messages(
+            topics, reverse=reverse
+        ):
             data = self._decoders[schema.name](message.data)
             messages[channel.topic] = data
             if len(messages) == len(topics):
@@ -190,9 +192,10 @@ class McapFlatbufferReader:
         return {attachment.name for attachment in self.reader.iter_attachments()}
 
     def iter_attachment_samples(
-        self, names: Optional[Iterable[str]] = None
+        self, names: Optional[Iterable[str]] = None, reverse: bool = False
     ) -> Generator[Dict[str, Any], None, None]:
         """Iterate over target attachments in the MCAP file."""
+        assert not reverse, "Reverse iteration is not supported for attachments yet."
         if names is None:
             names = self.all_attachment_names()
         else:
@@ -239,6 +242,7 @@ class McapFlatbufferReader:
         keys: Optional[Iterable[str]] = None,
         topics: Optional[Iterable[str]] = None,
         attachments: Optional[Iterable[str]] = None,
+        reverse: bool = False,
     ) -> Generator[Dict[str, np.ndarray], None, None]:
         """Iterate over messages and attachments in the MCAP file.
         Args:
@@ -282,9 +286,13 @@ class McapFlatbufferReader:
                 yield {}
 
         # The first iteration costs more time since it needs to create these iterators.
-        topic_iter = self.iter_message_samples(topics) if topics else empty_iter()
+        topic_iter = (
+            self.iter_message_samples(topics, reverse) if topics else empty_iter()
+        )
         attachment_iter = (
-            self.iter_attachment_samples(attachments) if attachments else empty_iter()
+            self.iter_attachment_samples(attachments, reverse)
+            if attachments
+            else empty_iter()
         )
         for msg_data, att_data in zip(topic_iter, attachment_iter):
             data = {}

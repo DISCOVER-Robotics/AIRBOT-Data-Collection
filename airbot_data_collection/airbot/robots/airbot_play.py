@@ -117,7 +117,7 @@ class AIRBOTPlay(System):
         mode = self.interface.get_control_mode()
         if isinstance(action, dict):
             for key, value in action.items():
-                component, dtype = key.split("/", 1)
+                component, dtype = key.removeprefix("/").split("/", 1)
                 if (self.config.pose_action and dtype != "pose") or (
                     not self.config.pose_action and dtype != "joint_state"
                 ):

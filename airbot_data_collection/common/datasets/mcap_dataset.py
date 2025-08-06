@@ -1,6 +1,5 @@
 import random
 import os
-
 from typing import (
     Any,
     Callable,
@@ -9,7 +8,6 @@ from typing import (
     Iterator,
     List,
     Optional,
-    Literal,
     Dict,
     Union,
 )
@@ -21,6 +19,7 @@ from airbot_data_collection.common.utils.utils import (
     multi_slices_to_indexes,
 )
 from airbot_data_collection.utils import get_items_by_ext, zip
+from airbot_data_collection.basis import StrEnum, auto
 from abc import ABC, abstractmethod
 from functools import cached_property, cache
 from logging import getLogger
@@ -30,7 +29,13 @@ from more_itertools import peekable, nth
 
 DictableSlicesType = Union[Dict[str, SlicesType], SlicesType]
 DictableIndexesType = Union[Dict[str, List[int]], List[int]]
-RearrangeType = Literal["none", "sort", "shuffle"]
+
+
+class RearrangeType(StrEnum):
+    NONE = auto()
+    SORT = auto()
+    SHUFFLE = auto()
+    REVERSE = auto()
 
 
 class DataSlicesConfig(BaseModel):
@@ -86,14 +91,14 @@ class DataRearrangeConfig(BaseModel):
     """Configuration for rearranging data.
     This class defines how to rearrange samples, episodes, and datasets.
     Args:
-        sample: Rearrangement strategy for samples (rarely used).
-        episode: Rearrangement strategy for episodes.
-        dataset: Rearrangement strategy for datasets.
+        sample: Rearrangement strategy for each sample (rarely used).
+        episode: Rearrangement strategy for each episode (e.g. reverse a trajectory).
+        dataset: Rearrangement strategy for the dataset.
     """
 
-    sample: RearrangeType = "none"
-    episode: RearrangeType = "none"
-    dataset: RearrangeType = "none"
+    sample: RearrangeType = RearrangeType.NONE
+    episode: RearrangeType = RearrangeType.NONE
+    dataset: RearrangeType = RearrangeType.NONE
 
     @staticmethod
     def rearrange(
@@ -114,14 +119,14 @@ class DataRearrangeConfig(BaseModel):
             - "shuffle": Shuffle the data randomly using the provided random generator.
             - "none": No rearrangement is applied.
         """
-        if strategy == "sort":
+        if strategy == RearrangeType.SORT:
             data.sort()
-        elif strategy == "shuffle":
+        elif strategy == RearrangeType.SHUFFLE:
             if random_generator is None:
                 random.shuffle(data)
             else:
                 random_generator.shuffle(data)
-        elif strategy != "none":
+        elif strategy != RearrangeType.NONE:
             raise ValueError(f"Unsupported rearrangement strategy: {strategy}")
 
 
@@ -279,6 +284,15 @@ class McapDatasetConfig(IterableDatasetConfig):
         assert not self.slices.episode, "not implemented yet"
         assert isinstance(self.slices.dataset, dict), "dataset slices must be a dict"
         assert not self.cache_iters, "iters now are not cached"
+        assert self.rearrange.sample == RearrangeType.NONE, (
+            "sample rearrangement is not supported"
+        )
+        assert self.rearrange.episode in {RearrangeType.NONE, RearrangeType.REVERSE}, (
+            "episode rearrangement must be NONE or REVERSE"
+        )
+        assert self.rearrange.dataset == RearrangeType.NONE, (
+            "dataset rearrangement is not supported"
+        )
 
 
 class McapFlatbufferSampleDataset(IterableDatasetABC):
@@ -317,6 +331,7 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
             keys=self.cfg.keys,
             topics=self.cfg.topics,
             attachments=self.cfg.attachments,
+            reverse=self.cfg.rearrange.episode == RearrangeType.REVERSE,
         )
 
     def __del__(self):
