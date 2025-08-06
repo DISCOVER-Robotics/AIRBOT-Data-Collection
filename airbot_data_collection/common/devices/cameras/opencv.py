@@ -13,11 +13,11 @@ from typing import Optional, Union
 import cv2
 import numpy as np
 
-from airbot_data_collection.common.robot_devices.cameras.utils import (
+from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBConfig,
     find_camera_indices,
 )
-from airbot_data_collection.common.robot_devices.utils import (
+from airbot_data_collection.common.devices.utils import (
     RobotDeviceAlreadyConnectedError,
     RobotDeviceNotConnectedError,
 )
@@ -70,7 +70,7 @@ class OpenCVCamera:
             )
         fourcc = None
         if self.mock:
-            from airbot_data_collection.common.robot_devices.cameras.mock_cv2 import (
+            from airbot_data_collection.common.devices.cameras.mock_cv2 import (
                 CAP_PROP_FOURCC,
                 CAP_PROP_FPS,
                 CAP_PROP_FRAME_HEIGHT,

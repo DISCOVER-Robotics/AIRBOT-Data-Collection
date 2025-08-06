@@ -9,11 +9,11 @@ from threading import Event, Thread
 from typing import Union, Optional
 import numpy as np
 
-from airbot_data_collection.common.robot_devices.cameras.utils import (
+from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBDConfig,
     find_video_capture_devices,
 )
-from airbot_data_collection.common.robot_devices.utils import (
+from airbot_data_collection.common.devices.utils import (
     RobotDeviceAlreadyConnectedError,
     RobotDeviceNotConnectedError,
 )
@@ -127,7 +127,7 @@ class IntelRealSenseCamera:
             )
 
         # if self.mock:
-        #     from airbot_data_collection.common.robot_devices.cameras.mock_pyrealsense2 import (
+        #     from airbot_data_collection.common.devices.cameras.mock_pyrealsense2 import (
         #         RSConfig,
         #         RSFormat,
         #         RSPipeline,
@@ -175,7 +175,7 @@ class IntelRealSenseCamera:
             if self.camera_index not in available_cam_ids:
                 raise ValueError(
                     f"`camera_index` is expected to be one of these available cameras {available_cam_ids}, but {self.camera_index} is provided instead. "
-                    "To find the camera index you should use, run `python lerobot/common/robot_devices/cameras/intelrealsense.py`."
+                    "To find the camera index you should use, run `python lerobot/common/devices/cameras/intelrealsense.py`."
                 )
 
             raise OSError(f"Can't access IntelRealSenseCamera({self.camera_index}).")

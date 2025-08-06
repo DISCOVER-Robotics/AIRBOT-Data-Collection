@@ -2,7 +2,7 @@ from enum import auto, IntEnum
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import Joy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
-from airbot_data_collection.common.robot_devices.vr.quest import (
+from airbot_data_collection.common.devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
     ControllerEventMode,

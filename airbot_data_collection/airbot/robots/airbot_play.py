@@ -128,7 +128,6 @@ class AIRBOTPlay(System):
                     act_cfg(target)
                 else:
                     act_cfg[mode](target)
-
         else:
             if self.config.pose_action:
                 arm_end_index = 7

@@ -6,7 +6,7 @@ from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
 
 from airbot_data_collection.basis import Sensor
-from airbot_data_collection.common.robot_devices.cameras.utils import (
+from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBConfig,
     find_camera_indices,
     get_camera_index_by_bus_info,
