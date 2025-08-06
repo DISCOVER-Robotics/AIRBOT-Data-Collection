@@ -1,6 +1,6 @@
 from numpy import ndarray
 from typing import Union
-from airbot_data_collection.common.robot_devices.cameras.v4l2 import (
+from airbot_data_collection.common.devices.cameras.v4l2 import (
     V4L2Camera,
     V4L2CameraConfig,
 )

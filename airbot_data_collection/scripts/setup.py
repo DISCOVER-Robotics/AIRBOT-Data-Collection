@@ -1,4 +1,4 @@
-from airbot_data_collection.common.robot_devices.cameras.v4l2 import (
+from airbot_data_collection.common.devices.cameras.v4l2 import (
     V4L2Camera,
     V4L2CameraConfig,
 )
@@ -6,7 +6,7 @@ from airbot_data_collection.common.visualizers.opencv import (
     OpenCVisualizer,
     OpenCVisualizerConfig,
 )
-from airbot_data_collection.common.robot_devices.cameras.utils import (
+from airbot_data_collection.common.devices.cameras.utils import (
     find_video_capture_devices,
 )
 from airbot_data_collection.utils import (
@@ -36,7 +36,7 @@ logger = logging.getLogger("data_collection_setup")
 logger.info(f"Version: {version('airbot-data-collection')}")
 
 try:
-    from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
+    from airbot_data_collection.common.devices.cameras.intelrealsense import (
         IntelRealSenseCamera,
         IntelRealSenseCameraConfig,
         find_camera_device_ids,

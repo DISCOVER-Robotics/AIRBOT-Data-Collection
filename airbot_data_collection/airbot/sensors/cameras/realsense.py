@@ -1,5 +1,5 @@
 from airbot_data_collection.basis import Sensor
-from airbot_data_collection.common.robot_devices.cameras.intelrealsense import (
+from airbot_data_collection.common.devices.cameras.intelrealsense import (
     IntelRealSenseCamera,
     IntelRealSenseCameraConfig,
 )

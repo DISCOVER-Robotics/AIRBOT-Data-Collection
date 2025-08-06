@@ -3,7 +3,7 @@ from airbot_data_collection.airbot.teleoprators.vr_quest import (
     TeleopConfig,
     EventConfig,
 )
-from airbot_data_collection.common.robot_devices.vr.pico import (
+from airbot_data_collection.common.devices.vr.pico import (
     VRPico,
     VRQuestConfig,
     VREvent,

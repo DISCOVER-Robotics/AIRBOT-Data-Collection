@@ -1,6 +1,6 @@
 from airbot_data_collection.basis import Sensor
-from airbot_data_collection.common.robot_devices.cameras.opencv import OpenCVCamera
-from airbot_data_collection.common.robot_devices.cameras.utils import CameraRGBConfig
+from airbot_data_collection.common.devices.cameras.opencv import OpenCVCamera
+from airbot_data_collection.common.devices.cameras.utils import CameraRGBConfig
 from airbot_data_collection.utils import get_stamp_ms
 
 
