@@ -1,15 +1,22 @@
 from typing import List, Union, Dict, Tuple, Any, Iterable, Set, Optional
-from pydantic import PositiveInt
+from pydantic import PositiveInt, Field, computed_field
 
 from time import time_ns
 from collections import defaultdict
-from functools import partial
-from enum import auto
+from functools import partial, cached_property
 
-from airbot_data_collection.utils import linear_map, StrEnum, zip
-from airbot_data_collection.basis import System, SystemMode, PostCaptureConfig
+from airbot_data_collection.utils import linear_map, zip
+from airbot_data_collection.basis import (
+    System,
+    SystemConfig,
+    InterfaceType,
+    ReferenceMode,
+    ActionConfig,
+    ObservationConfig,
+    SystemMode,
+    PostCaptureConfig,
+)
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
-from airbot_data_collection.airbot.robots.common import ControlConfig
 from airbot_data_collection.common.utils.coordinate import CoordinateTools
 
 
@@ -28,38 +35,47 @@ except ImportError:
     AVAILABLE_BACKEND.add("thin")
 
 
-class InterfaceType(StrEnum):
-    JOINT_STATE = auto()
-    JOINT_POSITION = auto()
-    JOINT_VELOCITY = auto()
-    JOINT_EFFORT = auto()
-    POSE = auto()
-
-
-class AIRBOTPlayConfig(ControlConfig):
+class AIRBOTPlayConfig(SystemConfig):
     url: str = "localhost"
     port: PositiveInt = 50050
     speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
-    components: Set[str] = {"arm", "eef"}
+    components: List[str] = Field(["arm", "eef"], min_length=1)
+    action: List[ActionConfig] = []
+    observation: List[ObservationConfig] = []
 
     def model_post_init(self, context):
+        if not self.action:
+            self.action = [ActionConfig(), ActionConfig()]
+        if not self.observation:
+            self.observation = [ObservationConfig(), ObservationConfig()]
         if isinstance(self.speed_profile, str):
             self.speed_profile = SpeedProfile[self.speed_profile]
         assert self.backend in AVAILABLE_BACKEND, (
             f"Backend is not available: {self.backend}, "
             f"available backends: {AVAILABLE_BACKEND}"
         )
-        if self.pose_in_end:
-            self.relative_observation = False
-            self.delta_action = False
-        elif self.delta_action:
-            self.relative_action = True
-        if self.relative_action or self.relative_observation or self.pose_in_end:
-            assert self.use_pose, "Relative control is only supported in pose mode now."
-        # if self.use_pose:
-        #     self.observations.add(InterfaceType.POSE)
+
+    @computed_field
+    @cached_property
+    def pose_action(self) -> bool:
+        return InterfaceType.POSE in self.action[0].interfaces
+
+    @computed_field
+    @cached_property
+    def pose_observation(self) -> bool:
+        return InterfaceType.POSE in self.observation[0].interfaces
+
+    @computed_field
+    @cached_property
+    def relative_action(self) -> bool:
+        return self.action[0].reference_mode != ReferenceMode.ABSOLUTE
+
+    @computed_field
+    @cached_property
+    def relative_observation(self) -> bool:
+        return self.observation[0].reference_mode != ReferenceMode.ABSOLUTE
 
 
 class AIRBOTPlay(System):
@@ -74,7 +90,7 @@ class AIRBOTPlay(System):
                 RobotMode.SERVO_CART_POSE: self._servo_pose,
                 RobotMode.PLANNING_POS: (
                     self.interface.move_to_joint_pos
-                    if not self.config.use_pose
+                    if not self.config.pose_action
                     else self._move_pose
                 ),
             },
@@ -101,15 +117,20 @@ class AIRBOTPlay(System):
         mode = self.interface.get_control_mode()
         if isinstance(action, dict):
             for key, value in action.items():
-                component = key.split("/", 1)[0]
+                component, dtype = key.split("/", 1)
+                if (self.config.pose_action and dtype != "pose") or (
+                    not self.config.pose_action and dtype != "joint_state"
+                ):
+                    continue
                 act_cfg = self._comp_act[component]
                 target = value["data"]["position"]
                 if callable(act_cfg):
                     act_cfg(target)
                 else:
                     act_cfg[mode](target)
+
         else:
-            if self.config.use_pose:
+            if self.config.pose_action:
                 arm_end_index = 7
             else:
                 arm_end_index = 6
@@ -123,7 +144,7 @@ class AIRBOTPlay(System):
         elif mode is SystemMode.RESETTING:
             m = RobotMode.PLANNING_POS
         elif mode is SystemMode.SAMPLING:
-            if self.config.use_pose:
+            if self.config.pose_action:
                 m = RobotMode.SERVO_CART_POSE
             else:
                 m = RobotMode.SERVO_JOINT_POS
@@ -156,7 +177,10 @@ class AIRBOTPlay(System):
     def _init_relative_control(self):
         pose = self.interface.get_end_pose()
         if self.config.relative_action:
-            self.rela_act_ctrl = RelativePoseControl(delta=self.config.delta_action)
+            # TODO: support absolute mode instead of complex judgment
+            self.rela_act_ctrl = RelativePoseControl(
+                self.config.action[0].reference_mode
+            )
             self.rela_act_ctrl.update(*pose)
         if self.config.relative_observation:
             self.rela_obs_ctrl = RelativePoseControl()
@@ -169,11 +193,11 @@ class AIRBOTPlay(System):
         if not isinstance(pose[0], Iterable):
             pose = [pose[:3], pose[3:7]]
 
-        if self.config.pose_in_end:
+        if self.config.action[0].pose_reference_frame == "eef":
             cur_pose = self.interface.get_end_pose()
             pose = CoordinateTools.to_world_coordinate(pose, cur_pose)
         elif self.config.relative_action:
-            if self.config.delta_action:
+            if self.config.action[0].reference_mode.is_delta():
                 self.rela_act_ctrl.update(*self.interface.get_end_pose())
             pose = self.rela_act_ctrl.to_absolute(*pose)
 
@@ -192,17 +216,17 @@ class AIRBOTPlay(System):
         """key: component_name/data_type"""
         obs = {}
         # FIXME: Currently, the robot arm will have a large shake when acquiring pose
-        # if self.config.use_pose:
-        # pose = self.interface.get_end_pose()
-        # if self.config.relative_observation:
-        #     pose = self.rela_obs_ctrl.to_relative(*pose)
-        # obs["arm/pose"] = {
-        #     "t": time_ns(),
-        #     "data": {
-        #         "position": pose[0],
-        #         "orientation": pose[1],
-        #     },
-        # }
+        if self.config.pose_observation:
+            pose = self.interface.get_end_pose()
+            if self.config.relative_observation:
+                pose = self.rela_obs_ctrl.to_relative(*pose)
+            obs["arm/pose"] = {
+                "t": time_ns(),
+                "data": {
+                    "position": pose[0],
+                    "orientation": pose[1],
+                },
+            }
         for component in self.config.components:
             obs[f"{component}/joint_state"] = {
                 "t": time_ns(),
@@ -280,9 +304,7 @@ if __name__ == "__main__":
     delta_action = False
 
     player = AIRBOTPlay(
-        AIRBOTPlayConfig(
-            use_pose=True, relative_action=relative_action, delta_action=delta_action
-        )
+        AIRBOTPlayConfig(action=[ActionConfig(interfaces=[InterfaceType.POSE])])
     )
     assert player.configure()
     current_pose = player.capture_observation()["arm/pose"]["data"]

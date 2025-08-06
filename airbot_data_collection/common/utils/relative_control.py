@@ -1,10 +1,11 @@
+import numpy as np
+from typing import Tuple, Optional
+from logging import getLogger
 from airbot_data_collection.common.utils.transformations import (
     quaternion_inverse,
     quaternion_multiply,
 )
-from typing import Tuple, Literal, Optional
-import numpy as np
-from logging import getLogger
+from airbot_data_collection.basis import ReferenceMode, ReferenceBase
 
 
 Position = Tuple[float, float, float]
@@ -13,17 +14,13 @@ Pose = Tuple[Position, Orientation]
 
 
 class RelativePoseControl:
-    def __init__(
-        self, reference: Literal["last", "current"] = "current", delta: bool = True
-    ):
+    def __init__(self, reference_mode: ReferenceMode = ReferenceMode.CURRENT_STATE):
         """A class to handle relative pose control for a robotic arm.
         Args:
-            reference (str): The reference frame for the pose control. Can be "last" or "current".
-            delta (bool): Only update once when not delta.
+            reference_mode (ReferenceMode): The reference mode for the control.
         """
-        assert reference in {"last", "current"}
-        self._ref = reference
-        self._delta = delta
+        self._ref = reference_mode.ref_base()
+        self._delta = reference_mode.is_delta()
         self._updated = False
         self.position = None
         self.orientation = None
@@ -34,7 +31,7 @@ class RelativePoseControl:
         Returns:
             Tuple[Position, Orientation]: The reference position and orientation.
         """
-        if self._ref == "current":
+        if self._ref == ReferenceBase.STATE:
             return self.position, self.orientation
         else:
             return self._last_position, self._last_orientation

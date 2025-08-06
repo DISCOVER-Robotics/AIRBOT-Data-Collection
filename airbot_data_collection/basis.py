@@ -3,18 +3,10 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, replace
 from enum import Enum, auto
 from logging import getLogger
-from typing import (
-    Any,
-    Dict,
-    Protocol,
-    Union,
-    List,
-    Tuple,
-    Optional,
-    final,
-    runtime_checkable,
-)
+from typing import Any, Dict, Union, List, Tuple, Optional, Set, final
+from typing_extensions import Self
 from pydantic import BaseModel
+from airbot_data_collection.utils import StrEnum
 
 
 class SystemMode(Enum):
@@ -139,10 +131,77 @@ class System(Sensor):
         return self._current_mode
 
 
-@runtime_checkable
-class Device(Protocol):
-    def connect(self) -> None: ...
-    def read(self) -> Any: ...
-    def read_loop(self) -> None: ...
-    def async_read(self) -> None: ...
-    def disconnect(self) -> None: ...
+class InterfaceType(StrEnum):
+    JOINT_POSITION = auto()
+    JOINT_VELOCITY = auto()
+    JOINT_EFFORT = auto()
+    POSE = auto()
+    TWIST = auto()
+
+    @classmethod
+    def joint_states(cls) -> Set[Self]:
+        return {cls.JOINT_POSITION, cls.JOINT_VELOCITY, cls.JOINT_EFFORT}
+
+
+class ReferenceBase(StrEnum):
+    STATE = auto()  # reference to the current state
+    ACTION = auto()  # reference to the last action
+
+
+class ReferenceMode(StrEnum):
+    """Relative mode for the robot action and observation."""
+
+    ABSOLUTE = auto()  # absolute values
+    INIT_STATE = auto()  # relative to the initial state
+    INIT_ACTION = auto()  # relative to the initial action
+    CURRENT_STATE = auto()  # relative to the current state
+    LAST_ACTION = auto()  # relative to the last action
+
+    def is_delta(self) -> bool:
+        """Check if the reference mode is delta."""
+        return self in {
+            ReferenceMode.LAST_ACTION,
+            ReferenceMode.CURRENT_STATE,
+        }
+
+    def ref_base(self) -> ReferenceBase:
+        """Get the reference base for the mode."""
+        if self in {ReferenceMode.INIT_STATE, ReferenceMode.CURRENT_STATE}:
+            return ReferenceBase.STATE
+        elif self in {ReferenceMode.INIT_ACTION, ReferenceMode.LAST_ACTION}:
+            return ReferenceBase.ACTION
+
+
+class CommonConfig(BaseModel):
+    """Common configuration for both observation and action."""
+
+    # interfaces to be used for the robot action or observation
+    interfaces: Set[InterfaceType] = set()
+    reference_mode: ReferenceMode = ReferenceMode.ABSOLUTE
+
+
+class ActionConfig(CommonConfig):
+    """Configuration for the control system of the robot."""
+
+    interfaces: Set[InterfaceType] = {InterfaceType.JOINT_POSITION}
+    pose_reference_frame: str = "base_link"
+
+
+class ObservationConfig(CommonConfig):
+    """Configuration for the observation system of the robot."""
+
+    interfaces: Set[InterfaceType] = InterfaceType.joint_states()
+
+    def model_post_init(self, context):
+        assert self.reference_mode not in {
+            ReferenceMode.CURRENT_STATE,
+            ReferenceMode.LAST_ACTION,
+        }, f"Reference mode {self.reference_mode} is not supported for observation."
+
+
+class SystemConfig(BaseModel):
+    """Configuration for the robot system."""
+
+    action: List[ActionConfig] = []
+    observation: List[ObservationConfig] = []
+    components: List[str] = []
