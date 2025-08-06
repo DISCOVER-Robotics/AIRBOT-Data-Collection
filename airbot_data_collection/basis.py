@@ -33,7 +33,7 @@ class PostCaptureConfig(BaseModel):
 class ConfigBasis(ABC):
     def __init__(self, config: Optional[BaseModel] = None, **kwargs) -> None:
         config_type = self.__annotations__.get("config", None)
-        assert config_type, "config must be annotated at top level class"
+        assert config_type, "config must be annotated at the top level class"
         if config is None:  # mainly used by yaml config, e.g. hydra
             config = config_type(**kwargs)
             # check pydantic extra kwargs
@@ -59,11 +59,17 @@ class ConfigBasis(ABC):
         class_type = self.__annotations__.get("interface", None)
         if class_type is not None:
             sig = inspect.signature(class_type)
-            if set(sig.parameters.keys()) == {"config", "kwargs"}:
+            if "config" in sig.parameters.keys():
                 self.interface = class_type(config=self.config)
             else:
+                # convert the first level config to dict
                 if isinstance(self.config, BaseModel):
-                    cfg_dict = dict(self.config)
+                    # dict(self.config) has some bugs
+                    # so we use the following way
+                    cfg_dict = {
+                        k: getattr(self.config, k)
+                        for k in self.config.__class__.model_fields.keys()
+                    }
                 else:  # dataclass
                     # TODO: error when using nested dataclass
                     cfg_dict = asdict(self.config)

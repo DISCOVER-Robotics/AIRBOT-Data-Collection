@@ -272,6 +272,7 @@ class McapDatasetConfig(IterableDatasetConfig):
     def validate_data_root(cls, v) -> str:
         assert isinstance(v, str), "data_root must be a string path to a MCAP file"
         assert v.endswith(".mcap"), "data_root must be a .mcap file"
+        return v
 
     def model_post_init(self, context):
         assert not self.slices.sample, "not implemented yet"
@@ -319,7 +320,9 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
         )
 
     def __del__(self):
-        self.reader.file_io.close()
+        if hasattr(self, "reader"):
+            if self.reader:
+                self.reader.file_io.close()
 
     def __len__(self) -> int:
         """Get the total number of messages in the MCAP file."""
@@ -370,20 +373,20 @@ class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
 
     def __init__(self, config):
         super().__init__(config)
+        self.reader: Dict[str, McapFlatbufferReader] = {}
         dataset_files = {}
         DataRearrangeConfig.rearrange(
             self.cfg.data_root, self.cfg.rearrange.dataset, self._rng
         )
         for root in self.cfg.data_root:
-            fields = get_items_by_ext(root, ".mcap")
-            DataRearrangeConfig.rearrange(fields, self.cfg.rearrange.episode, self._rng)
+            files = get_items_by_ext(root, ".mcap")
+            DataRearrangeConfig.rearrange(files, self.cfg.rearrange.episode, self._rng)
             indexes = self.cfg.slices.dataset_indexes.get(root, None)
             if indexes:
-                fields = np.array(fields)[indexes].tolist()
-            dataset_files[root] = fields
-
+                # slice the files by indexes
+                files = np.array(files)[indexes].tolist()
+            dataset_files[root] = files
         self._dataset_files = dataset_files
-        self.reader: Dict[str, McapFlatbufferReader] = {}
 
     def _flatten_iter(self):
         for episode in self:
@@ -441,7 +444,7 @@ if __name__ == "__main__":
 
     init_logging(logging.INFO)
 
-    root_dir = "/home/ghz/Work/airbot/DISCOVERSE/data/mcap/pick_jujube"
+    root_dir = "data/arm1-001"
     # data_root = "0.mcap"
     data_root = root_dir
     # keys = [
@@ -451,17 +454,20 @@ if __name__ == "__main__":
     #     "/left/lead/eef/joint_state/position",
     #     "/env_camera/env/color/image_raw",
     # ]
-    keys = [
-        "/follow/arm/joint_state/position",
-        "/follow/eef/joint_state/position",
-    ] + [
-        # "/env_camera/color/image_raw",
-        # "/follow_camera/color/image_raw",
-        # discoverse camera keys
-        "/cam_0/color/image_raw",
-        "/cam_1/color/image_raw",
-        "log_stamps",
-    ]
+    keys = (
+        [
+            # "/follow/arm/joint_state/position",
+            # "/follow/eef/joint_state/position",
+        ]
+        + [
+            "/env_camera/color/image_raw",
+            # "/follow_camera/color/image_raw",
+            # discoverse camera keys
+            # "/cam_0/color/image_raw",
+            # "/cam_1/color/image_raw",
+            "log_stamps",
+        ]
+    )
 
     # dataset = McapFlatbufferDataset(
     #     McapFlatbufferDatasetConfig(
@@ -480,7 +486,7 @@ if __name__ == "__main__":
         McapFlatbufferEpisodeDatasetConfig(
             data_root=data_root,
             keys=keys,
-            slices=DataSlicesConfig(dataset={root_dir: (1, 3)}),
+            slices=DataSlicesConfig(dataset={root_dir: (0, 1)}),
             rearrange=DataRearrangeConfig(
                 episode="sort",
             ),
