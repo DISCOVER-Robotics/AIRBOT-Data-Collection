@@ -51,7 +51,10 @@ if __name__ == "__main__":
         AIRBOTPlayConfig,
     )
     from airbot_data_collection.basis import ActionConfig, InterfaceType
-    from airbot_data_collection.common.utils.coordinate import CoordinateTools
+    from airbot_data_collection.common.utils.transformations import (
+        quaternion_multiply,
+        quaternion_from_euler,
+    )
     import time
 
     topics = [
@@ -60,15 +63,23 @@ if __name__ == "__main__":
         "/arm/pose/orientation",
         "/eef/joint_state/position",
     ]
+    pos_bias = np.array([0.0, 0.1, 0.0])
+    qat_bias = quaternion_from_euler(0.0, 0.0, np.pi / 4)
 
-    def obs2action(obs: Dict[str, np.ndarray]):
+    def obs2action(
+        obs: Dict[str, np.ndarray],
+        # pos_bias=np.array([0.0, 0.0, 0.0]),
+        # qat_bias=np.array([0.0, 0.0, 0.0, 1.0]),
+    ) -> list:
         # action = []
         # obs["/arm/pose/position"]
         # for value in obs.values():
         #     action.extend(value.tolist())
-        action = []
-        for topic in topics:
-            action.extend(obs[topic].tolist())
+        action = (
+            (obs[topics[0]] + pos_bias).tolist()
+            + quaternion_multiply(qat_bias, obs[topics[1]]).tolist()
+            + obs[topics[2]].tolist()
+        )
         return action
 
     airbot_play = AIRBOTPlay(
