@@ -3,9 +3,8 @@ from ast import literal_eval
 from collections import Counter
 from enum import auto
 from typing import Any, Dict, Optional, Union
-
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
-
+from logging import getLogger
 from airbot_data_collection.basis import SystemMode, PostCaptureConfig
 from airbot_data_collection.utils import StrEnum
 
@@ -327,6 +326,13 @@ class DemonstrateConfig(BaseModel):
     def model_post_init(self, context):
         if self.auto_control.groups is None:
             self.auto_control.groups = self.components.groups
+        if ComponentRole.l not in self.components.roles:
+            if self.auto_control.groups:
+                getLogger(self.__class__.__name__).warning(
+                    "No leader role is found in the components, "
+                    "clear auto_control.groups."
+                )
+                self.auto_control.groups = []
         if len(self.auto_control.rate) == 1:
             self.auto_control.rate = [self.auto_control.rate[0]] * len(
                 self.components.groups
