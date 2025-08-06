@@ -162,7 +162,13 @@ class McapFlatbufferReader:
         # TODO: support iter through a reference topic
         # and inter other topics with start_time according
         # to the reference topic
-        topics = topics if topics is not None else self.all_topic_names()
+        if topics is None:
+            topics = self.all_topic_names()
+        else:
+            diff = set(topics) - self.all_topic_names()
+            assert not diff, (
+                f"Topics {diff} not found. Available: {self.all_topic_names()}"
+            )
         messages = {}
         for schema, channel, message in self.reader.iter_messages(topics):
             data = self._decoders[schema.name](message.data)
@@ -171,12 +177,14 @@ class McapFlatbufferReader:
                 yield messages
                 messages.clear()
 
+    @cache
     def all_topic_names(self) -> Set[str]:
         """Get all topics in the MCAP file."""
         return {
             channel.topic for channel in self.reader.get_summary().channels.values()
         }
 
+    @cache
     def all_attachment_names(self) -> Set[str]:
         """Get all attachment names in the MCAP file."""
         return {attachment.name for attachment in self.reader.iter_attachments()}
@@ -185,7 +193,14 @@ class McapFlatbufferReader:
         self, names: Optional[Iterable[str]] = None
     ) -> Generator[Dict[str, Any], None, None]:
         """Iterate over target attachments in the MCAP file."""
-        names = names if names is not None else self.all_attachment_names()
+        if names is None:
+            names = self.all_attachment_names()
+        else:
+            diff = set(names) - self.all_attachment_names()
+            assert not diff, (
+                f"Attachments {diff} not found. Available: {self.all_attachment_names()}"
+            )
+
         attch_names: List[str] = []
         iters: List[Generator] = []
         for attachment in self.reader.iter_attachments():
