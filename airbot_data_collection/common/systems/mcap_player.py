@@ -4,6 +4,8 @@ from airbot_data_collection.common.datasets.mcap_dataset import (
 )
 from airbot_data_collection.basis import System, SystemMode
 from more_itertools import consume, seekable
+from typing import Dict, Union, Any
+import numpy as np
 
 
 class McapPlayer(System):
@@ -33,10 +35,10 @@ class McapPlayer(System):
             self.send_action(0)
         return True
 
-    def capture_observation(self):
+    def capture_observation(self) -> Dict[str, Union[np.ndarray, Any]]:
         return next(self._stream, None)
 
-    def get_info(self):
+    def get_info(self) -> dict:
         return {}
 
     def shutdown(self):
@@ -48,18 +50,38 @@ if __name__ == "__main__":
         AIRBOTPlay,
         AIRBOTPlayConfig,
     )
+    from airbot_data_collection.basis import ActionConfig, InterfaceType
+    from airbot_data_collection.common.utils.coordinate import CoordinateTools
     import time
 
-    airbot_play = AIRBOTPlay(AIRBOTPlayConfig(port=50051))
+    topics = [
+        # "/arm/joint_state/position",
+        "/arm/pose/position",
+        "/arm/pose/orientation",
+        "/eef/joint_state/position",
+    ]
+
+    def obs2action(obs: Dict[str, np.ndarray]):
+        # action = []
+        # obs["/arm/pose/position"]
+        # for value in obs.values():
+        #     action.extend(value.tolist())
+        action = []
+        for topic in topics:
+            action.extend(obs[topic].tolist())
+        return action
+
+    airbot_play = AIRBOTPlay(
+        AIRBOTPlayConfig(
+            port=50051, action=[ActionConfig(interfaces={InterfaceType.POSE})]
+        )
+    )
     assert airbot_play.configure()
 
     file_path = "data/arm1-001/0.mcap"
     config = McapDatasetConfig(
         data_root=file_path,
-        topics=[
-            "/arm/joint_state/position",
-            "/eef/joint_state/position",
-        ],
+        topics=topics,
     )
     player = McapPlayer(config)
     assert player.configure()
@@ -68,7 +90,7 @@ if __name__ == "__main__":
         player.send_action(0)
         assert player.switch_mode(SystemMode.RESETTING)
         assert airbot_play.switch_mode(SystemMode.RESETTING)
-        airbot_play.send_action(player.capture_observation())
+        airbot_play.send_action(obs2action(player.capture_observation()))
         assert airbot_play.switch_mode(SystemMode.SAMPLING)
         cnt = 0
         while True:
@@ -78,7 +100,7 @@ if __name__ == "__main__":
             if not obs:
                 break
             else:
-                airbot_play.send_action(obs)
+                airbot_play.send_action(obs2action(obs))
                 print(
                     f"Control robot {cnt} in {time.perf_counter() - start_time:.4f} seconds."
                 )
