@@ -50,6 +50,7 @@ class AvCoder:
         self._outbuf = BytesIO()
         self._container = av.open(self._outbuf, "w", format="mp4")
         self.stream = self._container.add_stream("h264", options={"preset": "fast"})
+        self.stream.codec_context.time_base = self._time_base
         self.stream.time_base = self._time_base
         self._start_time = 0
         self._last_time = 0
