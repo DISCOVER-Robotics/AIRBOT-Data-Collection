@@ -28,7 +28,10 @@ from airbot_data_collection.basis import StrEnum, auto
 try:
     from torch.utils.data import IterableDataset, get_worker_info
 except ImportError as e:
-    IterableDataset = object  # Fallback to a basic object if torch is not available
+
+    class IterableDataset:
+        pass
+
     # Dummy function if torch is not available
     get_worker_info = lambda: None  # noqa: E731
     getLogger(__name__).warning(
