@@ -24,7 +24,8 @@ rs = ["pyrealsense2"]
 web = ["fastapi", "uvicorn"]
 v4l2 = ["linuxpy", "PyTurboJPEG"]
 udev = ["pyudev"]
-flb = ["flatbuffers", "foxglove-schemas-flatbuffer", "mcap", "flatten-dict"]
+mcap = ["flatbuffers", "foxglove-schemas-flatbuffer", "mcap", "flatten-dict"]
+image = ["PyTurboJPEG", "av"]
 basic = [
     "pydantic-settings",
     "argdantic",
