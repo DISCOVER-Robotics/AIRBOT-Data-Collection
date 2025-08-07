@@ -12,7 +12,11 @@ from typing import (
     Union,
 )
 from pydantic import BaseModel, NonNegativeInt, computed_field, field_validator
-from torch.utils.data import IterableDataset, get_worker_info
+from abc import ABC, abstractmethod
+from functools import cached_property, cache
+from logging import getLogger
+import numpy as np
+from more_itertools import peekable, nth
 from airbot_data_collection.common.utils.mcap_utils import McapFlatbufferReader
 from airbot_data_collection.common.utils.utils import (
     SlicesType,
@@ -20,12 +24,17 @@ from airbot_data_collection.common.utils.utils import (
 )
 from airbot_data_collection.utils import get_items_by_ext, zip
 from airbot_data_collection.basis import StrEnum, auto
-from abc import ABC, abstractmethod
-from functools import cached_property, cache
-from logging import getLogger
-import numpy as np
-from more_itertools import peekable, nth
 
+try:
+    from torch.utils.data import IterableDataset, get_worker_info
+except ImportError as e:
+    IterableDataset = object  # Fallback to a basic object if torch is not available
+    # Dummy function if torch is not available
+    get_worker_info = lambda: None  # noqa: E731
+    getLogger(__name__).warning(
+        "torch.utils.data is not available, some features may not work. "
+        "Please install PyTorch to use these features."
+    )
 
 DictableSlicesType = Union[Dict[str, SlicesType], SlicesType]
 DictableIndexesType = Union[Dict[str, List[int]], List[int]]
