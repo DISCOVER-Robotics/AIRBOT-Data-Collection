@@ -66,7 +66,19 @@ class McapSinglePosePlayer:
 
 
 if __name__ == "__main__":
-    test = McapSinglePosePlayer("data/arm1-001/0.mcap")
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Play a single pose from an MCAP file."
+    )
+    parser.add_argument(
+        "file_path",
+        type=str,
+        help="Path to the MCAP file containing the pose data.",
+    )
+    args = parser.parse_args()
+
+    test = McapSinglePosePlayer(args.file_path)
     test.set_pose_bias(
         position=np.array([0.0, 0.1, 0.0]),
         orientation=quaternion_from_euler(0.0, 0.0, np.pi / 4.0),

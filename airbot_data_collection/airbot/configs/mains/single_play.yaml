@@ -5,27 +5,21 @@ auto_control:
 components:
   groups:
   - /
-  - /
+  # - /
   names:
   - ""
-  - follow_camera
+  # - follow_camera
   params:
   - port: 50051
-    observation:
-      - interfaces:
-          - joint_position
-          - joint_velocity
-          - joint_effort
-          - pose
-  - camera_index: usb-0000:00:14.0-5
-    height: 480
-    width: 640
+  # - camera_index: null
+  #   height: 480
+  #   width: 640
   paths:
   - airbot_play
-  - v4l2
+  # - realsense
   roles:
   - f
-  - o
+  # - o
 dataset:
   directory: arm1-001
 managers:

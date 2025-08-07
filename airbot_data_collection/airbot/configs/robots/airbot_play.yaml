@@ -4,4 +4,9 @@ url: localhost
 port: 50050
 speed_profile: FAST # DEFAULT, SLOW, FAST
 action: []
-observation: []
+observation:
+  - interfaces:
+      - joint_position
+      - joint_velocity
+      - joint_effort
+      - pose
