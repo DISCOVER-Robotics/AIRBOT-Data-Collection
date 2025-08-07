@@ -16,6 +16,7 @@ from airbot_data_collection.common.utils.mcap_utils import (
 )
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 
 try:
     from dataloop import DataLoopClient
@@ -105,7 +106,8 @@ class AIRBOTMcapDataSampler(DataSampler):
                 bcolors.OKCYAN
                 + f"Will upload to task id: {self.config.task_info.task_id}"
             )
-        self._coders = defaultdict(AvCoder)
+        # use a default rate instead of dynamic frame pts
+        self._coders = defaultdict(partial(AvCoder, rate=20))
         self._executor = ThreadPoolExecutor(
             max_workers=4, thread_name_prefix="mcap_h264_coder"
         )

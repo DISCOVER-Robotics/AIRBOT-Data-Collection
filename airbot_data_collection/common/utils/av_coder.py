@@ -1,21 +1,34 @@
 import av
 import numpy as np
-from io import BytesIO
 import fractions
-from typing import List, Optional, Union, Literal, Dict, Generator
+import json
+from io import BytesIO
+from typing import List, Optional, Union, Literal, Dict, Generator, Tuple
 from turbojpeg import TurboJPEG
 from logging import getLogger
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
-from ast import literal_eval
+from av.container import Container
 
 
 class AvCoder:
     """
-    A class for encoding video frames using PyAV.
+    A class for encoding and decoding video frames using PyAV.
     This class supports encoding frames in various formats and ensures that
     timestamps are strictly increasing.
     It can handle both NumPy arrays and raw byte data for frames.
+    It also supports asynchronous encoding using a thread pool executor.
+    Args:
+        time_base (int): The time base for the video stream in nanoseconds. Default is 1e9 (1 second).
+        frame_format (str): The format of the video frames. Default is "bgr24".
+        async_encode (bool): If True, uses a thread pool executor for encoding frames asynchronously.
+            If False, encodes frames synchronously. Default is True.
+        log_level (Optional[int]): The logging level for PyAV. If None, uses the default level.
+        rate (Optional[int]): The frame rate for the video stream. If None,
+            the frame rate is determined by the input frames' timestamps.
+    Raises:
+        ValueError: If an unsupported frame type is provided.
+        TypeError: If the input frame is not of a supported type (bytes or np.ndarray).
     """
 
     logging = av.logging
@@ -26,13 +39,14 @@ class AvCoder:
         frame_format: str = "bgr24",
         async_encode: bool = True,
         log_level: Optional[int] = None,
+        rate: Optional[int] = None,
     ):
         av.logging.set_level(log_level)
         self._time_base = fractions.Fraction(1, time_base)
-        self._configured = False
         self._frame_format = frame_format
         self._preprocess = None
-        self._reset()
+        self._rate = rate
+        self.reset()
         if async_encode:
             # set max_workers to 1 to ensure frames are processed in order
             self._executor = ThreadPoolExecutor(1, "av_coder")
@@ -42,18 +56,22 @@ class AvCoder:
         self._encode_lock = Lock()
         self._perf_logs = {}
 
-    def _reset(self):
+    def reset(self):
         """
         Reset the encoder state.
         This method clears the output buffer and resets the start and last timestamps.
         """
         self._outbuf = BytesIO()
         self._container = av.open(self._outbuf, "w", format="mp4")
-        self.stream = self._container.add_stream("h264", options={"preset": "fast"})
+        self.stream = self._container.add_stream("h264", self._rate, {"preset": "fast"})
+        self.stream.codec_context.time_base = self._time_base
         self.stream.time_base = self._time_base
         self._start_time = 0
         self._last_time = 0
+        self._comment = {}
         self._configured = False
+        if self._rate is not None:
+            self._comment["time_stamps"] = []
 
     def configure_stream(
         self,
@@ -107,7 +125,7 @@ class AvCoder:
         if self._start_time == 0:
             assert timestamp > 0, "Timestamp must be greater than 0"
             self._start_time = timestamp
-            self._container.metadata["comment"] = str({"base_stamp": timestamp})
+            self._comment["base_stamp"] = timestamp
         if self._preprocess is None:
             self._set_frame_type(frame)
         video_frame = av.VideoFrame.from_ndarray(
@@ -115,16 +133,19 @@ class AvCoder:
         )
         if not self._configured:
             self.configure_stream(video_frame.width, video_frame.height)
-        # Ensure timestamps are strictly increasing
-        last_time = self._last_time
-        if timestamp <= last_time:
-            self.get_logger().warning(
-                f"Frame timestamp {timestamp} is not greater than last timestamp {last_time}. Adjusting."
-            )
-            timestamp = last_time + 1000
-        self._last_time = timestamp
-        video_frame.pts = timestamp - self._start_time
-        video_frame.time_base = self._time_base
+        if self._rate is None:
+            # Ensure timestamps are strictly increasing
+            last_time = self._last_time
+            if timestamp <= last_time:
+                self.get_logger().warning(
+                    f"Frame timestamp {timestamp} is not greater than last timestamp {last_time}. Adjusting."
+                )
+                timestamp = last_time + 1000
+            self._last_time = timestamp
+            video_frame.pts = timestamp - self._start_time
+            video_frame.time_base = self._time_base
+        else:
+            self._comment["time_stamps"].append(timestamp - self._start_time)
         for packet in self.stream.encode(video_frame):
             self._container.mux(packet)
         # self._perf_logs["encode"] =  time.monotonic() - start
@@ -148,57 +169,24 @@ class AvCoder:
             else:
                 self._encode_frame(frame, timestamp)
 
-    # def end(self, file_path: str = "") -> bytes:
-    #     """
-    #     Finalize the encoding process and return the encoded data bytes.
-    #     """
-    #     with self._encode_lock:
-    #         if self._last_future:
-    #             self._last_future.result()
-    #         for packet in self.stream.encode():
-    #             self._container.mux(packet)
-    #         self._container.close()
-    #         value = self._outbuf.getvalue()
-    #         self._outbuf.close()
-    #         self._reset()
-    #         if file_path:
-    #             with open(file_path, "wb") as f:
-    #                 f.write(value)
-    #         return value
-
     def end(self, file_path: str = "") -> bytes:
         """
         Finalize the encoding process and return the encoded data bytes.
-        Fix UnicodeDecodeError by ensuring UTF-8 encoding for paths and metadata.
         """
         with self._encode_lock:
+            self.stream.metadata["comment"] = "goood"
+            self.get_logger().info(f"Stream metadata: {self.stream.metadata}")
             if self._last_future:
                 self._last_future.result()
             for packet in self.stream.encode():
-                try:
-                    self._container.mux(packet)
-                except UnicodeDecodeError as e:
-                    self.get_logger().warning(
-                        f"Ignored Unicode error during muxing: {e}"
-                    )
+                self._container.mux(packet)
             self._container.close()
             value = self._outbuf.getvalue()
             self._outbuf.close()
-            self._reset()
+            self.reset()
             if file_path:
-                try:
-                    safe_path = file_path.encode("utf-8", errors="ignore").decode(
-                        "utf-8"
-                    )
-                    with open(safe_path, "wb") as f:
-                        f.write(value)
-                except UnicodeEncodeError as e:
-                    self.get_logger().warning(
-                        f"Unicode error when writing to file {file_path}: {e}. "
-                        "Using fallback path."
-                    )
-                    with open("output_fallback.bin", "wb") as f:
-                        f.write(value)
+                with open(file_path, "wb") as f:
+                    f.write(value)
             return value
 
     @classmethod
@@ -215,14 +203,23 @@ class AvCoder:
         thread_type: str = "AUTO",
         ensure_base_stamp: bool = False,
     ):
-        if isinstance(video, bytes):
-            container = av.open(BytesIO(video))
-        else:
-            container = av.open(video, "r")
-        # Enable multithreading for decoding
-        video_stream = container.streams.video[0]
+        """
+        Initialize the decoding process for a video file.
+        Args:
+            video (Union[str, bytes]): The video file path or the encoded video bytes.
+            thread_type (str): The threading type for decoding. Defaults to "AUTO".
+            ensure_base_stamp (bool): If True, ensures that the base timestamp is present in the
+                video metadata. If not present, raises an error. Defaults to False.
+        Returns:
+            tuple: A tuple containing the container, video stream, base timestamp,
+                time stamps, and frame count.
+        """
+        container, video_stream = cls.get_handler(video)
+        # video_stream.framerate
         video_stream.thread_type = thread_type
-        comment: dict = literal_eval(container.metadata.get("comment", "{}"))
+        print(f"Video metadata: {container.metadata}")
+        comment: dict = json.loads(container.metadata.get("comment", "{}"))
+        # print(container.metadata)
         base_stamp = comment.get("base_stamp", None)
         if base_stamp is None:
             assert not ensure_base_stamp, (
@@ -240,7 +237,19 @@ class AvCoder:
                     "Converting to integer."
                 )
                 base_stamp = int(base_stamp)
-        return container, video_stream, base_stamp, video_stream.frames
+        time_interval = float(
+            fractions.Fraction(1, video_stream.average_rate) / video_stream.time_base
+        )
+        return (
+            container,
+            video_stream,
+            base_stamp,
+            comment.get(
+                "time_stamps",
+                (i * time_interval for i in range(video_stream.frames)),
+            ),
+            video_stream.frames,
+        )
 
     @classmethod
     def decode(
@@ -259,7 +268,7 @@ class AvCoder:
         Returns:
             List[np.ndarray]: A list of frames, each represented as a NumPy array.
         """
-        container, video_stream, base_stamp, frame_cnt = cls._init_decode(
+        container, video_stream, base_stamp, time_stamps, frame_cnt = cls._init_decode(
             video, thread_type, ensure_base_stamp=ensure_base_stamp
         )
         if indices is not None:
@@ -328,19 +337,23 @@ class AvCoder:
             Union[tuple[np.ndarray, int], np.ndarray]: A tuple of the frame and its absolute timestamp
                 if target_time_base > 0, otherwise just the frame.
         """
-        container, video_stream, base_stamp, frame_cnt = cls._init_decode(
+        container, video_stream, base_stamp, time_stamps, frame_cnt = cls._init_decode(
             video, thread_type, ensure_base_stamp
         )
-        cnt = 0
-        time_factor = fractions.Fraction(target_time_base, 1) * video_stream.time_base
-        for frame in container.decode(video=0):
-            cnt += 1
+        time_factor = float(
+            fractions.Fraction(target_time_base, 1) * video_stream.time_base
+        )
+        for index, (frame, stamp) in enumerate(
+            zip(container.decode(video=0), time_stamps)
+        ):
             np_frame = frame.to_ndarray(format=frame_format)
+            cur_stamp = frame.pts or stamp
             if target_time_base:
-                abs_stamp = (base_stamp + frame.pts) * time_factor
+                abs_stamp = (base_stamp + cur_stamp) * time_factor
                 yield np_frame, abs_stamp
             else:
                 yield np_frame
+        cnt = index + 1
         mismatch = frame_cnt - cnt
         if mismatch > 0:
             if mismatch <= mismatch_tolerance:
@@ -376,7 +389,7 @@ class AvCoder:
         ensure_base_stamp: bool = False,
     ) -> List[np.ndarray]:
         # TODO: implement according to the test_av_seek.py
-        container, video_stream, base_stamp, frame_cnt = cls._init_decode(
+        container, video_stream, base_stamp, time_stamps, frame_cnt = cls._init_decode(
             video, thread_type, ensure_base_stamp
         )
         container.seek(start_time, stream=video_stream, backward=True, any_frame=False)
@@ -413,6 +426,23 @@ class AvCoder:
             )
         cls.get_logger().info("Total frames processed:", frame_cnt)
 
+    @classmethod
+    def get_handler(cls, video: Union[str, bytes]) -> Tuple[Container, av.VideoStream]:
+        """
+        Get the handler for the video file.
+        Args:
+            video (Union[str, bytes]): The video file path or the encoded video bytes.
+        Returns:
+            tuple: A tuple containing the container and video stream.
+        """
+        if isinstance(video, bytes):
+            container = av.open(BytesIO(video))
+        else:
+            container = av.open(video, "r")
+        # Enable multithreading for decoding
+        video_stream = container.streams.video[0]
+        return container, video_stream
+
 
 if __name__ == "__main__":
     from more_itertools import ilen
@@ -420,13 +450,13 @@ if __name__ == "__main__":
 
     av_coder = AvCoder(async_encode=False, log_level=av.logging.VERBOSE)
 
-    video_path = "/home/ghz/Work/airbot/DISCOVERSE/data/pick_jujube/001/cam_0.mp4"
+    video_path = "/home/ghz/视频/airbot_blocks_4.mp4"
 
     iters = tee(av_coder.iter_decode(video_path), 2)
-
+    print(1 / 15)
     for frame, stamp in iters[0]:
         # print(frame.shape)
-        # print(stamp)
+        print(stamp)
         pass
 
     print(ilen(iters[1]))

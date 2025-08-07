@@ -26,7 +26,7 @@ bus_name_mapping:
       usb-0000:00:14.0-8: left_camera
 choices:
   2:
-  - follow_camera
+  # - follow_camera
   - env_camera
   4:
   - left_camera
