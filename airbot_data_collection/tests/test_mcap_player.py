@@ -25,6 +25,7 @@ class McapSinglePosePlayer:
         assert self._mcap_player.configure()
         self.pos_bias = np.array([0.0, 0.0, 0.0])
         self.qat_bias = quaternion_from_euler(0.0, 0.0, 0.0)
+        self._eef_threshold = None
 
     def _obs_to_action(
         self,
@@ -35,13 +36,24 @@ class McapSinglePosePlayer:
         action = (
             (obs[self.topics[0]] + pos_bias).tolist()
             + quaternion_multiply(qat_bias, obs[self.topics[1]]).tolist()
-            + obs[self.topics[2]].tolist()
+            + (
+                np.where(
+                    obs[self.topics[2]] < self._eef_threshold[0],
+                    self._eef_threshold[1],
+                    self._eef_threshold[2],
+                ).tolist()
+                if self._eef_threshold
+                else obs[self.topics[2]].tolist()
+            )
         )
         return action
 
     def set_pose_bias(self, position: np.ndarray, orientation: np.ndarray):
         self.pos_bias = position
         self.qat_bias = orientation
+
+    def set_eef_threshold(self, threshold: float, min: float, max: float):
+        self._eef_threshold = (threshold, min, max)
 
     def seek(self, index: int):
         self._mcap_player.send_action(index)
@@ -59,6 +71,7 @@ if __name__ == "__main__":
         position=np.array([0.0, 0.1, 0.0]),
         orientation=quaternion_from_euler(0.0, 0.0, np.pi / 4.0),
     )
+    test.set_eef_threshold(0.03, 0.0, 0.072)
     test.seek(0)
     while True:
         action = test.update()
