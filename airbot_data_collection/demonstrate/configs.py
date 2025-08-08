@@ -46,7 +46,7 @@ class ComponentConfig(BaseModel):
 class ComponentsConfig(BaseModel):
     """The config of multiple components to be used in the demonstration."""
 
-    # names of the components, e.g. ("left_arm", "right_arm", "head_camera")
+    # names of the components, e.g. ("left_arm", "right_arm", "left_camera")
     # if empty, no component will be used
     names: list[str] = []
     paths: list[str] = []
@@ -54,15 +54,11 @@ class ComponentsConfig(BaseModel):
     async_modes: list[AsyncMode] = []
     update_rates: list[NonNegativeInt] = []
 
-    # TODO: name may not be unique across all components
-    # def get_component(self, name: str) -> ComponentConfig:
-    #     index = self.names.index(name)
-    #     return ComponentConfig(
-    #         name=name,
-    #         path=self.paths[index],
-    #         param=self.params[index],
-    #         async_mode=self.async_modes[index],
-    #     )
+    def model_post_init(self, context):
+        assert len(self.names) == len(self.paths) == len(self.params), (
+            f"names: {self.names}, paths: {self.paths}, params: {self.params} "
+            f"must have the same length"
+        )
 
 
 class GroupConfig(BaseModel):
