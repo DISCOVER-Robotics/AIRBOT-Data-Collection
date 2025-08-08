@@ -56,6 +56,7 @@ def print_camera_info():
             print("🔧 基本信息:")
             print(f"  设备名称: {info.card}")
             print(f"  驱动程序: {info.driver}")
+            print(f"  设备路径: {info.device.filename}")
             print(f"  总线信息: {info.bus_info}")
             print(f"  内核版本: {info.version}")
 
