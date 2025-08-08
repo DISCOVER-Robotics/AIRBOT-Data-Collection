@@ -122,7 +122,7 @@ class AvCoder:
             self.get_logger().warning(
                 f"Frame timestamp {timestamp} is not greater than last timestamp {last_time}. Adjusting."
             )
-            timestamp = last_time + 1000
+            timestamp = last_time + max(self._time_base.denominator // 1000, 1)
         self._last_time = timestamp
         video_frame.pts = timestamp - self._start_time
         video_frame.time_base = self._time_base
@@ -149,57 +149,22 @@ class AvCoder:
             else:
                 self._encode_frame(frame, timestamp)
 
-    # def end(self, file_path: str = "") -> bytes:
-    #     """
-    #     Finalize the encoding process and return the encoded data bytes.
-    #     """
-    #     with self._encode_lock:
-    #         if self._last_future:
-    #             self._last_future.result()
-    #         for packet in self.stream.encode():
-    #             self._container.mux(packet)
-    #         self._container.close()
-    #         value = self._outbuf.getvalue()
-    #         self._outbuf.close()
-    #         self._reset()
-    #         if file_path:
-    #             with open(file_path, "wb") as f:
-    #                 f.write(value)
-    #         return value
-
     def end(self, file_path: str = "") -> bytes:
         """
         Finalize the encoding process and return the encoded data bytes.
-        Fix UnicodeDecodeError by ensuring UTF-8 encoding for paths and metadata.
         """
         with self._encode_lock:
             if self._last_future:
                 self._last_future.result()
             for packet in self.stream.encode():
-                try:
-                    self._container.mux(packet)
-                except UnicodeDecodeError as e:
-                    self.get_logger().warning(
-                        f"Ignored Unicode error during muxing: {e}"
-                    )
+                self._container.mux(packet)
             self._container.close()
             value = self._outbuf.getvalue()
             self._outbuf.close()
             self._reset()
             if file_path:
-                try:
-                    safe_path = file_path.encode("utf-8", errors="ignore").decode(
-                        "utf-8"
-                    )
-                    with open(safe_path, "wb") as f:
-                        f.write(value)
-                except UnicodeEncodeError as e:
-                    self.get_logger().warning(
-                        f"Unicode error when writing to file {file_path}: {e}. "
-                        "Using fallback path."
-                    )
-                    with open("output_fallback.bin", "wb") as f:
-                        f.write(value)
+                with open(file_path, "wb") as f:
+                    f.write(value)
             return value
 
     @classmethod

@@ -16,6 +16,7 @@ from airbot_data_collection.common.utils.mcap_utils import (
 )
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 
 try:
     from dataloop import DataLoopClient
@@ -85,6 +86,7 @@ class AIRBOTMcapDataSamplerConfig(BaseModel):
     save_type: SaveType = SaveType()
     upload: UploadConfig = UploadConfig()
     initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
+    video_time_base: int = int(1e6)  # μs
 
 
 class AIRBOTMcapDataSampler(DataSampler):
@@ -105,10 +107,13 @@ class AIRBOTMcapDataSampler(DataSampler):
                 bcolors.OKCYAN
                 + f"Will upload to task id: {self.config.task_info.task_id}"
             )
-        self._coders = defaultdict(AvCoder)
+        self._coders = defaultdict(
+            partial(AvCoder, time_base=self.config.video_time_base)
+        )
         self._executor = ThreadPoolExecutor(
             max_workers=4, thread_name_prefix="mcap_h264_coder"
         )
+        self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
         return True
 
     def update(self, data: dict):
@@ -118,7 +123,9 @@ class AIRBOTMcapDataSampler(DataSampler):
             for key in list(data.keys()):
                 if "color" in key:
                     frame = data.pop(key)
-                    self._coders[key].encode_frame(frame["data"], frame["t"])
+                    self._coders[key].encode_frame(
+                        frame["data"], frame["t"] // self._frame_stamp_factor
+                    )
         return data
 
     def save(self, path: str, data: dict) -> str:
