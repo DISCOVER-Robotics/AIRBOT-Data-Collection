@@ -456,7 +456,7 @@ def sort_index(order: list, name_list: list, value_list: list) -> tuple:
 if sys.version_info >= (3, 10):
     zip = partial(zip, strict=True)
 else:
-    from airbot_data_collection.utils import zip as zip  #  # noqa: F401
+    from more_itertools import zip_equal as zip  # noqa: F401
 
 
 if __name__ == "__main__":

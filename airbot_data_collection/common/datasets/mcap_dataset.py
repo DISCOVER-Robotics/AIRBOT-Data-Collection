@@ -203,7 +203,8 @@ class IterableDatasetABC(IterableDataset, ABC):
         """
         raise NotImplementedError
 
-    def __iter__(self) -> Generator[Any, None, None]:
+    def __iter__(self) -> Iterator[Any]:
+        # -> Generator[Any, None, None] only for >py39
         # TODO: really consider how to handle multi-process/multi-node sharding
         # 1. Get the original stream
         stream = self._read_stream()
@@ -383,12 +384,18 @@ class McapFlatbufferEpisodeDatasetConfig(McapDatasetConfig):
             v = [v]
         for dir in v:
             assert os.path.isdir(dir), (
-                "data_root must be a directory containing MCAP files"
+                f"data_root {os.path.abspath(dir)} must be a directory containing MCAP files"
             )
         return v
 
     def model_post_init(self, context):
-        super().model_post_init(context)
+        assert not self.slices.sample, "not implemented yet"
+        assert not self.slices.episode, "not implemented yet"
+        assert isinstance(self.slices.dataset, dict), "dataset slices must be a dict"
+        assert not self.cache_iters, "iters now are not cached"
+        assert self.rearrange.sample == RearrangeType.NONE, (
+            "sample rearrangement is not supported"
+        )
 
 
 class McapFlatbufferEpisodeDataset(McapFlatbufferSampleDataset):
