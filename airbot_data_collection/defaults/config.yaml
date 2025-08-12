@@ -8,7 +8,7 @@ sampler:
 
 visualizers:
   names: [opencv]
-  paths: ["", ""]
+  paths: [""]
   params:
     - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTBsonOpenCVisualizer
       width: 640

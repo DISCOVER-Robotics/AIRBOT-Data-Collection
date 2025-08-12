@@ -3,7 +3,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Future
 import multiprocessing as mp
 from logging import getLogger
 from threading import Event, Lock, Thread
-from typing import Any, List, Union, Callable, Optional
+from typing import Any, List, Dict, Set, Union, Callable, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -42,9 +42,9 @@ Component = Union[System, Sensor]
 
 
 class GroupComponentNames(BaseModel):
-    leader: list[str] = []
-    followers: list[str] = []
-    others: list[str] = []
+    leader: List[str] = []
+    followers: List[str] = []
+    others: List[str] = []
 
     def get_all_names(self) -> List[str]:
         return self.leader + self.followers + self.others
@@ -53,16 +53,16 @@ class GroupComponentNames(BaseModel):
 class DemonstrateGroup(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str
-    leader: list[Component] = []
-    followers: list[Component] = []
-    others: list[Component] = []
+    leader: List[Component] = []
+    followers: List[Component] = []
+    others: List[Component] = []
 
     def get_all_components(self) -> List[Component]:
         return self.leader + self.followers + self.others
 
 
 class ComponentsInstancer:
-    def __init__(self, search_dirs: set[str]):
+    def __init__(self, search_dirs: Set[str]):
         self.search_dirs = search_dirs
 
     def instance(
@@ -450,7 +450,7 @@ class DemonstrateInterface:
             return True
         return False
 
-    def capture(self) -> dict[str, Any]:
+    def capture(self) -> Dict[str, Any]:
         # TODO: can be called when sampling?
         data = {}
 
