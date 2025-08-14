@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from ast import literal_eval
 from collections import Counter
 from enum import auto
@@ -80,11 +80,6 @@ class ComponentGroupsConfig(BaseModel):
     # and no less than one follower robot
     groups: list[str] = []
     roles: list[ComponentRole] = []
-    # indicate the group name from the prefix of the robot name
-    # and indicate the role from the suffix of the robot name
-    # e.g. "left_arm_leader" will be grouped into "left_arm" and
-    # the role will be "leader"
-    indicate_from_name: bool = False
 
     def model_post_init(self, context):
         if not self.names:
@@ -116,53 +111,34 @@ class ComponentGroupsConfig(BaseModel):
         role_num = len(self.roles)
         if group_num == 1:
             self.groups = [self.groups[0]] * name_length
-        # 如果没有指定组，则，如果指定角色，则必须每组以leader为开头，否则引发异常；
-        # 如果也没有指定角色，则the even index of the robots will be the leader
-        # and the odd index will be the follower, e.g. [0, 1] will be the
-        # first group where 0 is the leader and 1 is the follower
-        # 如果指定了组，则必须与names长度一致，如果指定了角色，则必须保证一组只有一个leader
-        # 以及至少一个follower，否则引发异常，如果没有指定角色，则默认每组第一个robot为leader
-        # 其余为follower，例如：groups=[0, 0, 0, 1, 1], 则rules为[l, f, f, l, f]
-        if not self.indicate_from_name:
-            assert group_num == len(self.names), (
-                "groups must have the same length as names"
-            )
-            assert role_num == len(self.groups), (
-                "roles must have the same length as groups"
-            )
-            # check if each group has one and only one leader robot
-            # and no less than one follower robot
-            group_set = set(self.groups)
+        assert group_num == len(self.names), "groups must have the same length as names"
+        assert role_num == len(self.groups), "roles must have the same length as groups"
+        # check if each group has one and only one leader robot
+        # and no less than one follower robot
+        group_set = set(self.groups)
 
-            def get_all_index(x):
-                return [i for i, j in enumerate(self.groups) if j == x]
+        def get_all_index(x):
+            return [i for i, j in enumerate(self.groups) if j == x]
 
-            for group in group_set:
-                indexes = get_all_index(group)
-                group_roles = [self.roles[i] for i in indexes]
-                group_counter = Counter(group_roles)
-                leader_cnt = 0
-                leader_cnt += group_counter[ComponentRole.l]
-                # TODO: support groups that only have other roles
-                assert leader_cnt in [
-                    0,
-                    1,
-                ], (
-                    f"each group can have zero or only one leader robot, but {group} has {leader_cnt} leaders"
+        for group in group_set:
+            indexes = get_all_index(group)
+            group_roles = [self.roles[i] for i in indexes]
+            group_counter = Counter(group_roles)
+            leader_cnt = 0
+            leader_cnt += group_counter[ComponentRole.l]
+            # TODO: support groups that only have other roles
+            assert leader_cnt in [
+                0,
+                1,
+            ], (
+                f"each group can have zero or only one leader robot, but {group} has {leader_cnt} leaders"
+            )
+            follower_cnt = 0
+            follower_cnt += group_counter[ComponentRole.f]
+            if leader_cnt > 0 and follower_cnt == 0:
+                raise RuntimeError(
+                    f"each group must have at least one robot when there is one leader, but {group} has {follower_cnt} followers"
                 )
-                follower_cnt = 0
-                follower_cnt += group_counter[ComponentRole.f]
-                if leader_cnt > 0 and follower_cnt == 0:
-                    raise RuntimeError(
-                        f"each group must have at least one robot when there is one leader, but {group} has {follower_cnt} followers"
-                    )
-        else:
-            assert len(self.roles) + len(self.groups) == 0, (
-                "roles and groups must be empty when indicate_from_name is True"
-            )
-            raise NotImplementedError(
-                "indicate_from_name is not implemented yet, please set groups and roles manually"
-            )
 
     @computed_field
     @property
@@ -170,10 +146,6 @@ class ComponentGroupsConfig(BaseModel):
         """
         Returns a set of grouped configs.
         """
-        print(self.groups)
-        print(self.names)
-        print(self.roles)
-        print(self.params)
         group_set = set(self.groups)
         grouped_config = []
         for group in group_set:
@@ -216,7 +188,7 @@ class DatasetConfig(BaseModel):
     @property
     def absolute_directory(self) -> str:
         """Returns the absolute directory path."""
-        return os.path.abspath(os.path.join(self.root, self.directory))
+        return str((Path(self.root) / self.directory).absolute())
 
 
 class DemonstrateAction(StrEnum):
@@ -322,10 +294,10 @@ class DemonstrateConfig(BaseModel):
     def model_post_init(self, context):
         if self.auto_control.groups is None:
             self.auto_control.groups = self.components.groups
-        if ComponentRole.l not in self.components.roles:
+        if {ComponentRole.l, ComponentRole.f} - set(self.components.roles):
             if self.auto_control.groups:
                 getLogger(self.__class__.__name__).warning(
-                    "No leader role is found in the components, "
+                    "No leader and follower role found in the components, "
                     "clear auto_control.groups."
                 )
                 self.auto_control.groups = []
