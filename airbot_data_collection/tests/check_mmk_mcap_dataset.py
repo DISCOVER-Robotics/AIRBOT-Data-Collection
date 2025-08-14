@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 VIDEO_PROBLEMS = [
     "co located POCs unavailable",
     "reference picture missing during reorder",
-    "Missing reference picture, default is"
+    "Missing reference picture, default is",
 ]
 
 # Topic configurations
@@ -57,22 +57,28 @@ MSE_THRESHOLD = 5.0
 LOW_VARIANCE_THRESHOLD = 10
 STUCK_DURATION_THRESHOLD = 2.0
 
+
 def calculate_frame_difference(prev: np.ndarray, curr: np.ndarray) -> float:
     """Optimization: Use faster grayscale conversion and difference calculation"""
     if prev is None or curr is None:
         return 0.0
-    
+
     if prev.shape != curr.shape:
         # Use faster interpolation method
-        prev = cv2.resize(prev, (curr.shape[1], curr.shape[0]), interpolation=cv2.INTER_LINEAR)
-    
+        prev = cv2.resize(
+            prev, (curr.shape[1], curr.shape[0]), interpolation=cv2.INTER_LINEAR
+        )
+
     # Calculate difference directly to avoid extra conversions
     diff = cv2.absdiff(prev, curr)
     diff_gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
     mse = np.mean(diff_gray.astype(np.float32))
     return mse
 
-def check_video_stuck(cap: cv2.VideoCapture, min_frames: int) -> Tuple[List[float], int]:
+
+def check_video_stuck(
+    cap: cv2.VideoCapture, min_frames: int
+) -> Tuple[List[float], int]:
     """
     Check if video has freezes (frames not moving for extended periods)
     Returns: MSE for each detected segment and freeze frame count
@@ -82,27 +88,27 @@ def check_video_stuck(cap: cv2.VideoCapture, min_frames: int) -> Tuple[List[floa
     consecutive_static_frames = 0  # Count of consecutive static frames
     prev_frame = None
     frame_idx = 0
-    
+
     # Reset video stream to start
     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    
+
     # Number of frames to check (avoid very short videos)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     frames_to_check = min(min_frames, total_frames)
-    
+
     # Frame sampling step (adjust sample interval based on frame rate)
     fps = cap.get(cv2.CAP_PROP_FPS)
     step = max(1, int(fps * 0.1))  # Sample once every 0.1 seconds
-    
+
     for frame_idx in range(0, total_frames, step):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
         if not ret:
             continue
-            
+
         if prev_frame is not None:
             mse = calculate_frame_difference(prev_frame, frame)
-            
+
             # If frame difference is small, might be static or frozen
             if mse < MSE_THRESHOLD:
                 consecutive_static_frames += step
@@ -110,14 +116,15 @@ def check_video_stuck(cap: cv2.VideoCapture, min_frames: int) -> Tuple[List[floa
                 stuck_frames.append(mse)
             else:
                 consecutive_static_frames = 0
-                
+
             # Detect continuous static frames exceeding threshold
             if consecutive_static_frames / fps >= STUCK_DURATION_THRESHOLD:
                 return stuck_frames, stuck_frames_count
-        
+
         prev_frame = frame
-    
+
     return stuck_frames, stuck_frames_count
+
 
 def run_ffmpeg_check(video_path: str) -> Dict[str, any]:
     """
@@ -125,50 +132,50 @@ def run_ffmpeg_check(video_path: str) -> Dict[str, any]:
     Returns: All detected issues
     """
     result = {
-        "warnings": [],          # List of raw warning messages
-        "problem_details": {},   # Detailed information for each problem
-        "problem_count": 0,      # Total number of problems
-        "has_errors": False      # Whether there are critical errors
+        "warnings": [],  # List of raw warning messages
+        "problem_details": {},  # Detailed information for each problem
+        "problem_count": 0,  # Total number of problems
+        "has_errors": False,  # Whether there are critical errors
     }
-    
+
     # Initialize problem counters
     for problem in VIDEO_PROBLEMS:
-        result["problem_details"][problem] = {
-            "count": 0,
-            "examples": []
-        }
-    
+        result["problem_details"][problem] = {"count": 0, "examples": []}
+
     try:
         # Run FFmpeg command to check video
         cmd = [
             "ffmpeg",
-            "-v", "error",  # Only output error messages
-            "-i", video_path,
-            "-f", "null",   # Output to null device
-            "-"
+            "-v",
+            "error",  # Only output error messages
+            "-i",
+            video_path,
+            "-f",
+            "null",  # Output to null device
+            "-",
         ]
-        
+
         # Use timeout mechanism (60 seconds)
         process = subprocess.run(
             cmd,
             stderr=subprocess.PIPE,
             stdout=subprocess.PIPE,
             text=True,
-            timeout=60  # 60-second timeout
+            timeout=60,  # 60-second timeout
         )
-        
+
         # Process warning output
         if process.stderr:
             # Collect all warning lines
-            warnings = process.stderr.strip().split('\n')
+            warnings = process.stderr.strip().split("\n")
             result["warnings"] = warnings
-            
+
             # Parse specific problem types
             for warning in warnings:
                 # Check for critical errors
                 if "error while decoding MB" in warning:
                     result["has_errors"] = True
-                
+
                 # Match specific problem types
                 for problem in VIDEO_PROBLEMS:
                     if problem in warning:
@@ -176,7 +183,7 @@ def run_ffmpeg_check(video_path: str) -> Dict[str, any]:
                         result["problem_details"][problem]["count"] += 1
                         result["problem_details"][problem]["examples"].append(warning)
                         result["problem_count"] += 1
-    
+
     except subprocess.TimeoutExpired:
         logger.warning(f"FFmpeg check timed out: {video_path}")
         result["has_errors"] = True
@@ -184,8 +191,9 @@ def run_ffmpeg_check(video_path: str) -> Dict[str, any]:
     except Exception as e:
         logger.error(f"FFmpeg check failed: {str(e)}")
         result["has_errors"] = True
-    
+
     return result
+
 
 def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]:
     """
@@ -197,7 +205,7 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
     if not mcap_path.exists():
         result["errors"].append(f"File not found: {mcap_path}")
         return result
-    
+
     # Check cache file
     cache_file = mcap_path.with_suffix(".status")
     if not skip_cache and cache_file.exists():
@@ -245,14 +253,14 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
 
             # Check if attachment names match expectations
             available_attachments = []
-            min_video_frames = float('inf')
+            min_video_frames = float("inf")
             video_problems = {}  # Store video issues
-            
+
             for attach in reader.iter_attachments():
                 available_attachments.append(attach.name)
                 if attach.name not in MCAP_CAMERA_NAMES:
                     continue
-                    
+
                 with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
                     tmp.write(attach.data)
                     tmp.flush()
@@ -261,15 +269,17 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
                 # Check video issues using FFmpeg
                 ffmpeg_result = run_ffmpeg_check(tmp_path)
                 result["details"][f"ffmpeg_warnings_{attach.name}"] = ffmpeg_result
-                
+
                 # Add video issues to results
                 video_problems[attach.name] = []
-                
+
                 # Handle critical errors
                 if ffmpeg_result["has_errors"]:
-                    result["warnings"].append(f"Video {attach.name} has critical decoding errors")
+                    result["warnings"].append(
+                        f"Video {attach.name} has critical decoding errors"
+                    )
                     video_problems[attach.name].append("Critical decoding error")
-                
+
                 # Handle specific problems
                 for problem in VIDEO_PROBLEMS:
                     count = ffmpeg_result["problem_details"][problem]["count"]
@@ -277,15 +287,17 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
                         # Add to warnings
                         warning_msg = f"Video {attach.name} found {count} instances of '{problem}'"
                         result["warnings"].append(warning_msg)
-                        
+
                         # Add to problem records
                         video_problems[attach.name].append(warning_msg)
-                        
+
                         # Add examples to details
-                        examples = ffmpeg_result["problem_details"][problem]["examples"][:3]  # Record max 3 examples
+                        examples = ffmpeg_result["problem_details"][problem][
+                            "examples"
+                        ][:3]  # Record max 3 examples
                         for i, example in enumerate(examples):
-                            result["warnings"].append(f"  Example {i+1}: {example}")
-                
+                            result["warnings"].append(f"  Example {i + 1}: {example}")
+
                 # Basic video information
                 cap = cv2.VideoCapture(tmp_path)
                 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -305,9 +317,11 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
                 cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames - 1)
                 ret, _ = cap.read()
                 if not ret:
-                    result["warnings"].append(f"Cannot read last frame of {attach.name} (may be corrupted)")
+                    result["warnings"].append(
+                        f"Cannot read last frame of {attach.name} (may be corrupted)"
+                    )
                     video_problems[attach.name].append("Last frame corrupted")
-                    
+
                 # New: Check for video freezes
                 if total_frames > 10:  # Ensure video has enough frames
                     stuck_info = []
@@ -318,21 +332,27 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
                         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
                         stuck_mse, stuck_count = check_video_stuck(cap, 100)
                         if stuck_count > 0:
-                            stuck_info.append({
-                                "start_frame": start_frame,
-                                "stuck_count": stuck_count,
-                                "avg_mse": float(np.mean(stuck_mse)) if stuck_mse else 0
-                            })
-                    
+                            stuck_info.append(
+                                {
+                                    "start_frame": start_frame,
+                                    "stuck_count": stuck_count,
+                                    "avg_mse": float(np.mean(stuck_mse))
+                                    if stuck_mse
+                                    else 0,
+                                }
+                            )
+
                     # If there are freeze records
                     if stuck_info:
-                        stuck_warning = f"Video {attach.name} may have freeze segments: "
+                        stuck_warning = (
+                            f"Video {attach.name} may have freeze segments: "
+                        )
                         for info in stuck_info:
-                            stuck_warning += f"[Start:{info['start_frame']}, Duration:{info['stuck_count']/fps:.2f}s, Avg MSE:{info['avg_mse']:.2f}] "
+                            stuck_warning += f"[Start:{info['start_frame']}, Duration:{info['stuck_count'] / fps:.2f}s, Avg MSE:{info['avg_mse']:.2f}] "
                         result["warnings"].append(stuck_warning)
                         result["details"][f"stuck_segments_{attach.name}"] = stuck_info
                         video_problems[attach.name].append("Freeze risk exists")
-                
+
                 cap.release()
                 os.remove(tmp_path)
 
@@ -353,7 +373,7 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
                 result["warnings"].append(
                     f"Mismatch: message length={episode_len} < minimum video frames={min_video_frames} (video has extra frames)"
                 )
-            
+
             # If there are any video issues
             if any(video_problems.values()):
                 result["warnings"].append("Video quality issues detected")
@@ -361,7 +381,7 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
     except Exception as e:
         result["errors"].append(f"Unexpected error: {str(e)}")
         logger.exception("Error processing MCAP file")
-    
+
     # Save results to cache
     if not skip_cache:
         try:
@@ -371,6 +391,7 @@ def check_mcap_file(mcap_path: Path, skip_cache: bool = False) -> Dict[str, any]
             logger.warning(f"Failed to save cache: {str(e)}")
 
     return result
+
 
 def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False):
     """
@@ -394,24 +415,24 @@ def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False
     file_sizes = [(f, os.path.getsize(f)) for f in mcap_files]
     sorted_files = sorted(file_sizes, key=lambda x: x[1])
     files_to_process = [f[0] for f in sorted_files]
-    
+
     # Batch processing parameters
     batch_size = 10
     results = []
     normal_count = 0
     error_count = 0
     video_problem_files = []  # Store files with video issues
-    error_details = {}        # file -> list of errors
-    problem_details = {}     # file -> list of problems
+    error_details = {}  # file -> list of errors
+    problem_details = {}  # file -> list of problems
 
     # Create progress bar
     progress_bar = tqdm(total=total_files, desc="Checking MCAP files", unit="file")
-    
+
     # Process files in batches
     for i in range(0, len(files_to_process), batch_size):
-        batch_files = files_to_process[i:i+batch_size]
+        batch_files = files_to_process[i : i + batch_size]
         batch_results = []
-        
+
         # Process current batch
         for file_path in batch_files:
             try:
@@ -422,30 +443,34 @@ def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False
                 logger.error(f"Error processing file {file_path}: {str(e)}")
                 result = {"file": str(file_path), "errors": [str(e)], "warnings": []}
                 batch_results.append(result)
-        
+
         # Process batch results
         for result in batch_results:
             results.append(result)
-            
+
             # Record files with video issues
             if "video_problems" in result.get("details", {}):
                 if any(result["details"]["video_problems"].values()):
                     problems = []
-                    for cam, cam_problems in result["details"]["video_problems"].items():
+                    for cam, cam_problems in result["details"][
+                        "video_problems"
+                    ].items():
                         problems.extend(cam_problems)
-                    video_problem_files.append({
-                        "name": Path(result["file"]).name,
-                        "problems": list(set(problems))  # Deduplicate
-                    })
+                    video_problem_files.append(
+                        {
+                            "name": Path(result["file"]).name,
+                            "problems": list(set(problems)),  # Deduplicate
+                        }
+                    )
                     problem_details[Path(result["file"]).name] = problems
-            
+
             # Categorize and count
             if result.get("errors"):
                 error_count += 1
                 error_details[result["file"]] = result["errors"]
             else:
                 normal_count += 1
-            
+
             # Print detailed results
             if print_details:
                 logger.info(f"\n=== Report for {result['file']} ===")
@@ -460,7 +485,9 @@ def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False
                 logger.info("Details:")
                 for key, value in result["details"].items():
                     if key.startswith("ffmpeg_warnings_"):
-                        logger.info(f"  {key}: Total {value['problem_count']} video issues found")
+                        logger.info(
+                            f"  {key}: Total {value['problem_count']} video issues found"
+                        )
                         for problem in VIDEO_PROBLEMS:
                             count = value["problem_details"][problem]["count"]
                             if count > 0:
@@ -469,11 +496,11 @@ def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False
                         logger.info(f"  {key}: {value}")
                 if not result["errors"] and not result["warnings"]:
                     logger.info("All checks passed!")
-        
+
         # Release resources (prevent memory accumulation)
         del batch_results
         time.sleep(0.1)  # Brief pause to allow system resource recovery
-    
+
     # Close progress bar
     progress_bar.close()
 
@@ -482,15 +509,17 @@ def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False
     logger.info(f"Total files: {total_files}")
     logger.info(f"Normal files: {normal_count}")
     logger.info(f"Abnormal files: {error_count}")
-    
+
     # Output files with video quality issues
     if video_problem_files:
-        logger.warning(f"\nFound {len(video_problem_files)} files with video quality issues:")
+        logger.warning(
+            f"\nFound {len(video_problem_files)} files with video quality issues:"
+        )
         for file_info in video_problem_files:
             logger.warning(f"  File: {file_info['name']}")
-            for problem in file_info['problems']:
+            for problem in file_info["problems"]:
                 logger.warning(f"    - {problem}")
-    
+
     # Output specific problem distribution
     logger.info("\nVideo problem distribution:")
     problem_counts = {problem: 0 for problem in VIDEO_PROBLEMS}
@@ -499,11 +528,11 @@ def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False
             for p_type in VIDEO_PROBLEMS:
                 if p_type in problem:
                     problem_counts[p_type] += 1
-    
+
     for problem, count in problem_counts.items():
         if count > 0:
             logger.info(f"  {problem}: {count} files affected")
-    
+
     if error_count > 0:
         logger.info("\nAbnormal files and their issues:")
         for file, errors in error_details.items():
@@ -511,10 +540,13 @@ def main(dataset_dir: str, print_details: bool = False, skip_cache: bool = False
             for err in errors:
                 logger.info(f"    - {err}")
 
+
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Check MCAP dataset file consistency and video integrity")
+    parser = argparse.ArgumentParser(
+        description="Check MCAP dataset file consistency and video integrity"
+    )
     parser.add_argument(
         "--dir",
         type=str,

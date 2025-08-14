@@ -119,12 +119,12 @@ class AIRBOTPlay(System):
         if isinstance(action, dict):
             act = False
             for key, value in action.items():
-                splited = key.removeprefix("/").split("/", 2)
-                if len(splited) == 2:
-                    component, dtype = splited
+                split = key.removeprefix("/").split("/", 2)
+                if len(split) == 2:
+                    component, dtype = split
                     target = value["data"]["position"]
-                elif len(splited) == 3:
-                    component, dtype, field = splited
+                elif len(split) == 3:
+                    component, dtype, field = split
                     target = value
                 else:
                     raise ValueError(f"Invalid action key format: {key}.")
