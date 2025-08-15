@@ -21,7 +21,6 @@ from collections import defaultdict
 import logging
 import yaml
 import cv2
-import os
 from pprint import pformat
 import subprocess
 import time
@@ -29,6 +28,8 @@ import tyro
 from pydantic import BaseModel
 from typing import List, Annotated
 from importlib.metadata import version
+from pathlib import Path
+import struct
 
 
 init_logging(logging.INFO)
@@ -71,14 +72,47 @@ def check_can_interfaces(expected_interfaces: list[str]) -> bool:
         return False
 
 
+cur_dir = Path(__file__).parent.resolve()
+defaults_dir = cur_dir.parent / "defaults"
+
+
+def get_eef_type(can: str):
+    result = subprocess.run(
+        [
+            "bash",
+            f"{cur_dir}/get_eef_type.sh",
+            can,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout.strip()
+    parts = output.split()
+    data_bytes = parts[-8:]
+    last_4_bytes = data_bytes[-4:]
+
+    byte_values = bytes(int(b, 16) for b in last_4_bytes)
+    uint32_value = struct.unpack(">I", byte_values)[0]  # big-endian
+    # uint32_value = struct.unpack("<I", byte_values)[0]
+    return uint32_value
+
+
 class SetupConfig(BaseModel):
     """Configuration for the setup script of data collection."""
 
+    # setup config file path
+    config_file: Annotated[str, tyro.conf.arg(aliases=["-cfg"])] = str(
+        defaults_dir / "setup_config.yaml"
+    )
     # Ignore cameras by their bus_info or serial_number.
     ignore_cameras: Annotated[List[str], tyro.conf.arg(aliases=["-ic"])] = []
     # List of CAN interfaces to use.
     # If not provided, all available CAN interfaces will be used.
     can_interfaces: Annotated[List[str], tyro.conf.arg(aliases=["-can"])] = []
+    # only configure cameras
+    camera_only: Annotated[bool, tyro.conf.arg(aliases=["-co"])] = False
+    # can_num
+    can_num: Annotated[int, tyro.conf.arg(aliases=["-cn"])] = 2
 
 
 args = tyro.cli(SetupConfig)
@@ -89,75 +123,100 @@ logger.info(f"Hardware uuid: {hw_uuid}")
 
 """Process Configs"""
 
-cur_dir = os.path.abspath(os.path.dirname(__file__))
-station_config_path = f"{cur_dir}/station_config.yaml"
-station_config = yaml.safe_load(open(station_config_path))
-NAME_CHOICES = station_config["choices"]
-BUS_NAME_MAPPINGS = station_config["bus_name_mapping"]
-# TODO: support for X5
-CAN_NAME_MAPPINGS = {
-    2: {
-        "can0": "can_lead",
-        "can1": "can_follow",
-    },
-    4: {
-        "can0": "can_left_lead",
-        "can1": "can_left",
-        "can2": "can_right_lead",
-        "can3": "can_right",
-    },
-}
+
+setup_config_path = args.config_file
+setup_config = yaml.safe_load(open(setup_config_path))
+NAME_CHOICES = setup_config["choices"]
+BUS_NAME_MAPPINGS = setup_config["bus_name_mapping"]
+# TODO: get the name mapping and the component name
+# and role according to the eef type
 
 """Process CAN Interfaces"""
 
-can_itfs = args.can_interfaces or sorted(get_can_interfaces())
-can_num = len(can_itfs)
-assert can_num in BUS_NAME_MAPPINGS, f"Not correct can number: {can_itfs}"
-can_buses = list_to_nested_tuples(can_itfs)
-can_group_num = len(can_buses)
-logger.info(f"CAN interfaces: {can_buses}")
+if not args.camera_only:
+    # TODO: get the can eef mapping
+    CAN_EEF_MAPPING = {}
 
-if hw_uuid not in BUS_NAME_MAPPINGS[can_num]:
-    BUS_NAME_MAPPINGS[can_num][hw_uuid] = {}
-bus_name_mapping: dict = BUS_NAME_MAPPINGS[can_num][hw_uuid]
-can_name_mapping = CAN_NAME_MAPPINGS[can_num]
-name_choices = NAME_CHOICES[can_num]
+    def get_name_suffix(can_num, eef_type):
+        if can_num == 2:
+            follow_suffix = "_follow"
+        else:
+            follow_suffix = ""
+        return "_lead" if eef_type in {"E2B"} else follow_suffix
 
-new_can = [can_name_mapping.get(can, can) for can in can_itfs]
-if set(new_can) != set(can_itfs):
-    for can in can_itfs:
-        assert can in can_name_mapping, f"Unknown CAN interface: {can}"
-    execute_shell_script(
-        f"{cur_dir}/bind_can_udev.sh",
-        args=[
-            "--target",
-            *new_can,
-        ],
-        with_sudo=True,
-    )
-    # TODO: detect whether the CAN interfaces are bound correctly
-    logger.info(
-        bcolors.OKCYAN
-        + "Please reconnect the robotic arms and press `Enter` to continue..."
-    )
-    input()
-    logger.info("Waiting for the system to stabilize after reconnection...")
-    time.sleep(4)
-    if check_can_interfaces(new_can):
+    CAN_NAME_MAPPINGS = {
+        2: {
+            1: {
+                f"can{i}": f"can{get_name_suffix(2, CAN_EEF_MAPPING[f'can{i}'])}"
+                for i in range(2)
+            },
+            2: {
+                "can0": "can_left",
+                "can1": "can_right",
+            },
+        },
+        4: {
+            f"can{i}": f"can_left{get_name_suffix(4, CAN_EEF_MAPPING[f'can{i}'])}"
+            for i in range(2)
+        }
+        | {
+            f"can{i}": f"can_right{get_name_suffix(4, CAN_EEF_MAPPING[f'can{i}'])}"
+            for i in range(2, 4)
+        },
+    }
+
+    can_itfs = args.can_interfaces or sorted(get_can_interfaces())
+    can_num = len(can_itfs)
+    assert can_num in BUS_NAME_MAPPINGS, f"Not correct can number: {can_itfs}"
+    can_buses = list_to_nested_tuples(can_itfs)
+    can_group_num = len(can_buses)
+    logger.info(f"CAN interfaces: {can_buses}")
+
+    if hw_uuid not in BUS_NAME_MAPPINGS[can_num]:
+        BUS_NAME_MAPPINGS[can_num][hw_uuid] = {}
+    bus_name_mapping: dict = BUS_NAME_MAPPINGS[can_num][hw_uuid]
+    can_name_mapping = CAN_NAME_MAPPINGS[can_num]
+    if can_num == 2:
+        lead_num = 1
+        can_name_mapping = can_name_mapping[lead_num]
+
+    new_can = [can_name_mapping.get(can, can) for can in can_itfs]
+    if set(new_can) != set(can_itfs):
+        for can in can_itfs:
+            assert can in can_name_mapping, f"Unknown CAN interface: {can}"
+        execute_shell_script(
+            str(cur_dir / "bind_can_udev.sh"),
+            args=[
+                "--target",
+                *new_can,
+            ],
+            with_sudo=True,
+        )
+        # TODO: detect whether the CAN interfaces are bound correctly
         logger.info(
-            bcolors.OKGREEN + f"Successfully bound CAN group {can_itfs} to {new_can}."
+            bcolors.OKCYAN
+            + "Please reconnect the robotic arms and press `Enter` to continue..."
         )
+        input()
+        logger.info("Waiting for the system to stabilize after reconnection...")
+        time.sleep(4)
+        if check_can_interfaces(new_can):
+            logger.info(
+                bcolors.OKGREEN
+                + f"Successfully bound CAN group {can_itfs} to {new_can}."
+            )
+        else:
+            logger.error(
+                bcolors.FAIL
+                + f"Failed to bind CAN group {can_itfs} to {new_can}. Please check the connections."
+            )
+            exit(1)
     else:
-        logger.error(
-            bcolors.FAIL
-            + f"Failed to bind CAN group {can_itfs} to {new_can}. Please check the connections."
-        )
-        exit(1)
-else:
-    logger.info(f"CAN {can_itfs} already bound correctly.")
+        logger.info(f"CAN {can_itfs} already bound correctly.")
 
 """Process Cameras"""
 
+name_choices = NAME_CHOICES[can_num]
 all_cam_devices = find_video_capture_devices(True)
 realsense_buses = []
 logger.info(bcolors.OKCYAN + f"Found v4l2 devices: \n{pformat(all_cam_devices)}")
@@ -332,9 +391,9 @@ while True:
             cfged_camera_types.append(camera_types[bus])
             bus_name_mapping[bus] = final_name
             logger.info(bcolors.OKGREEN + f"Camera {bus} renamed to {final_name}")
-        with open(station_config_path, "w") as f:
-            yaml.dump(station_config, f, default_flow_style=False)
-        logger.info(f"Updated station config: {station_config_path}")
+        with open(setup_config_path, "w") as f:
+            yaml.dump(setup_config, f, default_flow_style=False)
+        logger.info(f"Updated station config: {setup_config_path}")
         cv2.destroyAllWindows()
         no_cfg_buses_indexes.clear()
     elif key == ord("s"):
@@ -357,12 +416,11 @@ while True:
         }
         logger.info(f"Components: {pformat(components)}")
 
-        defaults_dir = f"{cur_dir}/../defaults"
-        input_file_path = f"{defaults_dir}/config_full.yaml"
+        input_file_path = defaults_dir / "config_full.yaml"
         with open(input_file_path) as f:
             config: dict = yaml.safe_load(f)
             config["components"] = components
-        post_capture_path = f"{defaults_dir}/post_capture/{can_num}.yaml"
+        post_capture_path = defaults_dir / f"post_capture/{can_num}.yaml"
         with open(post_capture_path) as f:
             config.update(yaml.safe_load(f))
         file_path = input_file_path.replace("full", "setup")
