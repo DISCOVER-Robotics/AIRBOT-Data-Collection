@@ -32,3 +32,5 @@ choices:
   - left_camera
   - right_camera
   - env_camera
+  # - front_camera
+  # - top_camera
