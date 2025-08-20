@@ -19,6 +19,7 @@ class KeyboardCallbackConfig(BaseModel):
         Action.remove: "r",
         Action.capture: "p",
         Action.finish: "z",
+        Action.reset: "0",
     }
     instruction: dict[str, str] = {
         "b": "Back to sample the last round (override the last saved file)",
@@ -41,6 +42,7 @@ class KeyboardCallbackConfig(BaseModel):
             Action.finish: "Finish the current round and save all data",
             Action.remove: "Remove the last saved episode",
             Action.capture: "Capture current component observations",
+            Action.reset: "Reset all components",
         }
         for action, key in self.action_key.items():
             self.instruction[key] = action_info[action]

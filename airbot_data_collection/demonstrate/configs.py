@@ -201,6 +201,7 @@ class DemonstrateAction(StrEnum):
     remove = auto()
     abandon = auto()
     finish = auto()
+    reset = auto()
 
 
 class DemonstrateState(StrEnum):
@@ -221,10 +222,17 @@ class AutoControlConfig(BaseModel):
     groups: Optional[list[str]] = None
     # the rate of the auto control loop for each group
     # 0 means as fast as possible
-    rate: list[NonNegativeInt] = []
+    capture_rate: list[NonNegativeInt] = []
+    send_rate: list[NonNegativeInt] = []
     # the mode of the auto control loop for each group
     # can not be none
     mode: AsyncMode = AsyncMode.thread
+
+    def model_post_init(self, context):
+        if self.capture_rate and not self.send_rate:
+            self.send_rate = self.capture_rate
+        elif self.send_rate and not self.capture_rate:
+            self.capture_rate = self.send_rate
 
 
 class GroupsSendActionConfig(BaseModel):
@@ -301,8 +309,8 @@ class DemonstrateConfig(BaseModel):
                     "clear auto_control.groups."
                 )
                 self.auto_control.groups = []
-        if len(self.auto_control.rate) == 1:
-            self.auto_control.rate = [self.auto_control.rate[0]] * len(
+        if len(self.auto_control.capture_rate) == 1:
+            self.auto_control.capture_rate = [self.auto_control.capture_rate[0]] * len(
                 self.components.groups
             )
         # for action, calls in self.send_actions.items():

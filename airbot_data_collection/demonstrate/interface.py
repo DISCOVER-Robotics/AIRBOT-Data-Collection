@@ -247,9 +247,10 @@ class DemonstrateInterface:
 
     def _auto_control_loop(self) -> None:
         """Control the followers to follow the leader in a loop."""
-        rate = self.config.auto_control.rate
-        assert rate, "Auto control rate must be set"
-        period = 1 / rate[0]
+        capture_rate = self.config.auto_control.capture_rate
+        send_rate = self.config.auto_control.send_rate
+        assert capture_rate, "Auto control rate must be set"
+        period = 1 / capture_rate[0]
         if self.config.auto_control.mode is AsyncMode.process:
             self._auto_control_pause_event.wait()
             self.get_logger().info(
@@ -268,18 +269,19 @@ class DemonstrateInterface:
             self._auto_control(period)
         self.get_logger().info(bcolors.OKBLUE + "Auto control loop stopped")
 
-    def _auto_control(self, period: float = 0) -> float:
+    def _auto_control(self, capture_period: float = 0, send_period: float = 0) -> float:
         """Control the followers to follow the leader."""
         start = time.monotonic()
         for group_name in self.config.auto_control.groups:
             group = self.group_map[group_name]
-            if group.leader:
-                leader = group.leader[0]
-                obs = leader.capture_observation()
-                if obs:
-                    for follower in group.followers:
-                        follower.send_action(obs)
-        sleep_time = period - (time.monotonic() - start)
+            # merge leader observations
+            leader_obs = {}
+            for leader in group.leader:
+                leader_obs.update(leader.capture_observation())
+            if leader_obs:
+                for follower in group.followers:
+                    follower.send_action(leader_obs)
+        sleep_time = capture_period - (time.monotonic() - start)
         if sleep_time > 0:
             time.sleep(sleep_time)
         return sleep_time
@@ -573,6 +575,12 @@ class DemonstrateInterface:
             bcolors.OKGREEN + f"Abandoned the current round: {self.sample_info.round}"
         )
         return self._post_action(DemonstrateAction.abandon)
+
+    def reset(self) -> bool:
+        """Reset all components."""
+        self._clear()
+        self.get_logger().info(bcolors.OKGREEN + "Reset all components")
+        return self._post_action(DemonstrateAction.reset)
 
     def finish(self) -> bool:
         """
