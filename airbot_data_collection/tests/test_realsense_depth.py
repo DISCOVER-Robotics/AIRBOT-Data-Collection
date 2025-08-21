@@ -12,6 +12,12 @@ def main():
         default=None,
         help="Device ID of the RealSense camera (default:  None, auto-detect)",
     )
+    parser.add_argument(
+        "-a",
+        "--align",
+        action="store_true",
+        help="Align depth frames to color frames",
+    )
     args = parser.parse_args()
 
     pipeline = rs.pipeline()
@@ -21,12 +27,21 @@ def main():
         config.enable_device(args.device_id)
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+    # config.enable_stream(rs.stream.color)
+    # config.enable_stream(rs.stream.depth)
+
+    # align_depth = args.align
+    align_depth = True
+    if align_depth:
+        align = rs.align(rs.stream.color)
 
     pipeline.start(config)
 
     try:
         while True:
             frames = pipeline.wait_for_frames()
+            if align_depth:
+                frames = align.process(frames)
             color_frame = frames.get_color_frame()
             depth_frame = frames.get_depth_frame()
 

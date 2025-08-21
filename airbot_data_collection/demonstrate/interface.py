@@ -36,6 +36,8 @@ from airbot_data_collection.utils import (
 from airbot_data_collection.common.utils.system_info import SystemInfo
 import os
 from collections import defaultdict
+from pathlib import Path
+import shutil
 
 
 Component = Union[System, Sensor]
@@ -441,11 +443,14 @@ class DemonstrateInterface:
         Start to sample the data (switch the leaders mode to passive)
         """
         if self.is_reached_round:
-            self.get_logger().warning("Maximum number of rounds reached.")
+            self.get_logger().warning("Maximum number of rounds was reached.")
         # set the mode for leaders to passive
         elif self.set_role_mode(ComponentRole.l, SystemMode.PASSIVE):
             self.get_logger().info(
                 bcolors.OKBLUE + f"Start sampling round: {self.sample_info.round}"
+            )
+            self._save_path = self.sampler.compose_path(
+                self.config.dataset.absolute_directory, self.sample_info.round
             )
             return True
         return False
@@ -481,9 +486,8 @@ class DemonstrateInterface:
             return False
         else:
             data = self.capture()
-            self._round_data["log_stamps"].append(time.time_ns())
-            updated_data = self.sampler.update(data) or {}
-            for key, value in updated_data.items():
+            data.update({"log_stamps": time.time_ns()})
+            for key, value in self.sampler.update(data).items():
                 self._round_data[key].append(value)
             info.index += 1
             self._bar.update(info.index)
@@ -499,18 +503,18 @@ class DemonstrateInterface:
     def save(self) -> None:
         """Save the sampled data and be ready for the next round."""
         async_save = self.config.async_save
-        path = self.sampler.compose_path(
-            self.config.dataset.absolute_directory, self.sample_info.round
-        )
+        save_path = self._save_path
         if async_save != AsyncMode.none:
             future = self.save_executor.submit(
-                self.sampler.save, path, self._round_data
+                self.sampler.save, save_path, self._round_data
             )
-            future.add_done_callback(lambda f: self._show_save_info(path, f.result()))
+            future.add_done_callback(
+                lambda f: self._show_save_info(save_path, f.result())
+            )
             self._save_futures.append(future)
         else:
             if not self._show_save_info(
-                path, self.sampler.save(path, self._round_data)
+                save_path, self.sampler.save(save_path, self._round_data)
             ):
                 return False
         self.sample_info.round += 1
@@ -533,12 +537,10 @@ class DemonstrateInterface:
                         bcolors.OKBLUE + "Waiting for the last async saving"
                     )
                     future.result()
-            removed = self.sampler.remove(path)
-            if removed is None:
-                if not self._remove(path):
-                    return False
-            elif not removed:
+            # try to remove the data
+            if not self._remove(path, True):
                 return False
+            # the order is important
             self.sample_info.round -= 1
             self._clear()
             self.get_logger().info(bcolors.OKGREEN + f"Removed {path}")
@@ -546,18 +548,27 @@ class DemonstrateInterface:
             self.get_logger().warning("Not ever saved yet")
         return True
 
-    def _remove(self, path: str) -> bool:
+    def _remove(self, path: str, log: bool = False) -> bool:
+        removed = self.sampler.remove(path)
+        if removed is None:
+            self._remove_path(path, log)
+            return True
+        elif removed:
+            return True
+        return False
+
+    def _remove_path(self, path: str, log: bool = False) -> bool:
         """Remove the data from the given or last saved path."""
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-                return True
-            except OSError as e:
-                # e.g. permission denied
-                self.get_logger().error(e.strerror)
-                return False
+        path_cls = Path(path)
+        if path_cls.exists():
+            if path_cls.is_dir():
+                shutil.rmtree(path_cls)
+            else:
+                path_cls.unlink()
+            return True
         else:
-            self.get_logger().warning(f"Path {path} does not exist.")
+            if log:
+                self.get_logger().warning(f"Path to be removed {path} does not exist.")
             return True
 
     def _clear(self) -> None:
@@ -565,9 +576,11 @@ class DemonstrateInterface:
         self.sampler.clear()
         self.sample_info.index = 0
         self._bar.reset(desc=f"Round {self.sample_info.round}")
+        self._save_path = ""
 
     def abandon(self) -> bool:
         """Abandon the current round of sampling."""
+        self._remove_path(self._save_path, False)
         self._clear()
         self.get_logger().info(
             bcolors.OKGREEN + f"Abandoned the current round: {self.sample_info.round}"
@@ -584,7 +597,7 @@ class DemonstrateInterface:
                 for component in group.get_all_components():
                     component.shutdown()
             self.get_logger().info(
-                f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info}"
+                f"Finished the demonstration: from {self.config.sample_limit.start_round} to {self.sample_info.round}"
             )
             return True
         return False

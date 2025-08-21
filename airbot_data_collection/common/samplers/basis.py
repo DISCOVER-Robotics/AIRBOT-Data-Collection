@@ -7,16 +7,32 @@ from airbot_data_collection.basis import ConfigBasis
 class DataSampler(ConfigBasis):
     """Data sampler for sampling kinds of data."""
 
+    @abstractmethod
+    def compose_path(self, directory: str, round: int) -> str:
+        """Compose the path to the data file. It will be called
+        at starting sampling and removing. Before returning, file
+        handler can be created to save data in `update` during sampling.
+        Args:
+            directory (str): The directory where the data will be saved.
+            round (int): The round number of the data.
+        Returns:
+            str: The path to the data file.
+        """
+
     def clear(self) -> None:
         """Clear the inner data buffer if any.
         Please be careful to avoid asynchronous saving
         exceptions caused by asynchronous clearing of data"""
 
-    def update(self, data: Any) -> Any:
+    def update(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Process the data and return.
-        If the return value is not None,
-        it will be append to the data buffer
-        of the demonstrate interface."""
+        Args:
+            data (Dict[str, Any]): The data to be processed.
+        Returns:
+            Dict[str, Any]: The processed data, which
+            will be append to the data buffer in the
+            demonstration interface.
+        """
         return data
 
     def remove(self, path: str) -> Optional[bool]:
@@ -32,15 +48,15 @@ class DataSampler(ConfigBasis):
 
     @abstractmethod
     def save(self, path: str, data: Any) -> bool:
-        """Save the data by the given path.
-        If the return value of the `update` is None,
-        the value of the data arg will also be None."""
-
-    @abstractmethod
-    def compose_path(self, directory: str, round: int) -> str:
-        """Compose the path for saving the data.
-        The directory is the directory to save the data,
-        and the round is the round number of the data."""
+        """Save the data to the given path.
+        Args:
+            path (str): The path to the data file.
+            data (Any): The data to be saved. If used in
+            demonstration, the data are those stored in the
+            data buffer of the demonstration interface.
+        Returns:
+            bool: True if the data was saved successfully, False otherwise.
+        """
 
 
 class MockDataSampler(DataSampler):

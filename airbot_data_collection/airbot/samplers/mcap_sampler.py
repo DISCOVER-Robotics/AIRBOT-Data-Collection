@@ -1,4 +1,3 @@
-import os
 import json
 import uuid
 from pydantic import BaseModel, PositiveInt
@@ -17,6 +16,9 @@ from airbot_data_collection.common.utils.mcap_utils import (
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
+from pathlib import Path
+from functools import cache
+
 
 try:
     from dataloop import DataLoopClient
@@ -71,7 +73,7 @@ class UploadConfig(BaseModel):
 
 
 class SaveType(BaseModel):
-    image: Literal["raw", "jpeg", "h264"] = "h264"
+    color: Literal["raw", "jpeg", "h264"] = "h264"
     depth: Literal["raw"] = "raw"
 
 
@@ -86,7 +88,7 @@ class AIRBOTMcapDataSamplerConfig(BaseModel):
     save_type: SaveType = SaveType()
     upload: UploadConfig = UploadConfig()
     initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
-    video_time_base: int = int(1e6)  # μs
+    video_time_base: int = int(1e6)  # μs to avoid save error
 
 
 class AIRBOTMcapDataSampler(DataSampler):
@@ -96,6 +98,144 @@ class AIRBOTMcapDataSampler(DataSampler):
     def on_configure(self):
         """Configure the mcap data sampler."""
         self._mf_writer = McapFlatbufferWriter(self.config.initial_builder_size)
+        self._init_upload()
+        self._coders = defaultdict(
+            partial(AvCoder, time_base=self.config.video_time_base)
+        )
+        self._executor = ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="mcap_h264_coder"
+        )
+        self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
+        return True
+
+    def compose_path(self, directory, round) -> str:
+        path = str(Path(directory) / f"{round}.mcap")
+        self._mf_writer.set_writter(Writer(path))
+        return path
+
+    def update(self, data: dict):
+        """Update the data with the latest frames."""
+        for key in tuple(data.keys()):
+            if self._is_save_h264(key):
+                frame = data.pop(key)
+                self._coders[key].encode_frame(
+                    frame["data"], frame["t"] // self._frame_stamp_factor
+                )
+            else:
+                if self._add_messages(key, [data[key]], [data["log_stamps"]]):
+                    data.pop(key)
+        return data
+
+    def save(self, path: str, data: dict) -> str:
+        """Save the data to a MCAP file."""
+        writer = self._mf_writer.get_writer()
+        info = self._info.copy()
+        # add metadata
+        self.add_config_metadata(writer, self.config)
+        # Handle system info safely
+        system_info = info.pop("system", {})
+        if isinstance(system_info, dict):
+            for key, value in system_info.items():
+                flattened_value = flatten(value, "path")
+                # Convert all values to strings
+                string_dict = {
+                    k: json.dumps(v) if not isinstance(v, str) else v
+                    for k, v in flattened_value.items()
+                }
+                writer.add_metadata(name=key, data=string_dict)
+
+        # add attachments
+        """
+            text/plain: pure text
+            text/html：HTML
+            application/json：JSON
+            image/png：PNG image
+            video/mp4：MP4 video
+        """
+        writer.add_attachment(
+            time_ns(),
+            time_ns(),
+            name="component_info",
+            data=json.dumps(info).encode("utf-8"),
+            media_type="application/json",
+        )
+        log_stamps = data.pop("log_stamps")
+        self.add_log_stamps_attachment(writer, log_stamps)
+        # register channels and add messages
+        for key, values in data.items():
+            if not self._add_messages(key, values, log_stamps):
+                self.get_logger().warning(f"Unknown data type for key: {key}")
+        if self._coders:
+            futures = []
+            for key, coder in self._coders.items():
+                # futures.append(
+                #     self._executor.submit(
+                #         self._add_video_attachment, writer, key, coder
+                #     )
+                # )
+                self.add_video_attachment(writer, key, coder.end())
+
+            [_ for _ in as_completed(futures)]
+
+        writer.finish()
+
+        # Upload to cloud after saving
+        if self.config.upload.enabled:
+            self._upload_to_cloud(path)
+
+        return path
+
+    def _add_messages(
+        self, key: str, values: List[dict], log_stamps: List[float]
+    ) -> str:
+        # self.get_logger().info(f"Adding messages for key: {key}")
+        schema_type = self._key_to_schema_type(key)
+        if schema_type is FlatbufferSchemas.NONE:
+            return ""
+        color_save_type = self.config.save_type.color
+        topics = key
+        topic_iter = [key]
+        if schema_type is FlatbufferSchemas.COMPRESSED_IMAGE:
+            data_type = "compressed_image"
+            kwargs = {
+                "format": color_save_type,
+                "frame_id": "airbot",
+            }
+        elif schema_type is FlatbufferSchemas.RAW_IMAGE:
+            data_type = "raw_image"
+            kwargs = {"encoding": "", "frame_id": "airbot"}
+        elif schema_type is FlatbufferSchemas.FLOAT_ARRAY:
+            data_type = "field_array"
+            # FIXME: handle when data is not a dict
+            fields = values[0]["data"].keys()
+            topics = {}
+            for field in fields:
+                topics[field] = f"{key}/{field}"
+            topic_iter = topics.values()
+            kwargs = {"fields": fields}
+        else:
+            data_type = ""
+        for topic in topic_iter:
+            self._mf_writer.register_channel(topic, schema_type, False)
+        if data_type:
+            assert len(log_stamps) == len(values), (
+                f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
+            )
+            _ = [
+                self._mf_writer.add_message(
+                    data_type,
+                    topics,
+                    data=value["data"],
+                    publish_time=value["t"],
+                    log_time=log_stamps[i],
+                    **kwargs,
+                )
+                for i, value in enumerate(values)
+            ]
+        return data_type
+
+    def _init_upload(self):
+        """Enable upload to cloud storage."""
         if self.config.upload.enabled:
             assert DATALOOP_AVAILABLE, "DataLoopClient is not available"
             self.dataloop_client = DataLoopClient(
@@ -107,144 +247,6 @@ class AIRBOTMcapDataSampler(DataSampler):
                 bcolors.OKCYAN
                 + f"Will upload to task id: {self.config.task_info.task_id}"
             )
-        self._coders = defaultdict(
-            partial(AvCoder, time_base=self.config.video_time_base)
-        )
-        self._executor = ThreadPoolExecutor(
-            max_workers=4, thread_name_prefix="mcap_h264_coder"
-        )
-        self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
-        return True
-
-    def update(self, data: dict):
-        """Update the data with the latest frames."""
-        # TODO: add message immediately
-        if self.config.save_type.image == "h264":
-            for key in list(data.keys()):
-                if "color" in key:
-                    frame = data.pop(key)
-                    self._coders[key].encode_frame(
-                        frame["data"], frame["t"] // self._frame_stamp_factor
-                    )
-        return data
-
-    def save(self, path: str, data: dict) -> str:
-        """Save the data to a MCAP file."""
-        with open(path, "wb") as f:
-            writer = Writer(f)
-            writer.start()
-            self._mf_writer.set_writter(writer)
-            info = self._info.copy()
-            # add metadata
-            self.add_config_metadata(writer, self.config)
-            # Handle system info safely
-            system_info = info.pop("system", {})
-            if isinstance(system_info, dict):
-                for key, value in system_info.items():
-                    flattened_value = flatten(value, "path")
-                    # Convert all values to strings
-                    string_dict = {
-                        k: json.dumps(v) if not isinstance(v, str) else v
-                        for k, v in flattened_value.items()
-                    }
-                    writer.add_metadata(name=key, data=string_dict)
-
-            # add attachments
-            """
-                text/plain: pure text
-                text/html：HTML
-                application/json：JSON
-                image/png：PNG image
-                video/mp4：MP4 video
-            """
-            writer.add_attachment(
-                time_ns(),
-                time_ns(),
-                name="component_info",
-                data=json.dumps(info).encode("utf-8"),
-                media_type="application/json",
-            )
-            log_stamps = data.pop("log_stamps")
-            self.add_log_stamps_attachment(writer, log_stamps)
-            # register schemas
-            save_type = self.config.save_type.image
-            schemas = set(FlatbufferSchemas)
-            if save_type != "jpeg":
-                schemas.remove(FlatbufferSchemas.COMPRESSED_IMAGE)
-            self._mf_writer.register_schemas(schemas)
-
-            # register channels and add messages
-            image_keys = set()
-            for key, values in data.items():
-                if "color" in key:
-                    if save_type == "jpeg":
-                        data_type = "compressed_image"
-                        topics = key
-                        self._mf_writer.register_channel(
-                            key, FlatbufferSchemas.COMPRESSED_IMAGE
-                        )
-                        kwargs = {
-                            "format": self.config.save_type.image,
-                            "frame_id": "airbot",
-                        }
-                    elif save_type == "h264":
-                        data_type = None
-                        image_keys.add(key)
-                    else:
-                        raise NotImplementedError(
-                            f"Image save type {save_type} not implemented for MCAP saving."
-                        )
-                elif "joint_state" in key or "pose" in key:
-                    data_type = "field_array"
-                    fields = values[0]["data"].keys()
-                    topics = {}
-                    for field in fields:
-                        topic = f"{key}/{field}"
-                        self._mf_writer.register_channel(
-                            topic, FlatbufferSchemas.FLOAT_ARRAY
-                        )
-                        topics[field] = topic
-                    kwargs = {
-                        "fields": fields,
-                    }
-                else:
-                    raise NotImplementedError(
-                        f"Data type {data_type} not implemented for MCAP saving."
-                    )
-                if data_type != "h264":
-                    assert len(log_stamps) == len(values), (
-                        f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
-                    )
-                    _ = [
-                        self._mf_writer.add_message(
-                            data_type,
-                            topics,
-                            data=value["data"],
-                            publish_time=value["t"],
-                            log_time=log_stamps[i],
-                            **kwargs,
-                        )
-                        for i, value in enumerate(values)
-                    ]
-            if self.config.save_type.image == "h264":
-                futures = []
-                for key, coder in self._coders.items():
-                    # futures.append(
-                    #     self._executor.submit(
-                    #         self._add_video_attachment, writer, key, coder
-                    #     )
-                    # )
-                    self.add_video_attachment(writer, key, coder.end())
-
-                [_ for _ in as_completed(futures)]
-
-            writer.finish()
-
-        # Upload to cloud after saving
-        if self.config.upload.enabled:
-            self._upload_to_cloud(path)
-
-        return path
 
     def _upload_to_cloud(self, file_path: str) -> bool:
         """Upload the saved file to cloud storage."""
@@ -263,8 +265,30 @@ class AIRBOTMcapDataSampler(DataSampler):
         self.get_logger().info(bcolors.OKGREEN + f"{message}")
         return True
 
-    def compose_path(self, directory, round) -> str:
-        return os.path.join(directory, f"{round}.mcap")
+    @cache
+    def _is_save_h264(self, key: str) -> bool:
+        return "/color/" in key and self.config.save_type.color == "h264"
+
+    @cache
+    def _key_to_schema_type(self, key: str) -> FlatbufferSchemas:
+        color_save_type = self.config.save_type.color
+        is_color = "/color/" in key
+        if is_color:
+            if color_save_type == "jpeg":
+                return FlatbufferSchemas.COMPRESSED_IMAGE
+            elif color_save_type == "raw":
+                return FlatbufferSchemas.RAW_IMAGE
+        depth_save_type = self.config.save_type.depth
+        is_depth = "depth" in key
+        if is_depth:
+            if depth_save_type == "raw":
+                return FlatbufferSchemas.RAW_IMAGE
+            else:
+                raise NotImplementedError
+        save_field_arr = "joint_state" in key or "pose" in key
+        if save_field_arr:
+            return FlatbufferSchemas.FLOAT_ARRAY
+        return FlatbufferSchemas.NONE
 
     @classmethod
     def add_video_attachment(cls, writer: Writer, key: str, data: bytes):

@@ -1,5 +1,5 @@
 from argdantic.sources import YamlFileLoader
-from pydantic import BaseModel
+from pydantic import BaseModel, NonNegativeFloat
 
 from airbot_data_collection.arg_loader import from_file
 from airbot_data_collection.defaults.fsm import STATE_MACHINE_CONFIG
@@ -18,7 +18,7 @@ class DataCollectionConfig(BaseModel):
 
     # the maximum rate for the managers
     # 0 means as fast as possible
-    update_rate: int = 0
+    update_rate: NonNegativeFloat = 0
     # the finite state machine config
     fsm: DemonstrateFSMConfig
     # managers to control the demonstrate actions
@@ -41,7 +41,7 @@ class DataCollectionArgs(DemonstrateConfig):
     path: str
     # the maximum rate for the managers
     # 0 means as fast as possible
-    update_rate: int = 0
+    update_rate: NonNegativeFloat = 0
     # the finite state machine config file path
     fsm: StateMachineArgs = STATE_MACHINE_CONFIG.model_dump()
     # managers to control the demonstrate actions

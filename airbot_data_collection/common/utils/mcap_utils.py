@@ -3,8 +3,7 @@ from mcap.writer import Writer
 from mcap.well_known import SchemaEncoding, MessageEncoding
 from turbojpeg import TurboJPEG
 from typing import Dict, IO, Set, Optional, Iterable, List, Generator, Any
-from foxglove_schemas_flatbuffer import CompressedImage, Time
-from foxglove_schemas_flatbuffer import get_schema
+from foxglove_schemas_flatbuffer import CompressedImage, RawImage, Time, get_schema
 from importlib.resources import read_binary
 import flatbuffers
 from enum import Enum
@@ -20,6 +19,8 @@ from airbot_data_collection.utils import zip
 class FlatbufferSchemas(Enum):
     """Enum for Flatbuffer schemas used in MCAP files."""
 
+    NONE = ()
+    RAW_IMAGE = ("foxglove.RawImage", get_schema("RawImage"))
     COMPRESSED_IMAGE = ("foxglove.CompressedImage", get_schema("CompressedImage"))
     FLOAT_ARRAY = (
         "airbot_fbs.FloatArray",
@@ -38,17 +39,35 @@ class McapFlatbufferWriter:
         self._smapping = {}
         self._cmapping = {}
         self._writer = None
+        self._img_enc_mapping = {
+            1: {
+                np.uint8: "8UC1",
+                np.uint16: "16UC1",
+                np.float32: "32FC1",
+            },
+            3: {
+                np.uint8: "8UC3",
+            },
+        }
 
-    def set_writter(self, writer: Writer):
+    def set_writter(self, writer: Writer, start: bool = True):
         """Set the MCAP writer for this instance."""
         self._writer = writer
+        if start:
+            writer.start()
+
+    def unset_writer(self):
+        """Unset the MCAP writer for this instance."""
+        self._writer = None
+
+    def get_writer(self) -> Optional[Writer]:
+        return self._writer
 
     def register_schemas(
         self,
         types: Optional[Set[FlatbufferSchemas]] = None,
     ) -> Dict[FlatbufferSchemas, int]:
-        if types is None:
-            types = set(FlatbufferSchemas)
+        types = set(FlatbufferSchemas) if types is None else types
         for stype in types:
             self._smapping[stype] = self._writer.register_schema(
                 stype.value[0],
@@ -57,15 +76,32 @@ class McapFlatbufferWriter:
             )
         return self._smapping
 
-    def register_channel(self, topic: str, schema_type: str) -> int:
-        """Register a channel with the given topic and schema type in the MCAP writer."""
-        c_id = self._writer.register_channel(
-            topic,
-            MessageEncoding.Flatbuffer,
-            self._smapping[schema_type],
-        )
-        self._cmapping[topic] = c_id
-        return c_id
+    def register_channel(
+        self, topic: str, schema_type: FlatbufferSchemas, strict: bool = True
+    ) -> int:
+        """Register a channel with the given topic and schema type in the MCAP writer.
+        The schema will be automatically registered if not already present.
+        Args:
+            topic (str): The topic name for the channel.
+            schema_type (FlatbufferSchemas): The schema type for the channel.
+            strict (bool): Whether to enforce strict channel registration.
+        Returns:
+            int: The channel ID for the registered channel.
+        Raises:
+            ValueError: If the channel is already registered and strict is True.
+        """
+        if topic not in self._cmapping:
+            c_id = self._writer.register_channel(
+                topic,
+                MessageEncoding.Flatbuffer,
+                self._smapping.get(
+                    schema_type, self.register_schemas({schema_type})[schema_type]
+                ),
+            )
+            self._cmapping[topic] = c_id
+        elif strict:
+            raise ValueError(f"Channel '{topic}' is already registered.")
+        return self._cmapping[topic]
 
     def add_message(
         self,
@@ -90,27 +126,63 @@ class McapFlatbufferWriter:
     ):
         """Add a compressed image message to the MCAP writer."""
 
-        fmt_str = self.builder.CreateString(format)
-        frame_id_str = self.builder.CreateString(frame_id)
-        data_vec = self.builder.CreateByteVector(data)
+        builder = self.builder
+        fmt_str = builder.CreateString(format)
+        frame_id_str = builder.CreateString(frame_id)
+        data_vec = builder.CreateByteVector(data)
         sec, nsec = divmod(publish_time, 1_000_000_000)
-        CompressedImage.Start(self.builder)
-        CompressedImage.AddFormat(self.builder, fmt_str)
-        CompressedImage.AddFrameId(self.builder, frame_id_str)
-        CompressedImage.AddData(self.builder, data_vec)
-        CompressedImage.AddTimestamp(
-            self.builder, Time.CreateTime(self.builder, sec, nsec)
-        )
-        end_data = CompressedImage.End(self.builder)
-        self.builder.Finish(end_data)
-        msg_data = self.builder.Output()
+        CompressedImage.Start(builder)
+        CompressedImage.AddFormat(builder, fmt_str)
+        CompressedImage.AddFrameId(builder, frame_id_str)
+        CompressedImage.AddData(builder, data_vec)
+        CompressedImage.AddTimestamp(builder, Time.CreateTime(builder, sec, nsec))
+        end_data = CompressedImage.End(builder)
+        builder.Finish(end_data)
+        msg_data = builder.Output()
         self._writer.add_message(
             channel_id=self._cmapping[topic],
             data=bytes(msg_data),
             publish_time=publish_time,
             log_time=log_time,
         )
-        self.builder.Clear()
+        builder.Clear()
+
+    def add_raw_image(
+        self,
+        topic: str,
+        data: np.ndarray,
+        publish_time: int,
+        log_time: int,
+        encoding: str = "",
+        frame_id: str = "",
+    ):
+        """Add a raw image message to the MCAP writer."""
+        height, width = data.shape[:2]
+        step = data.strides[0]
+        builder = self.builder
+        frame_id_offset = builder.CreateString(frame_id)
+        encoding_offset = builder.CreateString(
+            encoding or self._get_image_encoding(data)
+        )
+        data_bytes = data.tobytes()
+        data_vec = builder.CreateByteVector(data_bytes)
+        RawImage.Start(builder)
+        RawImage.AddFrameId(builder, frame_id_offset)
+        RawImage.AddWidth(builder, width)
+        RawImage.AddHeight(builder, height)
+        RawImage.AddEncoding(builder, encoding_offset)
+        RawImage.AddStep(builder, step)
+        RawImage.AddData(builder, data_vec)
+        rawimage = RawImage.End(builder)
+        builder.Finish(rawimage)
+        msg_data = builder.Output()
+        self._writer.add_message(
+            channel_id=self._cmapping[topic],
+            data=bytes(msg_data),
+            publish_time=publish_time,
+            log_time=log_time,
+        )
+        builder.Clear()
 
     def add_field_array(
         self,
@@ -141,6 +213,11 @@ class McapFlatbufferWriter:
             )
             self.builder.Clear()
 
+    def _get_image_encoding(self, image: np.ndarray) -> str:
+        """Get the image encoding string for a given channel and dtype."""
+        channels = 1 if len(image.shape) == 2 else 3
+        return self._img_enc_mapping[channels][image.dtype.type]
+
 
 class McapFlatbufferReader:
     """Class to handle reading MCAP files with Flatbuffer schemas."""
@@ -148,12 +225,63 @@ class McapFlatbufferReader:
     def __init__(self, file: IO[bytes]):
         self.file_io = file
         self.reader = make_reader(file)
-        self._decoders = {"airbot_fbs.FloatArray": self._decode_array}
+        self._decoders = {
+            "airbot_fbs.FloatArray": self._decode_array,
+            "foxglove.RawImage": self._decode_raw_image,
+            "foxglove.CompressedImage": self._decode_compressed_image,
+        }
+        self._jpeg = TurboJPEG()
 
     def _decode_array(self, data: bytes) -> np.ndarray:
         """Decode a FloatArray Flatbuffer message."""
         fb = FloatArray.FloatArray.GetRootAs(data, 0)
         return fb.ValuesAsNumpy()
+
+    def _decode_raw_image(self, data: bytes) -> np.ndarray:
+        """Decode a RawImage Flatbuffer message."""
+        raw_img = RawImage.RawImage.GetRootAs(data, 0)
+        width = raw_img.Width()
+        height = raw_img.Height()
+        step = raw_img.Step()
+        encoding = raw_img.Encoding().decode("utf-8")
+        data: np.ndarray = raw_img.DataAsNumpy()
+
+        if encoding in ("rgb8", "bgr8", "8UC3"):
+            channels = 3
+            dtype = np.uint8
+        elif encoding in ("rgba8", "bgra8"):
+            channels = 4
+            dtype = np.uint8
+        elif encoding in ("mono8", "8UC1"):
+            channels = 1
+            dtype = np.uint8
+        elif encoding in ("mono16", "16UC1"):
+            channels = 1
+            dtype = np.uint16
+        elif encoding == "32FC1":
+            channels = 1
+            dtype = np.float32
+        else:
+            raise NotImplementedError(f"Unsupported encoding: {encoding}")
+
+        arr = data.view(dtype)
+        cal_width = step // (channels * arr.itemsize)
+        # TODO: should be warning?
+        assert cal_width == width, (
+            f"Calculated width {cal_width} does not match expected width {width}"
+        )
+        if channels == 1:
+            img = arr.reshape((height, cal_width))[:, :width]
+        else:
+            img = arr.reshape((height, cal_width, channels))[:, :width, :]
+        return img
+
+    def _decode_compressed_image(self, data: bytes) -> np.ndarray:
+        """Decode a CompressedImage Flatbuffer message."""
+        compressed_img = CompressedImage.CompressedImage.GetRootAs(data, 0)
+        img_format = compressed_img.Format().decode("utf-8")
+        assert img_format == "jpeg", f"Expected JPEG format, but got {img_format}"
+        return self._jpeg.decode(compressed_img.DataAsNumpy())
 
     def iter_message_samples(
         self, topics: Optional[Iterable[str]] = None, reverse: bool = False

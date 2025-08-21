@@ -40,7 +40,7 @@ class ComponentConfig(BaseModel):
     # the parameters to override the yaml file config
     param: dict = {}
     async_mode: AsyncMode = AsyncMode.none
-    update_rate: NonNegativeInt = 0
+    update_rate: NonNegativeFloat = 0
 
 
 class ComponentsConfig(BaseModel):
@@ -52,7 +52,7 @@ class ComponentsConfig(BaseModel):
     paths: list[str] = []
     params: list[dict] = []
     async_modes: list[AsyncMode] = []
-    update_rates: list[NonNegativeInt] = []
+    update_rates: list[NonNegativeFloat] = []
 
     def model_post_init(self, context):
         assert len(self.names) == len(self.paths) == len(self.params), (
@@ -221,7 +221,7 @@ class AutoControlConfig(BaseModel):
     groups: Optional[list[str]] = None
     # the rate of the auto control loop for each group
     # 0 means as fast as possible
-    rate: list[NonNegativeInt] = []
+    rate: list[NonNegativeFloat] = []
     # the mode of the auto control loop for each group
     # can not be none
     mode: AsyncMode = AsyncMode.thread
