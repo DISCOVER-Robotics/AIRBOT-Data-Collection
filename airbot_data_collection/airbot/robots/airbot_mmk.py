@@ -53,8 +53,7 @@ class AIRBOTMMK(System):
             self._action_topics.update(
                 {
                     comp: TopicNames.controller_command.format(
-                        component=comp.value,
-                        controller=ControllerTypes.FORWARD_POSITION.value,
+                        controller=f"/{comp.value}_{ControllerTypes.FORWARD_POSITION.value}_controller"
                     )
                     for comp in set(RobotComponentsGroup.HEAD_SPINE)
                     & set(self.config.components)
@@ -317,7 +316,7 @@ if __name__ == "__main__":
                 #     "framerate": "25",
                 # },
             },
-            demonstrate=False,
+            demonstrate=True,
             default_action=[
                 # arms will not move when demonstrating
                 # left_arm (6 joints)
@@ -345,11 +344,15 @@ if __name__ == "__main__":
     )
     assert mmk.configure()
     total_start = time.perf_counter()
-    for i in range(20):
+    costs = []
+    times = 20
+    for i in range(times):
         start = time.perf_counter()
         mmk.capture_observation()
-        print(f"Iteration {i} took {time.perf_counter() - start:.4f} seconds")
+        costs.append(time.perf_counter() - start)
+        # print(f"Iteration {i} took {time.perf_counter() - start:.4f} seconds")
+    print(f"Min: {min(costs)} Max: {max(costs)}")
     print(f"Total time taken: {time.perf_counter() - total_start:.4f} seconds")
-    print(f"Average frequency: {(20 / (time.perf_counter() - total_start)):.4f} Hz")
+    print(f"Average frequency: {(times / (time.perf_counter() - total_start)):.4f} Hz")
     print("Shutting down the robot...")
     mmk.shutdown()

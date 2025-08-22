@@ -10,11 +10,12 @@ from airbot_data_collection.state_machine.fsm import (
 )
 from airbot_data_collection.utils import init_logging
 from importlib.metadata import version
+from collections import deque
 
 
 if __name__ == "__main__":
     import logging
-
+    from pprint import pformat
     from argdantic import ArgParser
 
     init_logging(logging.INFO)
@@ -47,17 +48,20 @@ if __name__ == "__main__":
 
         # start updating the managers
         # TODO: based on async io to update asynchronously?
+        time_queue = deque(maxlen=20)
+        total_start = time.perf_counter()
         try:
             while True:
-                start_time = time.monotonic()
+                start_time = time.perf_counter()
                 for name, manager in managers.items():
                     if not manager.update():
                         logger.warning(f"Failed to update manager: {name}.")
                 if fsm.get_state() is DemonstrateState.finalized:
                     logger.info("Data collection finished.")
                     break
+                cost_time = time.perf_counter() - start_time
+                time_queue.append(cost_time)
                 if interval > 0:
-                    cost_time = time.monotonic() - start_time
                     sleep_time = interval - cost_time
                     if sleep_time > 0:
                         time.sleep(sleep_time)
@@ -65,10 +69,21 @@ if __name__ == "__main__":
                         logger.warning(f"Update took too long: exceed {-sleep_time}s.")
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received. Exiting...")
-
-        for name, manager in managers.items():
-            logger.info(f"Shutting down: {name}.")
-            if not manager.shutdown():
-                logger.error(f"Failed to shutdown manager: {name}.")
+        finally:
+            for name, manager in managers.items():
+                logger.info(f"Shutting down: {name}.")
+                if not manager.shutdown():
+                    logger.error(f"Failed to shutdown manager: {name}.")
+        summary = {"Total time taken": f"{time.perf_counter() - total_start:.4f} s"}
+        if time_queue:
+            avg_time = sum(time_queue) / len(time_queue)
+            summary.update(
+                {
+                    "Average update time": f"{avg_time:.4f} s",
+                    "Average update freq": f"{1.0 / avg_time:.4f} Hz",
+                }
+            )
+        logger.info("Summary:\n" + pformat(summary))
+        logger.info("Done.")
 
     cli()

@@ -54,7 +54,7 @@ sampler:
       password: '123456'
       username: admin
   path: ''
-update_rate: 20
+update_rate: 15
 visualizers:
   names:
   - opencv
