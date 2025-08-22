@@ -140,15 +140,15 @@ class DemonstrateInterface:
         auto_control = self.config.auto_control
         self._use_auto_control = bool(auto_control.groups)
         if self._use_auto_control:
-            assert auto_control.mode is not AsyncMode.none, (
-                "Auto control mode must be set"
-            )
-            if auto_control.mode is AsyncMode.thread:
+            mode = auto_control.mode
+            if mode is AsyncMode.thread:
                 event_cls = Event
                 self._auto_control_tp_cls = Thread
-            else:
+            elif mode is AsyncMode.process:
                 event_cls = mp.Event
                 self._auto_control_tp_cls = mp.Process
+            else:
+                raise ValueError(f"Auto control mode can not be: {mode}")
             self._auto_control_stop_event = event_cls()
             self._auto_control_pause_event = event_cls()
             self._auto_control_tp: Optional[Union[Thread, mp.Process]] = None

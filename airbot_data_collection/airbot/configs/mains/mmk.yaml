@@ -3,23 +3,16 @@ auto_control:
 components:
   groups:
   - /
-  # - /
   names:
-  - ""
-  # - follow_camera
+  - mmk
   params:
-  - port: 50051
-  # - camera_index: null
-  #   height: 480
-  #   width: 640
+  - {}
   paths:
-  - airbot_play
-  # - realsense
+  - airbot_mmk
   roles:
-  - f
-  # - o
+  - o
 dataset:
-  directory: arm1-001
+  directory: airbot_mmk
 managers:
   names:
   - self_manager
@@ -30,14 +23,6 @@ managers:
   paths:
   - ''
   - ''
-post_capture:
-  /:
-    keys:
-    - eef/joint_state/position
-    target_ranges:
-    - 0:
-      - 0
-      - 0.072
 sample_limit:
   size: 1000
   start_round: -1
@@ -54,7 +39,7 @@ sampler:
       skill:
       - pick
       - place
-      station: ptk-001
+      station: mmk-MK11QWZ025170023
       subtasks:
       - description: pick the wooden blocks from the bowl with the gripper
         description_zh: "\u7528\u5939\u722A\u4ECE\u7897\u4E2D\u62FE\u53D6\u6728\u5236\
