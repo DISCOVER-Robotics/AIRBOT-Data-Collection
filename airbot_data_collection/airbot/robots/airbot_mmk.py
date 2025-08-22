@@ -1,5 +1,5 @@
 from pydantic import BaseModel, PositiveInt
-from airbot_data_collection.basis import System
+from airbot_data_collection.basis import System, SystemMode
 from mmk2_types.types import (
     RobotComponents,
     ImageTypes,
@@ -16,16 +16,9 @@ from mmk2_types.grpc_msgs import (
     TrajectoryParams,
 )
 from airbot_py.airbot_mmk2 import AirbotMMK2
-from typing import Optional, List, Union, Dict, Tuple
-import numpy as np
+from typing import Optional, List, Union, Dict
 import time
-from turbojpeg import TurboJPEG
-from time import time_ns
-
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from pprint import pformat
 
 
 class AIRBOTMMKConfig(BaseModel):
@@ -52,123 +45,78 @@ class AIRBOTMMK(System):
 
     def on_configure(self) -> bool:
         self.interface = AirbotMMK2(ip=self.config.ip)
-        self.traj_mode = False  # 添加traj_mode属性
-        self._action_topics = {
-            comp: TopicNames.tracking.format(component=comp.value)
-            for comp in RobotComponentsGroup.ARMS
-        }
-        self._action_topics.update(
-            {
-                comp: TopicNames.controller_command.format(
-                    component=comp.value,
-                    controller=ControllerTypes.FORWARD_POSITION.value,
-                )
-                for comp in RobotComponentsGroup.HEAD_SPINE
+        if self.config.demonstrate:
+            self._action_topics = {
+                comp: TopicNames.tracking.format(component=comp.value)
+                for comp in set(RobotComponentsGroup.ARMS) & set(self.config.components)
             }
-        )
-        print(f"[DEBUG] Action topics ALL: {self._action_topics}")
-        self.interface.listen_to(self._action_topics.values())
+            self._action_topics.update(
+                {
+                    comp: TopicNames.controller_command.format(
+                        component=comp.value,
+                        controller=ControllerTypes.FORWARD_POSITION.value,
+                    )
+                    for comp in set(RobotComponentsGroup.HEAD_SPINE)
+                    & set(self.config.components)
+                }
+            )
+            self.get_logger().info(f"Action topics: {self._action_topics}")
+            self.interface.listen_to(self._action_topics.values())
         self.interface.enable_resources(self.config.cameras)
-        # self._joint_names = JointNames().__dict__
-        self._joint_names = {
-            "left_arm": JointNames.LEFT_ARM.value,
-            "right_arm": JointNames.RIGHT_ARM.value,
-            "left_arm_eef": JointNames.LEFT_ARM_EEF.value,
-            "right_arm_eef": JointNames.RIGHT_ARM_EEF.value,
-            "spine": JointNames.SPINE.value,
-            "head": JointNames.HEAD.value,
-            "base": JointNames.BASE.value,
-        }
-
-        self.cameras = {cam: [ImageTypes.COLOR] for cam in self.config.cameras}
-
-        print(f"[DEBUG] _joint_names: {self._joint_names}")
+        # get the camera goal by the config
+        self.cameras_goal = {}
+        for cam, cfg in self.config.cameras.items():
+            goal = [ImageTypes.COLOR]
+            if (
+                cfg["camera_type"] == "REALSENSE"
+                and cfg.get("enable_depth", "false") == "true"
+            ):
+                if cfg.get("align_depth.enable", "false") == "true":
+                    goal.append(ImageTypes.ALIGNED_DEPTH_TO_COLOR)
+                else:
+                    goal.append(ImageTypes.DEPTH)
+            self.cameras_goal[cam] = goal
+        self.get_logger().info(f"Camera goals: {self.cameras_goal}")
         self._check_joints(self.interface.get_robot_state().joint_state.name)
-        self.reset()
-        self.jpeg = TurboJPEG()
+        self._reset()
+        self._logs = {}
         return True
 
     def get_info(self):
         return {}
 
-    def reset(self, sleep_time=0):
+    def _reset(self, sleep_time=0):
         if self.config.default_action is not None:
             goal = self._action_to_goal(self.config.default_action)
             self._move_by_traj(goal)
         else:
-            logger.warning("No default action is set.")
+            self.get_logger().warning("No default action is set.")
         time.sleep(sleep_time)
-        self.enter_servo_mode()
 
     def _move_by_traj(self, goal: dict):
         if self.config.demonstrate:
             # TODO: since the arms and eefs are controlled by the teleop bag
             for comp in RobotComponentsGroup.ARMS_EEFS:
-                goal.pop(comp)
+                goal.pop(comp, None)
         if goal:
             self.interface.set_goal(goal, TrajectoryParams())
             self.interface.set_goal(goal, ForwardPositionParams())
 
     def send_action(self, action):
-        # 检查是否是来自 bson 播放器的字典格式数据
         if isinstance(action, dict):
-            # 从 bson 格式的观察数据中提取关节位置
             action = self._observation_to_action(action)
 
         goal = self._action_to_goal(action)
-        if self.traj_mode:
+        if self._current_mode is SystemMode.RESETTING:
             self.interface.set_goal(goal, TrajectoryParams())
         else:
             self.interface.set_goal(goal, MoveServoParams())
 
-    def _observation_to_action(self, obs: dict) -> list[float]:
-        """将 bson 观察数据转换为动作列表"""
+    def _observation_to_action(self, obs: dict) -> List[float]:
         action = []
-
-        # 按照组件顺序提取关节位置，兼容不同的数据格式
         for comp in self.config.components:
             comp_name = comp.value
-
-            # 尝试多种可能的数据格式和命名空间
-            possible_keys = [
-                # f"/mmk/mmk/{comp_name}/joint_state",  # bson_player 原始格式
-                f"mmk/action/{comp_name}/joint_state",  # action 命名空间
-                # f"mmk/observation/{comp_name}/joint_state",  # observation 命名空间
-            ]
-
-            found_data = False
-            for joint_key in possible_keys:
-                if joint_key in obs:
-                    joint_data = obs[joint_key]
-
-                    # 处理不同的数据结构
-                    pos_data = None
-                    if isinstance(joint_data, dict):
-                        if "data" in joint_data and isinstance(
-                            joint_data["data"], dict
-                        ):
-                            pos_data = joint_data["data"].get("position", [])
-                        elif "position" in joint_data:
-                            pos_data = joint_data["position"]
-                        elif "position" in joint_data:
-                            pos_data = joint_data["position"]
-                    elif isinstance(joint_data, list):
-                        pos_data = joint_data
-
-                    if pos_data:
-                        action.extend(pos_data)
-                        found_data = True
-                        break
-
-            if not found_data:
-                self.get_logger().warning(
-                    f"未找到组件 {comp_name} 的关节数据，尝试的键: {possible_keys}"
-                )
-
-        if not action:
-            self.get_logger().error("无法从观察数据中提取任何关节位置信息")
-            return []
-
+            action.append(obs[f"mmk/action/{comp_name}/joint_state/position"])
         return action
 
     def _action_to_goal(self, action) -> Dict[RobotComponents, JointState]:
@@ -176,40 +124,34 @@ class AIRBOTMMK(System):
         goal = {}
         j_cnt = 0
         for comp in self.config.components:
-            end = j_cnt + len(self._joint_names[comp.value])
+            end = j_cnt + len(JointNames[comp.name].value)
             goal[comp] = JointState(position=action[j_cnt:end])
             j_cnt = end
         return goal
 
     def _action_check(self, action):
-        """检查动作向量的维度是否正确"""
+        """Check the action dimension"""
         expected_dim = sum(
-            len(self._joint_names[comp.value]) for comp in self.config.components
+            len(JointNames[comp.name].value) for comp in self.config.components
         )
         if len(action) != expected_dim:
             raise ValueError(
                 f"Action dimension mismatch: expected {expected_dim}, got {len(action)}"
             )
 
-    def enter_traj_mode(self):
-        self.traj_mode = True
-
-    def enter_servo_mode(self):
-        self.traj_mode = False
-
-    def on_switch_mode(self, mode):
+    def on_switch_mode(self, mode: SystemMode):
+        self._current_mode = mode
         return True
 
     def _get_low_dim(self):
         data = {}
+        start = time.perf_counter()
         robot_state = self.interface.get_robot_state()
+        self._logs["get_robot_state_dt_s"] = time.perf_counter() - start
         all_joints = robot_state.joint_state
         stamp = robot_state.joint_state.header.stamp
-        # t = int((stamp.sec + stamp.nanosec * 1e-9)* 1000)
-        t = int(stamp.sec * 1e9 + stamp.nanosec)
-        # t = stamp.sec + stamp.nanosec * 1e-9
+        t = self._to_time_ns(stamp)
         for comp in self.config.components:
-            comp_name = comp.value
             self._set_js_field(data, comp, t, all_joints)
             if comp == RobotComponents.BASE:
                 base_pose = robot_state.base_state.pose
@@ -219,13 +161,13 @@ class AIRBOTMMK(System):
                     base_pose.y,
                     base_pose.theta,
                 ]
-                # data[f"observation/{comp_name}/pose"] = data_pose
+                # data[f"observation/{comp.value}/pose"] = data_pose
                 data_vel = [
                     base_vel.x,
                     base_vel.y,
                     base_vel.omega,
                 ]
-                data[f"observation/{comp_name}/joint_state"] = {
+                data[f"observation/{comp.value}/joint_state"] = {
                     "t": t,
                     "data": {
                         "position": data_pose,
@@ -234,18 +176,23 @@ class AIRBOTMMK(System):
                     },
                 }
         if self.config.demonstrate:
-            for comp in [
-                RobotComponents.LEFT_ARM,
-                RobotComponents.RIGHT_ARM,
-                RobotComponents.HEAD,
-                RobotComponents.SPINE,
-            ]:
-                # print(f"[DEBUG] Processing component: {comp}, topic: {self._action_topics.get(comp)}")
+            for comp in self.config.components:
+                # self.get_logger().info(f"Processing component: {comp}, topic: {self._action_topics.get(comp)}")
                 if comp in RobotComponentsGroup.ARMS:
-                    arm_jn = self._joint_names[comp.value]
+                    arm_jn = JointNames[comp.name].value
                     comp_eef = comp.value + "_eef"
-                    eef_jn = self._joint_names[comp_eef]
-                    js = self.interface.get_listened(self._action_topics[comp])
+                    eef_jn = JointNames[RobotComponents(comp_eef).name].value
+                    action_topic = self._action_topics.get(comp)
+                    start = time.perf_counter()
+                    js = self.interface.get_listened(action_topic)
+                    self._logs[f"get_listened_{comp.value}_dt_s"] = (
+                        time.perf_counter() - start
+                    )
+                    if js is None:
+                        raise ValueError(
+                            f"Action topic: {action_topic} is not listened yet, "
+                            "make sure the robot has entered the teleoperating sync mode"
+                        )
                     jq = self.interface.get_joint_values_by_names(js, arm_jn + eef_jn)
                     data[f"action/{comp.value}/joint_state"] = {
                         "t": t,
@@ -263,11 +210,13 @@ class AIRBOTMMK(System):
                             "effort": [0.0],
                         },
                     }
-
-                if comp in RobotComponentsGroup.HEAD_SPINE:
-                    # print(f"[DEBUG] HEAD_SPINE component: {comp}, topic: {self._action_topics.get(comp)}")
+                elif comp in RobotComponentsGroup.HEAD_SPINE:
+                    start = time.perf_counter()
                     listened_data = self.interface.get_listened(
                         self._action_topics[comp]
+                    )
+                    self._logs[f"get_listened_{comp.value}_dt_s"] = (
+                        time.perf_counter() - start
                     )
                     if listened_data and listened_data.data:  # 检查是否有数据
                         jq = list(listened_data.data)
@@ -280,61 +229,58 @@ class AIRBOTMMK(System):
                             },
                         }
                     else:
-                        print(f"[WARNING] No data received for component: {comp}")
+                        self.get_logger().warning(
+                            f"No data received for component: {comp}"
+                        )
         return data
 
     def _set_js_field(
         self, data: dict, comp: RobotComponents, t: float, js: JointState
     ):
         comp_data = {"t": t, "data": {}}
-        for field in ["position", "velocity", "effort"]:
+        for field in {"position", "velocity", "effort"}:
             value = self.interface.get_joint_values_by_names(
-                js, self._joint_names[comp.value], field
+                js, JointNames[comp.name].value, field
             )
             comp_data["data"][field] = value
         data[f"observation/{comp.value}/joint_state"] = comp_data
 
-    def _capture_images(self) -> Tuple[Dict[str, bytes], Dict[str, Time]]:
-        images = {}
-        img_stamps: Dict[RobotComponents, Time] = {}
-        before_camread_t = time.perf_counter()
-        comp_images = self.interface.get_image(self.cameras)
-        for comp, image in comp_images.items():
-            # TODO: now only support for color image
-            images[comp.value] = image.data[ImageTypes.COLOR]
-            img_stamps[comp.value] = image.stamp
-        print(f"async_read_camera_{time.perf_counter() - before_camread_t}_dt_s")
-        return images, img_stamps
+    def _capture_images(self) -> dict:
+        images_obs = {}
+        start = time.perf_counter()
+        comp_images = self.interface.get_image(self.cameras_goal)
+        self._logs["get_image_dt_s"] = time.perf_counter() - start
+        for comp, images in comp_images.items():
+            stamp = self._to_time_ns(images.stamp)
+            for img_type, image in images.data.items():
+                suffix = (
+                    "image_raw"
+                    if img_type is not ImageTypes.DEPTH
+                    else "image_rect_raw"
+                )
+                images_obs[f"{comp.value}/{img_type.value}/{suffix}"] = {
+                    "t": stamp,
+                    "data": image,
+                }
+        return images_obs
 
     def capture_observation(self):
         """The returned observations do not have a batch dimension."""
-        # Capture images from cameras
         obs_act_dict = self._get_low_dim()
-        images, img_stamps = self._capture_images()
-
-        for name in images:
-            stamp = img_stamps[name]
-            # t = int((stamp.sec + stamp.nanosec * 1e-9) * 1e6)
-            t = int(stamp.sec * 1e9 + stamp.nanosec)
-            # print(f"[DEBUG] Image type for {name}: {type(images[name])}")  # 打印类型
-            # print(f"[DEBUG] Image shape for {name}: {images[name].shape}")  # 打印形状
-            # print(f"[DEBUG] Image dtype for {name}: {images[name].dtype}")  # 打印数据类型
-            print(f"[DEBUG] Image stamp for {name}: {stamp}")  # 打印时间戳
-            print(f"[DEBUG] Image time for {t}")  # 打印时间戳
-            obs_act_dict[f"{name}/color/video"] = {
-                # "t": time_ns(),
-                "t": t,
-                # "data": self.jpeg.encode(images[name]),
-                "data": images[name],
-            }
+        obs_act_dict.update(self._capture_images())
+        self.get_logger().info("Time costs:\n" + pformat(self._logs))
         return obs_act_dict
+
+    def _to_time_ns(self, stamp: Time) -> int:
+        """Get the current time in nanoseconds."""
+        return int(stamp.sec * 1e9 + stamp.nanosec)
 
     def _check_joints(self, joint_names: List[str]):
         required_joints = []
         for component in (
             RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE
         ):
-            required_joints.extend(self._joint_names[component.value])
+            required_joints.extend(JointNames[component.name].value)
         missing = [j for j in required_joints if j not in joint_names]
         if missing:
             raise KeyError(f"Missing required joints: {missing}")
@@ -347,7 +293,8 @@ class AIRBOTMMK(System):
 if __name__ == "__main__":
     mmk = AIRBOTMMK(
         AIRBOTMMKConfig(
-            ip="192.168.11.200",
+            # ip="192.168.11.200",
+            ip="172.25.12.57",
             components=RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE,
             cameras={
                 RobotComponents.HEAD_CAMERA: {
@@ -355,24 +302,54 @@ if __name__ == "__main__":
                     "rgb_camera.color_profile": "640,480,30",
                     "enable_depth": "false",
                 },
-                RobotComponents.LEFT_CAMERA: {
-                    "camera_type": "USB",
-                    "video_device": "/dev/left_camera",
-                    "image_width": "640",
-                    "image_height": "480",
-                    "framerate": "25",
-                },
-                RobotComponents.RIGHT_CAMERA: {
-                    "camera_type": "USB",
-                    "video_device": "/dev/right_camera",
-                    "image_width": "640",
-                    "image_height": "480",
-                    "framerate": "25",
-                },
+                # RobotComponents.LEFT_CAMERA: {
+                #     "camera_type": "USB",
+                #     "video_device": "/dev/left_camera",
+                #     "image_width": "640",
+                #     "image_height": "480",
+                #     "framerate": "25",
+                # },
+                # RobotComponents.RIGHT_CAMERA: {
+                #     "camera_type": "USB",
+                #     "video_device": "/dev/right_camera",
+                #     "image_width": "640",
+                #     "image_height": "480",
+                #     "framerate": "25",
+                # },
             },
+            demonstrate=False,
+            default_action=[
+                # arms will not move when demonstrating
+                # left_arm (6 joints)
+                -0.233,
+                -0.73,
+                1.088,
+                1.774,
+                -1.1475,
+                -0.1606,
+                # right_arm (6 joints)
+                0.2258,
+                -0.6518,
+                0.9543,
+                -1.777,
+                1.0615,
+                0.3588,
+                1.0,  # left_arm_eef (1 joint)
+                1.0,  # right_arm_eef (1 joint)
+                # head (2 joints)
+                0.0,
+                -0.0,
+                0.0,  # spine (1 joint)
+            ],
         )
     )
     assert mmk.configure()
-    for i in range(100000):
+    total_start = time.perf_counter()
+    for i in range(20):
+        start = time.perf_counter()
         mmk.capture_observation()
+        print(f"Iteration {i} took {time.perf_counter() - start:.4f} seconds")
+    print(f"Total time taken: {time.perf_counter() - total_start:.4f} seconds")
+    print(f"Average frequency: {(20 / (time.perf_counter() - total_start)):.4f} Hz")
+    print("Shutting down the robot...")
     mmk.shutdown()
