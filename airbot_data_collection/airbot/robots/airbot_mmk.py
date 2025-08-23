@@ -252,6 +252,10 @@ class AIRBOTMMK(System):
         for comp, images in comp_images.items():
             stamp = self._to_time_ns(images.stamp)
             for img_type, image in images.data.items():
+                if image.shape[0] == 1:
+                    raise ValueError(
+                        f"Image from {comp.value}/{img_type.value} is not valid"
+                    )
                 suffix = (
                     "image_raw"
                     if img_type is not ImageTypes.DEPTH
@@ -267,7 +271,7 @@ class AIRBOTMMK(System):
         """The returned observations do not have a batch dimension."""
         obs_act_dict = self._get_low_dim()
         obs_act_dict.update(self._capture_images())
-        self.get_logger().info("Time costs:\n" + pformat(self._logs))
+        # self.get_logger().info("Time costs:\n" + pformat(self._logs))
         return obs_act_dict
 
     def _to_time_ns(self, stamp: Time) -> int:

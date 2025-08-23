@@ -2,7 +2,7 @@ from pathlib import Path
 from ast import literal_eval
 from collections import Counter
 from enum import auto
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, Literal
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
 from logging import getLogger
 from airbot_data_collection.basis import SystemMode, PostCaptureConfig
@@ -230,7 +230,7 @@ class AutoControlConfig(BaseModel):
 class GroupsSendActionConfig(BaseModel):
     """Which action value and mode to perform for each group
     when the action is called. The action values and mode will be sent
-    to the leaders unless the to_follower is set to True.
+    to the leaders only unless `to_follower` is set to True.
     """
 
     groups: list[str] = []
@@ -286,7 +286,8 @@ class DemonstrateConfig(BaseModel):
     # other actions, such as remove, abandon, etc?
     async_save: AsyncMode = AsyncMode.none
     async_save_max_workers: NonNegativeInt = 1
-    # the directories where the config files are stored
+    remove_mode: Literal["permanent", "trash"] = "permanent"
+    # the directories where the configuration files are stored
     search_dirs: set[str] = {"."}
     # the post capture config for each group leader
     post_capture: Dict[str, PostCaptureConfig] = {}

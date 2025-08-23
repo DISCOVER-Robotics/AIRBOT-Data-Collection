@@ -4,7 +4,7 @@ import multiprocessing as mp
 from logging import getLogger
 from threading import Event, Lock, Thread
 from typing import Any, List, Dict, Set, Union, Callable, Optional
-
+from send2trash import send2trash
 from pydantic import BaseModel, ConfigDict
 
 from airbot_data_collection.basis import Sensor, System, SystemMode
@@ -561,10 +561,13 @@ class DemonstrateInterface:
         """Remove the data from the given or last saved path."""
         path_cls = Path(path)
         if path_cls.exists():
-            if path_cls.is_dir():
-                shutil.rmtree(path_cls)
+            if self.config.remove_mode == "permanent":
+                if path_cls.is_dir():
+                    shutil.rmtree(path_cls)
+                else:
+                    path_cls.unlink()
             else:
-                path_cls.unlink()
+                send2trash(path_cls)
             return True
         else:
             if log:

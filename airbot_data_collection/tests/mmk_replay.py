@@ -101,7 +101,7 @@ def load_data_file(file_path: str) -> dict:
 class AIRBOTMMK2Config:
     name: str = "mmk2"
     domain_id: int = -1
-    ip: str = "172.25.11.188"
+    ip: str = "192.168.11.200"
     port: int = 50055
     default_action: Optional[List[float]] = field(
         default_factory=lambda: [
@@ -268,7 +268,7 @@ def parse_actions_from_data(
         # f"mmk/{first_component.value}/joint_state",  # BSON 格式
         # f"mmk/{first_component.value}/joint_state/position",  # MCAP 格式
         # f"mmk/observation/{first_component.value}/joint_state/position",  # MCAP 格式带observation前缀
-        f"mmk//action/{first_component.value}/joint_state/position",  # MCAP 格式带action前缀
+        f"/mmk/action/{first_component.value}/joint_state/position",  # MCAP 格式带action前缀
     ]
 
     component_topic = None
@@ -293,11 +293,11 @@ def parse_actions_from_data(
         for component in components:
             # 根据数据格式选择话题名称
             topic_prefix = (
-                "mmk/observation/"
+                "/mmk/observation/"
                 if "observation" in component_topic
-                else "mmk/action/"
+                else "/mmk/action/"
                 if "action" in component_topic
-                else "mmk/"
+                else "/mmk/"
             )
 
             print(topic_prefix)

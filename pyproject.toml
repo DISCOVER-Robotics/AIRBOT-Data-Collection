@@ -30,6 +30,7 @@ basic = [
     "bidict",
     "pynput",
     "tqdm",
+    "send2trash",
 ]
 all = [
     "pydantic-settings",
@@ -53,6 +54,7 @@ all = [
     "flatten-dict",
     "av",
     "tyro",
+    "send2trash",
 ]
 # no hardware support, such as
 # opencv, linuxpy, udev, pynput
@@ -72,6 +74,7 @@ soft = [
     "mcap",
     "flatten-dict",
     "av",
+    "send2trash",
 ]
 ml = ["torch", "torchvision"]
 
