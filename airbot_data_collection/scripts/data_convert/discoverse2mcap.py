@@ -55,7 +55,7 @@ for folder in folders:
     mcap_writer = Writer(output_file_path)
     mcap_writer.start()
     flb_writer = McapFlatbufferWriter()
-    flb_writer.set_writter(mcap_writer)
+    flb_writer.set_writer(mcap_writer)
     all_schemas = set(FlatbufferSchemas)
     all_schemas.remove(FlatbufferSchemas.COMPRESSED_IMAGE)
     flb_writer.register_schemas(all_schemas)

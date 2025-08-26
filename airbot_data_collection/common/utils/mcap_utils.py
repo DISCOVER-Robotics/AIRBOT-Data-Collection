@@ -50,8 +50,10 @@ class McapFlatbufferWriter:
             },
         }
 
-    def set_writter(self, writer: Writer, start: bool = True):
+    def set_writer(self, writer: Writer, start: bool = True):
         """Set the MCAP writer for this instance."""
+        self._smapping.clear()
+        self._cmapping.clear()
         self._writer = writer
         if start:
             writer.start()

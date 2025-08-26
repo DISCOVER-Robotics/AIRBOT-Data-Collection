@@ -256,7 +256,7 @@ class DemonstrateInterface:
             self._auto_control_pause_event.wait()
             self.get_logger().info(
                 bcolors.OKCYAN
-                + "Instancing and configuring groups in the separate process"
+                + "Instancing and configuring groups in a separate process"
             )
             self._instance_groups(other=False)
             if not self._configure_groups():

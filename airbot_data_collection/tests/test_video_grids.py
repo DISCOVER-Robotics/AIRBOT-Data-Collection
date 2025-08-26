@@ -510,7 +510,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # import time
     start = time.perf_counter()
     main()
     end = time.perf_counter()
