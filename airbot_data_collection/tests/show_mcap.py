@@ -1,25 +1,27 @@
-import sys
+from airbot_data_collection.common.datasets.mcap_dataset import (
+    McapFlatbufferSampleDataset,
+    McapDatasetConfig,
+)
+from pprint import pprint
+from pydantic_settings import CliApp
 
-import cv2
-from mcap.reader import make_reader
-from turbojpeg import TurboJPEG
 
-jpeg = TurboJPEG()
-with open(sys.argv[1], "rb") as f:
-    reader = make_reader(f)
-    for attachment in reader.iter_attachments():
-        print(f"Attachment: {attachment.name}")
-    # for schema, channel, message in reader.iter_messages(log_time_order=False):
-    #     # if "image" in schema.name:
-    #     #     image = jpeg.decode(message.data)
-    #     #     data = image.shape
-    #     #     cv2.imshow("image", image)
-    #     #     cv2.waitKey(1)
-    #     # else:
-    #     #     data = message.data.decode("utf-8")
-    #     # print(
-    #     #     f"{channel.topic} ({schema.name}): {data} {message.publish_time=} {message.log_time=}"
-    #     # )
-    #     input("Press Enter to continue...")
+args = CliApp().run(McapDatasetConfig)
 
-cv2.destroyAllWindows()
+# dataset = McapFlatbufferSampleDataset(args)
+dataset = McapFlatbufferSampleDataset(
+    McapDatasetConfig(data_root="data/test/1227.mcap")
+)
+dataset.load()
+
+pprint(dataset.reader.all_topic_names())
+pprint(dataset.reader.topic_message_counts())
+all_attachments = dataset.reader.all_attachment_names()
+pprint(all_attachments)
+color_topics = [att for att in all_attachments if "color" in att]
+pprint(color_topics)
+
+for index, sample in enumerate(dataset.reader.iter_attachment_samples(color_topics)):
+    # print(f"Sample {index}: {sample.keys()}")
+    # print(index)
+    pass

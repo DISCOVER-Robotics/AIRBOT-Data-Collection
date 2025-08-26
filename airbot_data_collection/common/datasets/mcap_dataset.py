@@ -32,8 +32,13 @@ class McapDatasetConfig(IterableDatasetConfig):
 
     @field_validator("data_root")
     def validate_data_root(cls, v) -> str:
-        assert isinstance(v, str), "data_root must be a string path to a MCAP file"
-        assert v.endswith(".mcap"), "data_root must be a .mcap file"
+        if not isinstance(v, str):
+            if len(v) == 1:
+                v = v[0]
+            else:
+                raise ValueError(f"data_root {v} must be a string path to a MCAP file")
+        if not v.endswith(".mcap"):
+            raise ValueError(f"data_root {v} must be a `.mcap` file")
         return v
 
     def model_post_init(self, context):
@@ -126,10 +131,11 @@ class McapFlatbufferEpisodeDatasetConfig(McapDatasetConfig):
     def validate_data_root(cls, v) -> List[str]:
         if isinstance(v, str):
             v = [v]
-        for dir in v:
-            assert os.path.isdir(dir), (
-                f"data_root {os.path.abspath(dir)} must be a directory containing MCAP files"
-            )
+        for directory in v:
+            if not os.path.isdir(directory):
+                raise ValueError(
+                    f"data_root {os.path.abspath(directory)} must be a directory containing MCAP files"
+                )
         return v
 
     def model_post_init(self, context):
