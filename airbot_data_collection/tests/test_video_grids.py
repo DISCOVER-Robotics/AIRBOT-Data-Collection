@@ -349,11 +349,16 @@ def main():
         help="输出视频文件名",
     )
     parser.add_argument("--border", type=int, default=2, help="视频边框大小")
+    parser.add_argument(
+        "-p", "--pattern", type=str, default="*.mp4", help="视频文件名模式"
+    )
+    parser.add_argument("-mv", "--max-videos", type=int, default=0, help="最大视频数量")
     args = parser.parse_args()
 
     output_file = args.output
+    max_videos = args.max_videos
 
-    video_files = list(Path(args.input).glob("**/*.mp4"))
+    video_files = list(Path(args.input).glob(f"**/{args.pattern}"))
     if not video_files:
         raise ValueError(f"目录 {args.input} 中未找到mp4视频文件")
     print(f"Found video files: {video_files}")
@@ -377,11 +382,11 @@ def main():
     choice = "2"
     debug_mode = False
     if choice == "2":
-        if len(video_files) <= 90:
-            video_files = video_files * (90 // len(video_files) + 1)
-        video_files = video_files[:90]
-        assert len(video_files) == 90, (
-            f"视频文件数量不足90个，目前只有{len(video_files)}个"
+        if len(video_files) <= max_videos:
+            video_files = video_files * (max_videos // len(video_files) + 1)
+        video_files = video_files[:max_videos]
+        assert len(video_files) == max_videos, (
+            f"视频文件数量不足{max_videos}个，目前只有{len(video_files)}个"
         )
 
         print(f"共输入了 {len(video_files)} 个视频文件")
