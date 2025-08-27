@@ -14,6 +14,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import cpu_count
 import time
+import hashlib
 
 
 class OptimizedVideoGridMerger:
@@ -179,7 +180,13 @@ class OptimizedVideoGridMerger:
         """预处理单个视频（缩放、添加边框）"""
         video_path = video_info["path"]
         video_name = Path(video_path).stem
-        temp_output = os.path.join(self.temp_dir, f"processed_{video_name}.mp4")
+        # 注意: 由于不同目录下可能存在同名文件(例如都叫 cam_1.mp4)，仅使用 stem 会导致
+        # 预处理输出被后续同名文件覆盖，最终所有格子显示为同一个(最后处理的)视频。
+        # 这里对完整路径做哈希以确保唯一输出文件名，避免覆盖。
+        hash_suffix = hashlib.md5(video_path.encode("utf-8")).hexdigest()[:8]
+        temp_output = os.path.join(
+            self.temp_dir, f"processed_{video_name}_{hash_suffix}.mp4"
+        )
 
         # 计算内部尺寸
         inner_w = max(1, cell_width - 2 * self.border_size)
@@ -477,36 +484,32 @@ def main():
     print("优化的视频网格合并工具 (并行处理版)")
     print("=" * 60)
 
-    # 获取视频文件
-    if args.input:
-        video_files = list(Path(args.input).glob(f"**/{args.pattern}"))
-        if not video_files:
-            print(f"❌ 目录 {args.input} 中未找到视频文件")
-            return
+    video_files = list(Path(args.input).glob(f"**/{args.pattern}"))
+    if not video_files:
+        raise ValueError(f"❌ 目录 {args.input} 中未找到视频文件")
+    # print(video_files)
 
-        max_videos = args.max_videos or len(video_files)
-        if len(video_files) < max_videos:
-            # 重复视频以达到目标数量
-            video_files = video_files * (max_videos // len(video_files) + 1)
-        video_files = video_files[:max_videos]
+    max_videos = args.max_videos or len(video_files)
+    if len(video_files) < max_videos:
+        # 重复视频以达到目标数量
+        video_files = video_files * (max_videos // len(video_files) + 1)
+    video_files = video_files[:max_videos]
 
-        print(f"将处理 {len(video_files)} 个视频文件")
+    print(f"将处理 {len(video_files)} 个视频文件")
 
-        # 使用上下文管理器自动清理临时文件
-        with create_optimized_video_merger_from_list(
-            video_files, args.output, args.border, args.workers, args.gpu
-        ) as merger:
-            success = merger.merge_videos_optimized(debug=args.debug)
+    # 使用上下文管理器自动清理临时文件
+    with create_optimized_video_merger_from_list(
+        video_files, args.output, args.border, args.workers, args.gpu
+    ) as merger:
+        success = merger.merge_videos_optimized(debug=args.debug)
 
-            if success:
-                print("\n🎉 任务完成!")
-                print(f"输出文件: {merger.output_file}")
-                print(f"分辨率: 1280x720 (720P)")
-                print(f"时长: {merger.max_duration:.2f} 秒")
-            else:
-                print("\n❌ 任务失败，请检查错误信息")
-    else:
-        print("❌ 请指定输入文件夹路径")
+        if success:
+            print("\n🎉 任务完成!")
+            print(f"输出文件: {merger.output_file}")
+            print(f"分辨率: 1280x720 (720P)")
+            print(f"时长: {merger.max_duration:.2f} 秒")
+        else:
+            print("\n❌ 任务失败，请检查错误信息")
 
 
 if __name__ == "__main__":
