@@ -45,7 +45,7 @@ if __name__ == "__main__":
             if not manager.configure():
                 raise RuntimeError(f"Failed to configure {name} manager.")
         interval = 1.0 / config.update_rate if config.update_rate > 0 else 0.0
-
+        logger.info(f"Update rate: {config.update_rate} Hz")
         # start updating the managers
         # TODO: based on async io to update asynchronously?
         time_queue = deque(maxlen=20)

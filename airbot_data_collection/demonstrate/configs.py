@@ -1,30 +1,14 @@
 from pathlib import Path
-from ast import literal_eval
-from collections import Counter
 from enum import auto
-from typing import Any, Dict, Optional, Union, Literal
+from typing import Any, Dict, Optional, Literal
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
-from logging import getLogger
-from airbot_data_collection.basis import SystemMode, PostCaptureConfig
 from airbot_data_collection.utils import StrEnum
 
 
-class ComponentRole(StrEnum):
-    """The role of the component in the group."""
-
-    # the leader of the group
-    l = auto()  #  # noqa: E741
-    # the follower of the group
-    f = auto()  #  # noqa: E741
-    # the other components in the group
-    # e.g. the sensors such as cameras,
-    # imus, tactiles, etc.
-    o = auto()
-
-
-class AsyncMode(StrEnum):
+class ConcurrentMode(StrEnum):
     thread = auto()
     process = auto()
+    asynchronous = auto()
     none = auto()
 
 
@@ -39,7 +23,7 @@ class ComponentConfig(BaseModel):
     path: str = ""
     # the parameters to override the yaml file config
     param: dict = {}
-    async_mode: AsyncMode = AsyncMode.none
+    concurrent: ConcurrentMode = ConcurrentMode.none
     update_rate: NonNegativeFloat = 0
 
 
@@ -51,7 +35,7 @@ class ComponentsConfig(BaseModel):
     names: list[str] = []
     paths: list[str] = []
     params: list[dict] = []
-    async_modes: list[AsyncMode] = []
+    concurrents: list[ConcurrentMode] = []
     update_rates: list[NonNegativeFloat] = []
 
     def model_post_init(self, context):
@@ -59,122 +43,6 @@ class ComponentsConfig(BaseModel):
             f"names: {self.names}, paths: {self.paths}, params: {self.params} "
             f"must have the same length"
         )
-
-
-class GroupConfig(BaseModel):
-    name: str
-    leader: list[ComponentConfig] = []
-    followers: list[ComponentConfig] = []
-    others: list[ComponentConfig] = []
-
-
-class ComponentGroupsConfig(BaseModel):
-    # names of the robots, e.g. ("left_arm", "right_arm", "head_camera")
-    names: list[str] = []
-    # paths to the robot hydra config yaml files
-    paths: list[str] = []
-    # params to override the robot config in the yaml file
-    params: list[Union[str, dict]] = []
-    # the groups to which the robot belongs,
-    # each group must have one and only one leader robot
-    # and no less than one follower robot
-    groups: list[str] = []
-    roles: list[ComponentRole] = []
-
-    def model_post_init(self, context):
-        if not self.names:
-            ref_length = max(len(self.paths), len(self.params))
-            self.names = [f"robot{i}" for i in range(ref_length)]
-        # TODO: should check if the names are unique across all groups or
-        # only within the same group at only within the same group and the
-        # same role?
-        # else:
-        #     assert len(set(self.names)) == len(self.names), "names must be unique"
-        name_length = len(self.names)
-        if len(self.paths) == 1:
-            self.paths = [self.paths[0]] * name_length
-        assert name_length == len(self.paths), (
-            "names and paths must have the same length"
-        )
-        if not self.params:
-            self.params = [{}] * name_length
-        elif len(self.params) == 1:
-            self.params = [self.params[0]] * name_length
-        assert name_length == len(self.params), (
-            "names and params must have the same length"
-        )
-        self.params = [
-            literal_eval(param) if isinstance(param, str) else param
-            for param in self.params
-        ]
-        group_num = len(self.groups)
-        role_num = len(self.roles)
-        if group_num == 1:
-            self.groups = [self.groups[0]] * name_length
-        assert group_num == len(self.names), "groups must have the same length as names"
-        assert role_num == len(self.groups), "roles must have the same length as groups"
-        # check if each group has one and only one leader robot
-        # and no less than one follower robot
-        group_set = set(self.groups)
-
-        def get_all_index(x):
-            return [i for i, j in enumerate(self.groups) if j == x]
-
-        for group in group_set:
-            indexes = get_all_index(group)
-            group_roles = [self.roles[i] for i in indexes]
-            group_counter = Counter(group_roles)
-            leader_cnt = 0
-            leader_cnt += group_counter[ComponentRole.l]
-            # TODO: support groups that only have other roles
-            assert leader_cnt in [
-                0,
-                1,
-            ], (
-                f"each group can have zero or only one leader robot, but {group} has {leader_cnt} leaders"
-            )
-            follower_cnt = 0
-            follower_cnt += group_counter[ComponentRole.f]
-            if leader_cnt > 0 and follower_cnt == 0:
-                raise RuntimeError(
-                    f"each group must have at least one robot when there is one leader, but {group} has {follower_cnt} followers"
-                )
-
-    @computed_field
-    @property
-    def grouped_config(self) -> list[GroupConfig]:
-        """
-        Returns a set of grouped configs.
-        """
-        group_set = set(self.groups)
-        grouped_config = []
-        for group in group_set:
-            leaders = []
-            followers = []
-            others = []
-            for index, name in enumerate(self.groups):
-                if name == group:
-                    role = self.roles[index]
-                    config = ComponentConfig(
-                        name=self.names[index],
-                        path=self.paths[index],
-                        param=self.params[index],
-                    )
-                    if role is ComponentRole.l:
-                        leaders.append(config)
-                    elif role is ComponentRole.f:
-                        followers.append(config)
-                    else:
-                        others.append(config)
-            grouped_config.append(
-                GroupConfig(
-                    name=group,
-                    leader=leaders,
-                    followers=followers,
-                    others=others,
-                )
-            )
-        return grouped_config
 
 
 class DatasetConfig(BaseModel):
@@ -200,6 +68,7 @@ class DemonstrateAction(StrEnum):
     save = auto()
     remove = auto()
     abandon = auto()
+    deactivate = auto()
     finish = auto()
 
 
@@ -210,33 +79,6 @@ class DemonstrateState(StrEnum):
     active = auto()
     sampling = auto()
     finalized = auto()
-
-
-class AutoControlConfig(BaseModel):
-    # the group names where the leader states
-    # are used to control the follower states
-    # None means all group names are used
-    # if empty, the control should be implicitly implemented when
-    # switching to the active / passive mode
-    groups: Optional[list[str]] = None
-    # the rate of the auto control loop for each group
-    # 0 means as fast as possible
-    rate: list[NonNegativeFloat] = []
-    # the mode of the auto control loop for each group
-    # can not be none
-    mode: AsyncMode = AsyncMode.thread
-
-
-class GroupsSendActionConfig(BaseModel):
-    """Which action value and mode to perform for each group
-    when the action is called. The action values and mode will be sent
-    to the leaders only unless `to_follower` is set to True.
-    """
-
-    groups: list[str] = []
-    action_values: list[Any] = []
-    modes: list[SystemMode] = []
-    to_follower: list[bool] = []
 
 
 class SampleLimit(BaseModel):
@@ -269,14 +111,14 @@ class SampleLimit(BaseModel):
 
 
 class DemonstrateConfig(BaseModel):
-    components: ComponentGroupsConfig
     dataset: DatasetConfig
     sample_limit: SampleLimit = SampleLimit()
-    auto_control: AutoControlConfig = AutoControlConfig()
     # what the leaders / followers to act when
     # performing an actions for each group
     # if None, no action values will be sent
-    send_actions: Dict[DemonstrateAction, GroupsSendActionConfig] = {}
+    send_actions: Dict[DemonstrateAction, Any] = {}
+    # the demonstrator to be used for the demonstration
+    demonstrator: ComponentConfig
     # the sampler to be used to collect and save the data
     # if None, a mock sampler will be used
     sampler: Optional[ComponentConfig] = None
@@ -284,66 +126,8 @@ class DemonstrateConfig(BaseModel):
     visualizers: ComponentsConfig = ComponentsConfig()
     # TODO: should use a dict to set the async mode for
     # other actions, such as remove, abandon, etc?
-    async_save: AsyncMode = AsyncMode.none
-    async_save_max_workers: NonNegativeInt = 1
+    concurrent_save: ConcurrentMode = ConcurrentMode.none
+    concurrent_save_max_workers: NonNegativeInt = 1
     remove_mode: Literal["permanent", "trash"] = "permanent"
     # the directories where the configuration files are stored
     search_dirs: set[str] = {"."}
-    # the post capture config for each group leader
-    post_capture: Dict[str, PostCaptureConfig] = {}
-
-    def model_post_init(self, context):
-        if self.auto_control.groups is None:
-            self.auto_control.groups = self.components.groups
-        if {ComponentRole.l, ComponentRole.f} - set(self.components.roles):
-            if self.auto_control.groups:
-                getLogger(self.__class__.__name__).warning(
-                    "No leader and follower role found in the components, "
-                    "clear auto_control.groups."
-                )
-                self.auto_control.groups = []
-        if len(self.auto_control.rate) == 1:
-            self.auto_control.rate = [self.auto_control.rate[0]] * len(
-                self.components.groups
-            )
-        # for action, calls in self.send_actions.items():
-        #     if not isinstance(calls, dict):
-        #         self.send_actions[action] = {
-        #             group: calls for group in self.components.groups
-        #         }
-
-
-if __name__ == "__main__":
-    from pprint import pprint
-
-    configs: list[ComponentGroupsConfig] = []
-
-    configs.append(
-        ComponentGroupsConfig(
-            names=[
-                "left_arm_leader",
-                "left_arm_follower",
-                "right_arm_leader",
-                "right_arm_follower",
-            ],
-            paths=["configs/robots/airbot.yaml"] * 4,
-            params=[{}] * 4,
-            groups=["left", "left", "right", "right"],
-            roles=[
-                ComponentRole.l,
-                ComponentRole.f,
-                ComponentRole.l,
-                ComponentRole.f,
-            ],
-        )
-    )
-
-    configs.append(
-        ComponentGroupsConfig(
-            paths=["configs/robots/airbot.yaml"],
-            params=[{}, {}],
-        )
-    )
-
-    for config in configs:
-        pprint(config.model_dump())

@@ -1,11 +1,9 @@
 from enum import Enum
 from pprint import pformat
-
 from bidict import bidict
 from pydantic import BaseModel
 from pynput import keyboard
-
-from airbot_data_collection.demonstrate.configs import ComponentRole
+from airbot_data_collection.basis import SystemMode
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from airbot_data_collection.utils import bcolors
@@ -104,9 +102,17 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         elif key == "b":
             self.get_logger().warning("Not implemented yet")
         elif key == "g":
-            self.fsm.set_role_mode(ComponentRole.l, None)
+            cur_mode = (
+                SystemMode.PASSIVE
+                if self.fsm.demonstrator.current_mode is not SystemMode.PASSIVE
+                else SystemMode.RESETTING
+            )
+            self.fsm.demonstrator.switch_mode(cur_mode)
         elif key == "f":
-            self.fsm.set_auto_control(None)
+            if self.fsm.demonstrator.handler.is_stopped():
+                self.fsm.demonstrator.handler.start()
+            else:
+                self.fsm.demonstrator.handler.stop()
         elif key in {"ctrl", "c"}:
             pass
         else:

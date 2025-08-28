@@ -83,7 +83,12 @@ for folder in folders:
     groups = ["lead", "follow"]
     components = ["arm", "eef"]
     slices = [slice(0, 6), slice(6, 7)]
-    with open(f"{folder}/obs_action.json") as f:
+
+    path = f"{folder}/obs_action.json"
+    if not os.path.exists(path):
+        print(f"Skipping file {path} as it does not exist.")
+        continue
+    with open(path) as f:
         act_obs: dict = json.load(f)
         print(f"{act_obs.keys()=}")
         # register joint state channels

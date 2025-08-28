@@ -14,7 +14,6 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import cpu_count
 import time
-import hashlib
 
 
 class OptimizedVideoGridMerger:
@@ -180,13 +179,7 @@ class OptimizedVideoGridMerger:
         """预处理单个视频（缩放、添加边框）"""
         video_path = video_info["path"]
         video_name = Path(video_path).stem
-        # 注意: 由于不同目录下可能存在同名文件(例如都叫 cam_1.mp4)，仅使用 stem 会导致
-        # 预处理输出被后续同名文件覆盖，最终所有格子显示为同一个(最后处理的)视频。
-        # 这里对完整路径做哈希以确保唯一输出文件名，避免覆盖。
-        hash_suffix = hashlib.md5(video_path.encode("utf-8")).hexdigest()[:8]
-        temp_output = os.path.join(
-            self.temp_dir, f"processed_{video_name}_{hash_suffix}.mp4"
-        )
+        temp_output = os.path.join(self.temp_dir, f"processed_{video_name}.mp4")
 
         # 计算内部尺寸
         inner_w = max(1, cell_width - 2 * self.border_size)

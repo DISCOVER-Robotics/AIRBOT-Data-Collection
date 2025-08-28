@@ -361,10 +361,11 @@ while True:
         input_file_path = f"{defaults_dir}/config_full.yaml"
         with open(input_file_path) as f:
             config: dict = yaml.safe_load(f)
-            config["components"] = components
+            param_dict: dict = config["demonstrator"]["param"]
+            param_dict["components"] = components
         post_capture_path = f"{defaults_dir}/post_capture/{can_num}.yaml"
         with open(post_capture_path) as f:
-            config.update(yaml.safe_load(f))
+            param_dict.update(yaml.safe_load(f))
         file_path = input_file_path.replace("full", "setup")
         with open(file_path, "w") as f:
             yaml.dump(

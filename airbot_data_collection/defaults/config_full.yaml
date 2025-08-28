@@ -1,36 +1,42 @@
-auto_control:
-  rate: [100]
-components:
-  groups:
-    - left
-    - left
-    - right
-    - right
-    - env_camera
-  names:
-    - lead
-    - follow
-    - lead
-    - follow
-    - env
-  params:
-    - port: 50050
-    - port: 50051
-    - port: 50052
-    - port: 50053
-    - camera_index: null
-  paths:
-    - airbot_play_mock
-    - airbot_play_mock
-    - airbot_play_mock
-    - airbot_play_mock
-    - v4l2
-  roles:
-    - l
-    - f
-    - l
-    - f
-    - o
+demonstrator:
+  name: grouped
+  param:
+    _target_: airbot_data_collection.demonstrate.demonstrators.grouped.GroupedDemonstrator
+    auto_control:
+      rates: [100]
+      modes: [process]
+    components:
+      groups:
+        - left
+        - left
+        - right
+        - right
+        - env_camera
+      names:
+        - lead
+        - follow
+        - lead
+        - follow
+        - env
+      params:
+        - port: 50050
+        - port: 50051
+        - port: 50052
+        - port: 50053
+        - camera_index: null
+      paths:
+        - airbot_play_mock
+        - airbot_play_mock
+        - airbot_play_mock
+        - airbot_play_mock
+        - v4l2
+      roles:
+        - l
+        - f
+        - l
+        - f
+        - o
+  path: ""
 dataset:
   directory: arm1-001
 managers:
@@ -46,7 +52,8 @@ managers:
 sample_limit:
   size: 1000
   start_round: -1
-async_save: none
+concurrent_save: none
+update_rate: 20
 sampler:
   name: airbot_mcap_sampler
   param:
@@ -74,7 +81,6 @@ sampler:
       username: admin
       password: "123456"
   path: ""
-update_rate: 20
 visualizers:
   names:
     - opencv
