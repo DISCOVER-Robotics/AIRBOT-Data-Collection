@@ -337,12 +337,15 @@ class GroupedDemonstrator(Demonstrator):
         start = time.monotonic()
         for group_name in self.config.auto_control.groups:
             group = self.group_map[group_name]
-            if group.leader:
-                leader = group.leader[0]
-                obs = leader.capture_observation()
-                if obs:
-                    for follower in group.followers:
-                        follower.send_action(obs)
+            # merge leader observations
+            leader_obs = {}
+            for leader in group.leader:
+                leader_obs.update(leader.capture_observation())
+            self.get_logger().info(f"{leader_obs}")
+            if leader_obs:
+                for follower in group.followers:
+                    self.get_logger().info("Sending leader observations to follower")
+                    follower.send_action(leader_obs)
         sleep_time = period - (time.monotonic() - start)
         if sleep_time > 0:
             time.sleep(sleep_time)
