@@ -465,7 +465,9 @@ class GroupedDemonstrator(Demonstrator):
         return False
 
     def _finish(self) -> bool:
-        return self.shutdown()
+        if self.handler.exit():
+            return self.shutdown()
+        return False
 
     def on_switch_mode(self, mode):
         return self._set_role_mode(ComponentRole.l, mode)
