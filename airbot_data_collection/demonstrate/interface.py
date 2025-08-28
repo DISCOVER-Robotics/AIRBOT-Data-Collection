@@ -287,6 +287,8 @@ class DemonstrateInterface:
             self.get_logger().info(
                 f"Finished the demonstration: from {self._config.sample_limit.start_round} to {self._sample_info.round}"
             )
+            for vis in self._visualizers.values():
+                vis.shutdown()
             return self._post_action(DemonstrateAction.finish)
         return False
 

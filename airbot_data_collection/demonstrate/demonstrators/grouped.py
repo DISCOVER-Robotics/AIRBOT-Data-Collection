@@ -269,7 +269,6 @@ class GroupedDemonstrator(Demonstrator):
         return True
 
     def _instance_groups(self, other: bool = True):
-        print(self.config.components.grouped_config)
         self.groups: list[DemonstrateGroup] = []
         self.group_component_names: list[GroupComponentNames] = []
         self.group_map: dict[str, DemonstrateGroup] = {}
@@ -282,6 +281,7 @@ class GroupedDemonstrator(Demonstrator):
                 others = [self.instancer.instance(other) for other in group.others]
             else:
                 others = []
+                group.others = []
             self.groups.append(
                 DemonstrateGroup(
                     name=group.name,
@@ -306,6 +306,10 @@ class GroupedDemonstrator(Demonstrator):
                 + [ComponentRole.f] * len(group.followers)
                 + [ComponentRole.o] * len(group.others)
             )
+            # print(f"processing group: {group.name}")
+            # print("group components:", group.get_all_components())
+            # print("component names:", name.get_all_names())
+            # print("component roles:", roles)
             for component, n, role in zip(
                 group.get_all_components(), name.get_all_names(), roles
             ):
@@ -349,17 +353,18 @@ class GroupedDemonstrator(Demonstrator):
         rates = self.config.auto_control.rates
         assert rates, "Auto control rate must be set"
         period = 1 / rates[0]
-        # if self.config.auto_control.modes[0] is ConcurrentMode.process:
-        #     self._handler.wait()
-        #     self.get_logger().info(
-        #         bcolors.OKCYAN
-        #         + "Instancing and configuring groups in a separate process"
-        #     )
-        #     self._instance_groups(other=False)
-        #     if not self._configure_groups():
-        #         self.get_logger().error("Failed to start auto control loop")
-        #         return False
+        if self.config.auto_control.modes[0] is ConcurrentMode.process:
+            self._handler.wait()
+            self.get_logger().info(
+                bcolors.OKCYAN
+                + "Instancing and configuring groups in a separate process"
+            )
+            self._instance_groups(other=False)
+            if not self._configure_groups():
+                self.get_logger().error("Failed to start auto control loop")
+                return False
         self.get_logger().info(bcolors.OKGREEN + "Auto control loop started")
+        # TODO: add ready event feedback
         while self._handler.wait():
             # self.get_logger().info("Running auto control loop")
             self._auto_control_once(period)

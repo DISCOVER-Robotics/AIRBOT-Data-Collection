@@ -5,7 +5,7 @@ from airbot_data_collection.basis import ConfigBasis
 
 
 class DataSampler(ConfigBasis):
-    """Data sampler for sampling kinds of data."""
+    """Data sampler for sampling kinds of data.TODO: add a close method?"""
 
     @abstractmethod
     def compose_path(self, directory: str, round: int) -> str:

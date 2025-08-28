@@ -1,13 +1,13 @@
 from numpy import ndarray
 from typing import Union
 from airbot_data_collection.common.devices.cameras.v4l2 import (
-    V4L2Camera,
+    V4L2Camera as V4L2CameraBasis,
     V4L2CameraConfig,
 )
 from time import time_ns
 
 
-class BsonV4L2Camera(V4L2Camera):
+class V4L2Camera(V4L2CameraBasis):
     config: V4L2CameraConfig
 
     def capture_observation(
