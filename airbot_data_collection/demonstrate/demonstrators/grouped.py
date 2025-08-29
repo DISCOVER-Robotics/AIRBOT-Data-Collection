@@ -313,19 +313,19 @@ class ComponentGroupManager:
 
     def auto_control_once(self, period: float = 0) -> float:
         """Control the followers to follow the leader."""
-        start = time.monotonic()
+        start = time.perf_counter()
         for group_name in self._config.auto_control.groups:
             group = self.group_map[group_name]
             # merge leader observations
             leader_obs = {}
             for leader in group.leader:
                 leader_obs.update(leader.capture_observation())
-            self.get_logger().info(f"{leader_obs}")
+            # self.get_logger().info(f"{leader_obs}")
             if leader_obs:
                 for follower in group.followers:
-                    self.get_logger().info("Sending leader observations to follower")
+                    # self.get_logger().info(f"Sending leader observations {leader_obs} to follower")
                     follower.send_action(leader_obs)
-        sleep_time = period - (time.monotonic() - start)
+        sleep_time = period - (time.perf_counter() - start)
         if sleep_time > 0:
             time.sleep(sleep_time)
         return sleep_time
@@ -336,6 +336,8 @@ class ComponentGroupManager:
         assert self._config.auto_control.rates, "Auto control rate must be set"
         logger = self.get_logger()
         if not self.is_instanced:
+            # TODO: wait for starting?
+            handler.wait()
             logger.info(bcolors.OKCYAN + "Instancing groups without others")
             self.instance_groups(False)
         if not self.is_configured:
@@ -345,7 +347,7 @@ class ComponentGroupManager:
         logger.info(bcolors.OKGREEN + "Auto control loop started")
         # TODO: add ready event feedback
         while handler.wait():
-            logger.info("Running auto control loop")
+            # logger.info("Running auto control loop")
             self.auto_control_once(period)
         logger.info(bcolors.OKBLUE + "Auto control loop stopped")
 
@@ -372,10 +374,11 @@ class GroupedDemonstrator(Demonstrator):
         # TODO: use multi modes handlers for different groups
         modes = self.config.auto_control.modes or [ConcurrentMode.none]
         self._handler = self.create_handler(modes[0])
-        self._handler.register_callback("start", self._start_following)
-        self._handler.register_callback(
-            "stop", lambda: self.get_logger().info("Stopping following")
-        )
+        if self._use_auto_control:
+            self._handler.register_callback("start", self._start_following)
+            self._handler.register_callback(
+                "stop", lambda: self.get_logger().info("Stopping following")
+            )
         return self._init_all_components()
 
     def _init_all_components(self) -> bool:
@@ -391,6 +394,7 @@ class GroupedDemonstrator(Demonstrator):
     def send_action(self, action: GroupsSendActionConfig) -> bool:
         """Control the leaders after some demonstrate action"""
         if action is not None:
+            self.get_logger().info(bcolors.OKCYAN + f"Sending action: {action}")
             for group_name, action_value, mode, to_follower in zip(
                 action.groups, action.action_values, action.modes, action.to_follower
             ):
@@ -414,6 +418,7 @@ class GroupedDemonstrator(Demonstrator):
 
     def _start_following(self) -> bool:
         """Start to follow."""
+        self.get_logger().info(bcolors.OKCYAN + "Starting to follow")
         # set the followers to resetting mode to move smoothly
         if self._set_role_mode(ComponentRole.f, SystemMode.RESETTING):
             # TODO: control until the joint positions are near the leader
@@ -502,6 +507,7 @@ class GroupedDemonstrator(Demonstrator):
             return True
         mode = self.config.auto_control.modes[0]
         if mode is ConcurrentMode.process:
+            self.get_logger().info("Copying the manager and handler")
             manager = self._cg_manager.copy()
             handler = self._handler.copy()
         else:
@@ -523,6 +529,7 @@ class GroupedDemonstrator(Demonstrator):
         return self.shutdown()
 
     def on_switch_mode(self, mode):
+        self.get_logger().info(f"Switching all leaders to {mode} mode")
         return self._set_role_mode(ComponentRole.l, mode)
 
     def shutdown(self) -> bool:
