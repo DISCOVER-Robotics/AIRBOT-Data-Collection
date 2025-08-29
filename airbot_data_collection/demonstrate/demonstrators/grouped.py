@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, computed_field, NonNegativeFloat
 from typing import List, Union, Optional, Any, Dict, Callable
+from typing_extensions import Self
 from airbot_data_collection.basis import (
     Sensor,
     System,
@@ -12,6 +13,8 @@ from airbot_data_collection.demonstrate.basis import (
     Demonstrator,
     DemonstratorConfig,
     ComponentConfig,
+    ConcurrentHandler,
+    ComponentsInstancer,
 )
 from airbot_data_collection.demonstrate.configs import ConcurrentMode, DemonstrateAction
 from airbot_data_collection.utils import zip, bcolors
@@ -228,6 +231,138 @@ class GroupedDemonstratorConfig(DemonstratorConfig):
         #         }
 
 
+class ComponentGroupManager:
+    def __init__(
+        self,
+        config: GroupedDemonstratorConfig,
+        instancer: ComponentsInstancer,
+    ):
+        self._config = config
+        self._instancer = instancer
+        self.groups: list[DemonstrateGroup] = []
+        self.group_component_names: list[GroupComponentNames] = []
+        self.group_map: dict[str, DemonstrateGroup] = {}
+        if not self._config.components.grouped_config:
+            raise ValueError("No groups found in the components config")
+        self._configured = False
+
+    def get_logger(self):
+        return getLogger(self.__class__.__name__)
+
+    def instance_groups(self, other: bool = True):
+        for group in self._config.components.grouped_config:
+            leader = [self._instancer.instance(leader) for leader in group.leader]
+            followers = [
+                self._instancer.instance(follower) for follower in group.followers
+            ]
+            if other:
+                others = [self._instancer.instance(other) for other in group.others]
+            else:
+                others = []
+                group.others = []
+            self.groups.append(
+                DemonstrateGroup(
+                    name=group.name,
+                    leader=leader,
+                    followers=followers,
+                    others=others,
+                )
+            )
+            self.group_component_names.append(
+                GroupComponentNames(
+                    leader=[leader.name for leader in group.leader],
+                    followers=[follower.name for follower in group.followers],
+                    others=[other.name for other in group.others],
+                )
+            )
+            self.group_map[group.name] = self.groups[-1]
+
+    def configure_groups(self) -> bool:
+        for group, name in zip(self.groups, self.group_component_names):
+            roles = (
+                [ComponentRole.l] * len(group.leader)
+                + [ComponentRole.f] * len(group.followers)
+                + [ComponentRole.o] * len(group.others)
+            )
+            # print(f"processing group: {group.name}")
+            # print("group components:", group.get_all_components())
+            # print("component names:", name.get_all_names())
+            # print("component roles:", roles)
+            for component, n, role in zip(
+                group.get_all_components(), name.get_all_names(), roles
+            ):
+                if not component.configure():
+                    self.get_logger().error(
+                        f"Failed to configure {n} of role: {role} in group {group.name}"
+                    )
+                    return False
+        for group_name, post_capture in self._config.post_capture.items():
+            group = self.group_map[group_name]
+            self.get_logger().info(
+                f"Setting post capture for group {group_name}: {post_capture}"
+            )
+            leader = None
+            for leader in group.leader:
+                leader.set_post_capture(post_capture)
+            if leader is None:
+                self.get_logger().warning(
+                    f"Group: {group_name} has no leader, post capture will not be set"
+                )
+        self._configured = True
+        return True
+
+    def auto_control_once(self, period: float = 0) -> float:
+        """Control the followers to follow the leader."""
+        start = time.monotonic()
+        for group_name in self._config.auto_control.groups:
+            group = self.group_map[group_name]
+            # merge leader observations
+            leader_obs = {}
+            for leader in group.leader:
+                leader_obs.update(leader.capture_observation())
+            self.get_logger().info(f"{leader_obs}")
+            if leader_obs:
+                for follower in group.followers:
+                    self.get_logger().info("Sending leader observations to follower")
+                    follower.send_action(leader_obs)
+        sleep_time = period - (time.monotonic() - start)
+        if sleep_time > 0:
+            time.sleep(sleep_time)
+        return sleep_time
+
+    def auto_control_loop(self, handler: ConcurrentHandler):
+        """Control the followers to follow the leader in a loop."""
+        period = 1 / self._config.auto_control.rates[0]
+        assert self._config.auto_control.rates, "Auto control rate must be set"
+        logger = self.get_logger()
+        if not self.is_instanced:
+            logger.info(bcolors.OKCYAN + "Instancing groups without others")
+            self.instance_groups(False)
+        if not self.is_configured:
+            logger.info(bcolors.OKCYAN + "Configuring groups")
+            if not self.configure_groups():
+                raise RuntimeError("Failed to configure groups")
+        logger.info(bcolors.OKGREEN + "Auto control loop started")
+        # TODO: add ready event feedback
+        while handler.wait():
+            logger.info("Running auto control loop")
+            self.auto_control_once(period)
+        logger.info(bcolors.OKBLUE + "Auto control loop stopped")
+
+    def copy(self) -> Self:
+        # create a new instance of the class to remove
+        # all references to the original instance
+        return self.__class__(self._config, self._instancer)
+
+    @property
+    def is_instanced(self) -> bool:
+        return bool(self.groups)
+
+    @property
+    def is_configured(self) -> bool:
+        return self._configured
+
+
 class GroupedDemonstrator(Demonstrator):
     config: GroupedDemonstratorConfig
 
@@ -241,8 +376,17 @@ class GroupedDemonstrator(Demonstrator):
         self._handler.register_callback(
             "stop", lambda: self.get_logger().info("Stopping following")
         )
-        self._instance_groups()
-        return self._configure_groups()
+        return self._init_all_components()
+
+    def _init_all_components(self) -> bool:
+        self._cg_manager = ComponentGroupManager(self.config, self.instancer)
+        self._cg_manager.instance_groups()
+        self.groups = self._cg_manager.groups
+        self.group_component_names = self._cg_manager.group_component_names
+        self.group_map = self._cg_manager.group_map
+        if self._cg_manager.configure_groups():
+            return True
+        return False
 
     def send_action(self, action: GroupsSendActionConfig) -> bool:
         """Control the leaders after some demonstrate action"""
@@ -268,117 +412,12 @@ class GroupedDemonstrator(Demonstrator):
                         return False
         return True
 
-    def _instance_groups(self, other: bool = True):
-        self.groups: list[DemonstrateGroup] = []
-        self.group_component_names: list[GroupComponentNames] = []
-        self.group_map: dict[str, DemonstrateGroup] = {}
-        for group in self.config.components.grouped_config:
-            leader = [self.instancer.instance(leader) for leader in group.leader]
-            followers = [
-                self.instancer.instance(follower) for follower in group.followers
-            ]
-            if other:
-                others = [self.instancer.instance(other) for other in group.others]
-            else:
-                others = []
-                group.others = []
-            self.groups.append(
-                DemonstrateGroup(
-                    name=group.name,
-                    leader=leader,
-                    followers=followers,
-                    others=others,
-                )
-            )
-            self.group_component_names.append(
-                GroupComponentNames(
-                    leader=[leader.name for leader in group.leader],
-                    followers=[follower.name for follower in group.followers],
-                    others=[other.name for other in group.others],
-                )
-            )
-            self.group_map[group.name] = self.groups[-1]
-
-    def _configure_groups(self) -> bool:
-        for group, name in zip(self.groups, self.group_component_names):
-            roles = (
-                [ComponentRole.l] * len(group.leader)
-                + [ComponentRole.f] * len(group.followers)
-                + [ComponentRole.o] * len(group.others)
-            )
-            # print(f"processing group: {group.name}")
-            # print("group components:", group.get_all_components())
-            # print("component names:", name.get_all_names())
-            # print("component roles:", roles)
-            for component, n, role in zip(
-                group.get_all_components(), name.get_all_names(), roles
-            ):
-                if not component.configure():
-                    self.get_logger().error(
-                        f"Failed to configure {n} of role: {role} in group {group.name}"
-                    )
-                    return False
-        for group_name, post_capture in self.config.post_capture.items():
-            group = self.group_map[group_name]
-            self.get_logger().info(
-                f"Setting post capture for group {group_name}: {post_capture}"
-            )
-            leader = None
-            for leader in group.leader:
-                leader.set_post_capture(post_capture)
-            if leader is None:
-                self.get_logger().warning(
-                    f"Group: {group_name} has no leader, post capture will not be set"
-                )
-        return True
-
-    def _auto_control_once(self, period: float = 0) -> float:
-        """Control the followers to follow the leader."""
-        start = time.monotonic()
-        for group_name in self.config.auto_control.groups:
-            group = self.group_map[group_name]
-            # merge leader observations
-            leader_obs = {}
-            for leader in group.leader:
-                leader_obs.update(leader.capture_observation())
-            self.get_logger().info(f"{leader_obs}")
-            if leader_obs:
-                for follower in group.followers:
-                    self.get_logger().info("Sending leader observations to follower")
-                    follower.send_action(leader_obs)
-        sleep_time = period - (time.monotonic() - start)
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-        return sleep_time
-
-    def _auto_control_loop(self) -> None:
-        """Control the followers to follow the leader in a loop."""
-        rates = self.config.auto_control.rates
-        assert rates, "Auto control rate must be set"
-        period = 1 / rates[0]
-        if self.config.auto_control.modes[0] is ConcurrentMode.process:
-            self._handler.wait()
-            self.get_logger().info(
-                bcolors.OKCYAN
-                + "Instancing and configuring groups in a separate process"
-            )
-            self._instance_groups(other=False)
-            if not self._configure_groups():
-                self.get_logger().error("Failed to start auto control loop")
-                return False
-        self.get_logger().info(bcolors.OKGREEN + "Auto control loop started")
-        # TODO: add ready event feedback
-        while self._handler.wait():
-            # self.get_logger().info("Running auto control loop")
-            self._auto_control_once(period)
-        self.get_logger().info(bcolors.OKBLUE + "Auto control loop stopped")
-
     def _start_following(self) -> bool:
         """Start to follow."""
         # set the followers to resetting mode to move smoothly
         if self._set_role_mode(ComponentRole.f, SystemMode.RESETTING):
             # TODO: control until the joint positions are near the leader
-            self._auto_control_once()
+            self._cg_manager.auto_control_once()
             return self._set_role_mode(ComponentRole.f, SystemMode.SAMPLING)
         self.get_logger().error("Failed to start following")
         return False
@@ -461,10 +500,18 @@ class GroupedDemonstrator(Demonstrator):
     def _activate(self) -> bool:
         if not self._use_auto_control:
             return True
+        mode = self.config.auto_control.modes[0]
+        if mode is ConcurrentMode.process:
+            manager = self._cg_manager.copy()
+            handler = self._handler.copy()
+        else:
+            manager = self._cg_manager
+            handler = self._handler
         if self._handler.launch(
-            target=self._auto_control_loop,
+            target=manager.auto_control_loop,
             name="auto_control_loop",
             daemon=True,
+            args=(handler,),
         ):
             # start auto control by default
             if self.handler.start():
@@ -473,18 +520,18 @@ class GroupedDemonstrator(Demonstrator):
         return False
 
     def _finish(self) -> bool:
-        if self.handler.exit():
-            return self.shutdown()
-        return False
+        return self.shutdown()
 
     def on_switch_mode(self, mode):
         return self._set_role_mode(ComponentRole.l, mode)
 
-    def shutdown(self):
-        for group in self.groups:
-            for component in group.get_all_components():
-                component.shutdown()
-        return True
+    def shutdown(self) -> bool:
+        if self.handler.exit():
+            for group in self.groups:
+                for component in group.get_all_components():
+                    component.shutdown()
+            return True
+        return False
 
     @property
     def handler(self):

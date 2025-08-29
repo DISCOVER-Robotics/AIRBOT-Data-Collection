@@ -166,6 +166,11 @@ class DemonstratorHandler:
         be executed before the `on_<action>` method."""
         self.__callbacks[action].append(callback)
 
+    @final
+    def clear_callbacks(self):
+        """Clears all registered callbacks."""
+        self.__callbacks.clear()
+
     def get_logger(self) -> logging.Logger:
         """Gets the logger for the demonstration."""
         return logging.getLogger(__name__)
@@ -174,6 +179,15 @@ class DemonstratorHandler:
         """Executes all callbacks registered for a specific action."""
         for callback in self.__callbacks.get(action, []):
             callback()
+
+    def copy(self):
+        """Creates a shallow copy of the demonstrator handler."""
+        cls = self.__class__
+        new_obj = cls.__new__(cls)
+        new_obj.__dict__.update(self.__dict__)
+        # clear all callbacks to remove outer references
+        new_obj.clear_callbacks()
+        return new_obj
 
 
 class MockHandler(DemonstratorHandler):
