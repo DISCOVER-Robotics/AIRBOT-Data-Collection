@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from functools import cache
+from logging import getLogger
 
 
 try:
@@ -26,12 +27,8 @@ try:
     DATALOOP_AVAILABLE = True
 except ImportError:
     DATALOOP_AVAILABLE = False
-    import warnings
-
-    warnings.warn(
+    getLogger(__name__).warning(
         "It is detected that the `UPLOAD` package is not installed, and the cloud upload function will not be available. If you need to use the upload function, please contact us to install it.",
-        UserWarning,
-        stacklevel=2,
     )
 
 

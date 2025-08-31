@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, computed_field, NonNegativeFloat
+from pydantic import BaseModel, ConfigDict, computed_field, NonNegativeFloat, Field
 from typing import List, Union, Optional, Any, Dict, Callable
 from typing_extensions import Self
 from airbot_data_collection.basis import (
@@ -13,6 +13,7 @@ from airbot_data_collection.demonstrate.basis import (
     Demonstrator,
     DemonstratorConfig,
     ComponentConfig,
+    HandlerWaitable,
     ConcurrentHandler,
     ComponentsInstancer,
 )
@@ -190,6 +191,14 @@ class AutoControlConfig(BaseModel):
     # can not be none
     modes: List[ConcurrentMode] = []
 
+    def model_post_init(self, context):
+        # check when groups are not empty
+        if self.groups or self.groups is None:
+            if not self.modes:
+                raise ValueError("modes must be set if groups is not empty")
+            if not self.rates:
+                raise ValueError("rates must be set if groups is not empty")
+
 
 class GroupsSendActionConfig(BaseModel):
     """Which action value and mode to perform for each group
@@ -206,7 +215,7 @@ class GroupsSendActionConfig(BaseModel):
 class GroupedDemonstratorConfig(DemonstratorConfig):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     components: ComponentGroupsConfig
-    auto_control: AutoControlConfig = AutoControlConfig()
+    auto_control: AutoControlConfig = Field(default_factory=AutoControlConfig)
     # the post capture config for each group leader
     post_capture: Dict[str, PostCaptureConfig] = {}
 
@@ -330,14 +339,11 @@ class ComponentGroupManager:
             time.sleep(sleep_time)
         return sleep_time
 
-    def auto_control_loop(self, handler: ConcurrentHandler):
+    def auto_control_loop(self, waitable: HandlerWaitable):
         """Control the followers to follow the leader in a loop."""
         period = 1 / self._config.auto_control.rates[0]
-        assert self._config.auto_control.rates, "Auto control rate must be set"
         logger = self.get_logger()
         if not self.is_instanced:
-            # TODO: wait for starting?
-            handler.wait()
             logger.info(bcolors.OKCYAN + "Instancing groups without others")
             self.instance_groups(False)
         if not self.is_configured:
@@ -346,12 +352,13 @@ class ComponentGroupManager:
                 raise RuntimeError("Failed to configure groups")
         logger.info(bcolors.OKGREEN + "Auto control loop started")
         # TODO: add ready event feedback
-        while handler.wait():
-            # logger.info("Running auto control loop")
-            self.auto_control_once(period)
+        with waitable:
+            while waitable.wait():
+                # logger.info("Running auto control loop")
+                self.auto_control_once(period)
         logger.info(bcolors.OKBLUE + "Auto control loop stopped")
 
-    def copy(self) -> Self:
+    def new(self) -> Self:
         # create a new instance of the class to remove
         # all references to the original instance
         return self.__class__(self._config, self._instancer)
@@ -372,9 +379,9 @@ class GroupedDemonstrator(Demonstrator):
         self._role_mode_set = {}
         self._use_auto_control = bool(self.config.auto_control.groups)
         # TODO: use multi modes handlers for different groups
-        modes = self.config.auto_control.modes or [ConcurrentMode.none]
-        self._handler = self.create_handler(modes[0])
         if self._use_auto_control:
+            modes = self.config.auto_control.modes
+            self._handler = ConcurrentHandler(modes[0])
             self._handler.register_callback("start", self._start_following)
             self._handler.register_callback(
                 "stop", lambda: self.get_logger().info("Stopping following")
@@ -508,16 +515,14 @@ class GroupedDemonstrator(Demonstrator):
         mode = self.config.auto_control.modes[0]
         if mode is ConcurrentMode.process:
             self.get_logger().info("Copying the manager and handler")
-            manager = self._cg_manager.copy()
-            handler = self._handler.copy()
+            manager = self._cg_manager.new()
         else:
             manager = self._cg_manager
-            handler = self._handler
         if self._handler.launch(
             target=manager.auto_control_loop,
             name="auto_control_loop",
             daemon=True,
-            args=(handler,),
+            args=(self._handler.get_waitable(),),
         ):
             # start auto control by default
             if self.handler.start():

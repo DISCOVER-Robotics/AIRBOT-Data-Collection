@@ -136,7 +136,7 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-def init_logging(level):
+def init_logging(level=logging.INFO):
     logging.basicConfig(level=level)
     ch = logging.StreamHandler()
     # ch.setLevel(level)
