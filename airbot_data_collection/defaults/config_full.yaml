@@ -5,7 +5,7 @@ demonstrator:
     auto_control:
       # groups: []
       rates: [100]
-      modes: [thread]
+      modes: [process]
     components:
       groups:
         - left

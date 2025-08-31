@@ -8,6 +8,7 @@ from airbot_data_collection.demonstrate.configs import (
 from airbot_data_collection.basis import System
 from airbot_data_collection.demonstrate.configs import ConcurrentMode
 from airbot_data_collection.utils import (
+    bcolors,
     find_matching_files,
     zip,
 )
@@ -16,14 +17,16 @@ from airbot_data_collection.common.utils.utils import (
     hydra_instance_from_dict,
 )
 from threading import Thread, Event, Lock
-from multiprocessing import get_context, synchronize, Process
-from pydantic import BaseModel, ConfigDict
+from multiprocessing import get_context, synchronize
+from multiprocessing.context import SpawnProcess
+from pydantic import BaseModel, ConfigDict, Field
 from abc import abstractmethod, ABC
+from os import getpid
 import logging
 import time
 
 
-EventType = Union[Event, synchronize.Event]
+SpawnEvent = get_context("spawn").Event
 
 
 class ComponentsInstancer:
@@ -68,6 +71,9 @@ class ComponentsInstancer:
 
 
 class HandlerWaitable(ABC):
+    def __init__(self):
+        self.__pid = getpid()
+
     @abstractmethod
     def wait(self) -> bool:
         """Waits for the demonstration to start.
@@ -82,6 +88,20 @@ class HandlerWaitable(ABC):
     @abstractmethod
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Marks the waitable as exited."""
+
+    @property
+    @final
+    def pid_init(self) -> int:
+        return self.__pid
+
+    @property
+    @final
+    def pid_current(self) -> int:
+        return getpid()
+
+    @final
+    def is_same_process(self) -> bool:
+        return self.pid_init == self.pid_current
 
 
 class DemonstratorHandler:
@@ -225,20 +245,21 @@ class ThreadHandlerWaitableArgs(BaseModel):
 
 class ProcessHandlerWaitableArgs(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    context_event: synchronize.Event = get_context("spawn").Event()
-    start_event: synchronize.Event = get_context("spawn").Event()
-    exiting_event: synchronize.Event = get_context("spawn").Event()
-    exited_event: synchronize.Event = get_context("spawn").Event()
+    context_event: synchronize.Event = Field(default_factory=SpawnEvent)
+    start_event: synchronize.Event = Field(default_factory=SpawnEvent)
+    exiting_event: synchronize.Event = Field(default_factory=SpawnEvent)
+    exited_event: synchronize.Event = Field(default_factory=SpawnEvent)
 
     @staticmethod
-    def concurrent_cls() -> Type[Process]:
-        return Process
+    def concurrent_cls() -> Type[SpawnProcess]:
+        return SpawnProcess
 
 
 class ConcurrentHandlerWaitable(HandlerWaitable):
     def __init__(
         self, args: Union[ThreadHandlerWaitableArgs, ProcessHandlerWaitableArgs]
     ):
+        super().__init__()
         self.args = args
 
     def wait(self) -> bool:
@@ -285,7 +306,7 @@ class ConcurrentHandler(DemonstratorHandler):
     def launch(
         self, group=None, target=None, name=None, args=(), kwargs={}, *, daemon=None
     ):
-        self.get_logger().info(f"Starting {name} in {self._mode} mode")
+        self.get_logger().info(bcolors.OKBLUE + f"Starting {name} in {self._mode} mode")
         self._concurrent = self._args.concurrent_cls()(
             group, target, name, args, kwargs, daemon=daemon
         )

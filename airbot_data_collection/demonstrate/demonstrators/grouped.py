@@ -18,7 +18,7 @@ from airbot_data_collection.demonstrate.basis import (
     ComponentsInstancer,
 )
 from airbot_data_collection.demonstrate.configs import ConcurrentMode, DemonstrateAction
-from airbot_data_collection.utils import zip, bcolors
+from airbot_data_collection.utils import zip, bcolors, init_logging
 from logging import getLogger
 from collections import Counter
 import json
@@ -342,7 +342,10 @@ class ComponentGroupManager:
     def auto_control_loop(self, waitable: HandlerWaitable):
         """Control the followers to follow the leader in a loop."""
         period = 1 / self._config.auto_control.rates[0]
+        if not waitable.is_same_process():
+            init_logging()
         logger = self.get_logger()
+        configure_here = False
         if not self.is_instanced:
             logger.info(bcolors.OKCYAN + "Instancing groups without others")
             self.instance_groups(False)
@@ -350,18 +353,28 @@ class ComponentGroupManager:
             logger.info(bcolors.OKCYAN + "Configuring groups")
             if not self.configure_groups():
                 raise RuntimeError("Failed to configure groups")
+            configure_here = True
         logger.info(bcolors.OKGREEN + "Auto control loop started")
         # TODO: add ready event feedback
         with waitable:
             while waitable.wait():
                 # logger.info("Running auto control loop")
                 self.auto_control_once(period)
+        if configure_here:
+            self.get_logger().info(bcolors.OKCYAN + "Shutting down all components")
+            self.shutdown()
         logger.info(bcolors.OKBLUE + "Auto control loop stopped")
 
     def new(self) -> Self:
         # create a new instance of the class to remove
         # all references to the original instance
         return self.__class__(self._config, self._instancer)
+
+    def shutdown(self) -> bool:
+        for group in self.groups:
+            for component in group.get_all_components():
+                component.shutdown()
+        return True
 
     @property
     def is_instanced(self) -> bool:
@@ -514,7 +527,7 @@ class GroupedDemonstrator(Demonstrator):
             return True
         mode = self.config.auto_control.modes[0]
         if mode is ConcurrentMode.process:
-            self.get_logger().info("Copying the manager and handler")
+            self.get_logger().info("Copying the manager")
             manager = self._cg_manager.new()
         else:
             manager = self._cg_manager
@@ -539,10 +552,7 @@ class GroupedDemonstrator(Demonstrator):
 
     def shutdown(self) -> bool:
         if self.handler.exit():
-            for group in self.groups:
-                for component in group.get_all_components():
-                    component.shutdown()
-            return True
+            return self._cg_manager.shutdown()
         return False
 
     @property

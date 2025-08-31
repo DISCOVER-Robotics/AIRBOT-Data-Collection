@@ -29,14 +29,14 @@ from pyrealsense2 import context as RSContext  # noqa: N812
 
 def find_camera_indices(
     raise_when_empty=True, serial_number_index: int = 1
-) -> list[int]:
+) -> list[str]:
     """
     Find the serial numbers of the Intel RealSense cameras
     connected to the computer.
     """
     camera_ids = []
     for device in RSContext().query_devices():
-        serial_number = int(device.get_info(RSCameraInfo(serial_number_index)))
+        serial_number = device.get_info(RSCameraInfo(serial_number_index))
         camera_ids.append(serial_number)
 
     if raise_when_empty and len(camera_ids) == 0:
