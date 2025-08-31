@@ -230,6 +230,10 @@ class DemonstratorHandler:
     def get_waitable(self) -> HandlerWaitable:
         """Gets the waitable for the demonstration."""
 
+    def __del__(self):
+        if not self.__exited:
+            self.exit()
+
 
 class ThreadHandlerWaitableArgs(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -333,11 +337,12 @@ class ConcurrentHandler(DemonstratorHandler):
         self._args.exiting_event.set()
         if self.is_launched():
             if self._mode is ConcurrentMode.thread or not self._concurrent.daemon:
-                self.get_logger().info("Waiting for concurrent to finish...")
-                self._concurrent.join(5.0)
+                self.get_logger().info("Waiting for the concurrent to finish...")
+                wait_time = 5.0
+                self._concurrent.join(wait_time)
                 if self._concurrent.is_alive():
                     self.get_logger().error(
-                        f"Concurrent is still alive after waiting {self._concurrent}"
+                        f"Concurrent is still alive after waiting {wait_time} s"
                     )
                     return False
                 self.get_logger().info("Concurrent finished.")

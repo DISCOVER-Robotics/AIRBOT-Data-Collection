@@ -534,7 +534,7 @@ class GroupedDemonstrator(Demonstrator):
         if self._handler.launch(
             target=manager.auto_control_loop,
             name="auto_control_loop",
-            daemon=True,
+            daemon=False,
             args=(self._handler.get_waitable(),),
         ):
             # start auto control by default
