@@ -4,11 +4,11 @@ import math
 import os
 import threading
 import time
-from enum import Enum
 import numpy as np
 import subprocess
-from typing import List, Optional
 import sys
+from enum import Enum
+from typing import List, Optional
 from functools import partial
 
 

@@ -149,7 +149,9 @@ class DemonstrateInterface:
             self._save_path = self._sampler.compose_path(
                 self._config.dataset.absolute_directory, self._sample_info.round
             )
-            return self._post_action(DemonstrateAction.sample)
+            if self._post_action(DemonstrateAction.sample):
+                self._bar.reset(desc=f"Round {self._sample_info.round}")
+                return True
         return False
 
     def capture(self) -> Dict[str, Any]:
@@ -267,7 +269,6 @@ class DemonstrateInterface:
         self._round_data = defaultdict(list)
         self._sampler.clear()
         self._sample_info.index = 0
-        self._bar.reset(desc=f"Round {self._sample_info.round}")
         self._save_path = ""
 
     def abandon(self) -> bool:
