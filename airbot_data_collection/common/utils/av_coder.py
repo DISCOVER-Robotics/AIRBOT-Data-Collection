@@ -126,8 +126,8 @@ class AvCoder:
         self._last_time = timestamp
         video_frame.pts = timestamp - self._start_time
         video_frame.time_base = self._time_base
-        for packet in self.stream.encode(video_frame):
-            self._container.mux(packet)
+        packets = self.stream.encode(video_frame)
+        self._container.mux(packets)
         # self._perf_logs["encode"] =  time.monotonic() - start
 
     def encode_frame(
@@ -156,8 +156,8 @@ class AvCoder:
         with self._encode_lock:
             if self._last_future:
                 self._last_future.result()
-            for packet in self.stream.encode():
-                self._container.mux(packet)
+            packets = self.stream.encode()
+            self._container.mux(packets)
             self._container.close()
             value = self._outbuf.getvalue()
             self._outbuf.close()
