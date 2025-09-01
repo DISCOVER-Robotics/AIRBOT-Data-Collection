@@ -104,6 +104,17 @@ class HandlerWaitable(ABC):
         return self.pid_init == self.pid_current
 
 
+class MockWaitable(HandlerWaitable):
+    def wait(self) -> bool:
+        return True
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
 class DemonstratorHandler:
     """Handler for demonstration."""
 
@@ -113,10 +124,6 @@ class DemonstratorHandler:
         self.__started = False
         self.__exiting = False
         self.__exited = False
-
-    @abstractmethod
-    def launch(self, *args, **kwargs) -> bool:
-        """Launches the demonstration."""
 
     @final
     def start(self) -> bool:
@@ -131,10 +138,6 @@ class DemonstratorHandler:
             return False
         self.get_logger().warning("Already started.")
         return True
-
-    @abstractmethod
-    def on_start(self) -> bool:
-        """Called in start()."""
 
     @final
     def stop(self) -> bool:
@@ -154,6 +157,14 @@ class DemonstratorHandler:
             return False
 
     @abstractmethod
+    def launch(self, *args, **kwargs) -> bool:
+        """Launches the demonstration."""
+
+    @abstractmethod
+    def on_start(self) -> bool:
+        """Called in start()."""
+
+    @abstractmethod
     def on_stop(self) -> bool:
         """Called in stop()."""
 
@@ -164,6 +175,10 @@ class DemonstratorHandler:
     @abstractmethod
     def is_launched(self) -> bool:
         """Checks if the demonstration is launched."""
+
+    @abstractmethod
+    def get_waitable(self) -> HandlerWaitable:
+        """Gets the waitable for the demonstration."""
 
     def is_stopped(self) -> bool:
         """Checks if the demonstration is stopped."""
@@ -226,13 +241,41 @@ class DemonstratorHandler:
         for callback in self.__callbacks.get(action, []):
             callback()
 
-    @abstractmethod
-    def get_waitable(self) -> HandlerWaitable:
-        """Gets the waitable for the demonstration."""
-
     def __del__(self):
         if not self.__exited:
             self.exit()
+
+
+class MockHandler(DemonstratorHandler):
+    """Mock handler for demonstration."""
+
+    def __init__(self):
+        super().__init__()
+        # always launched
+        self._launched = True
+        self._waitable = MockWaitable()
+
+    def launch(self, *args, **kwargs):
+        self._launched = True
+        return True
+
+    def on_start(self):
+        return True
+
+    def on_stop(self):
+        return True
+
+    def on_exit(self):
+        return True
+
+    def is_launched(self):
+        return self._launched
+
+    def get_waitable(self) -> MockWaitable:
+        return self._waitable
+
+    def _execute_callbacks(self, action):
+        """Do not execute callbacks in mock handler."""
 
 
 class ThreadHandlerWaitableArgs(BaseModel):
@@ -382,6 +425,13 @@ class Demonstrator(System):
     @abstractmethod
     def handler(self) -> DemonstratorHandler:
         """Gets the handler for the demonstrator."""
+
+    @staticmethod
+    def create_handler(mode: ConcurrentMode) -> DemonstratorHandler:
+        if mode is ConcurrentMode.none:
+            return MockHandler()
+        else:
+            return ConcurrentHandler(ConcurrentMode.thread)
 
 
 class MockDemonstratorConfig(BaseModel):

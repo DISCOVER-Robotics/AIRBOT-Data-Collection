@@ -392,13 +392,12 @@ class GroupedDemonstrator(Demonstrator):
         self._role_mode_set = {}
         self._use_auto_control = bool(self.config.auto_control.groups)
         # TODO: use multi modes handlers for different groups
-        if self._use_auto_control:
-            modes = self.config.auto_control.modes
-            self._handler = ConcurrentHandler(modes[0])
-            self._handler.register_callback("start", self._start_following)
-            self._handler.register_callback(
-                "stop", lambda: self.get_logger().info("Stopping following")
-            )
+        modes = self.config.auto_control.modes or [ConcurrentMode.none]
+        self._handler = self.create_handler(modes[0])
+        self._handler.register_callback("start", self._start_following)
+        self._handler.register_callback(
+            "stop", lambda: self.get_logger().info("Stopping following")
+        )
         return self._init_all_components()
 
     def _init_all_components(self) -> bool:
@@ -442,6 +441,7 @@ class GroupedDemonstrator(Demonstrator):
         # set the followers to resetting mode to move smoothly
         if self._set_role_mode(ComponentRole.f, SystemMode.RESETTING):
             # TODO: control until the joint positions are near the leader
+            self.get_logger().info("Auto controlling once to move followers")
             self._cg_manager.auto_control_once()
             return self._set_role_mode(ComponentRole.f, SystemMode.SAMPLING)
         self.get_logger().error("Failed to start following")

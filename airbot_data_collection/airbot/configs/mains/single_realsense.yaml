@@ -1,36 +1,25 @@
-demonstrator:
-  name: grouped
-  param:
-    _target_: airbot_data_collection.demonstrate.demonstrators.grouped.GroupedDemonstrator
-    auto_control:
-      groups: []
-    components:
-      groups:
-      - /
-      # - /
-      names:
-      - ""
-      # - follow_camera
-      params:
-      - port: 50051
-      # - camera_index: null
-      #   height: 480
-      #   width: 640
-      paths:
-      - airbot_play_mock
-      # - realsense
-      roles:
-      - f
-      # - o
-    post_capture:
-      /:
-        keys:
-        - eef/joint_state/position
-        target_ranges:
-        - 0:
-          - 0
-          - 0.072
-  path: ''
+auto_control:
+  groups: []
+components:
+  groups:
+  # - /
+  - /
+  names:
+  # - ""
+  - follow_camera
+  params:
+  # - port: 50051
+  - camera_index: null
+    height: 480
+    width: 640
+    enable_depth: true
+    align_depth: true
+  paths:
+  # - airbot_play
+  - realsense
+  roles:
+  # - f
+  - o
 dataset:
   directory: arm1-001
 managers:

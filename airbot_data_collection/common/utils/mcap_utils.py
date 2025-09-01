@@ -5,15 +5,15 @@ from turbojpeg import TurboJPEG
 from typing import Dict, IO, Set, Optional, Iterable, List, Generator, Any
 from foxglove_schemas_flatbuffer import CompressedImage, RawImage, Time, get_schema
 from importlib.resources import read_binary
-import flatbuffers
 from enum import Enum
-import os
-import numpy as np
 from functools import cache
-import json
 from airbot_data_collection.airbot.schemas.airbot_fbs import FloatArray
 from airbot_data_collection.common.utils.av_coder import AvCoder
 from airbot_data_collection.utils import zip
+import os
+import json
+import numpy as np
+import flatbuffers
 
 
 class FlatbufferSchemas(Enum):
@@ -234,12 +234,14 @@ class McapFlatbufferReader:
         }
         self._jpeg = TurboJPEG()
 
-    def _decode_array(self, data: bytes) -> np.ndarray:
+    @staticmethod
+    def _decode_array(data: bytes) -> np.ndarray:
         """Decode a FloatArray Flatbuffer message."""
         fb = FloatArray.FloatArray.GetRootAs(data, 0)
         return fb.ValuesAsNumpy()
 
-    def _decode_raw_image(self, data: bytes) -> np.ndarray:
+    @staticmethod
+    def _decode_raw_image(data: bytes) -> np.ndarray:
         """Decode a RawImage Flatbuffer message."""
         raw_img = RawImage.RawImage.GetRootAs(data, 0)
         width = raw_img.Width()
