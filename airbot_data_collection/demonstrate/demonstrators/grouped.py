@@ -337,6 +337,10 @@ class ComponentGroupManager:
         sleep_time = period - (time.perf_counter() - start)
         if sleep_time > 0:
             time.sleep(sleep_time)
+        # elif sleep_time < 0 and period:
+        #     self.get_logger().warning(
+        #         f"Auto control took too long: exceed {-sleep_time} s."
+        #     )
         return sleep_time
 
     def auto_control_loop(self, waitable: HandlerWaitable):

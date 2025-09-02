@@ -3,7 +3,7 @@ demonstrator:
   param:
     _target_: airbot_data_collection.demonstrate.demonstrators.grouped.GroupedDemonstrator
     auto_control:
-      groups: []
+      # groups: []
       rates: [100]
       modes: [process]
     components:

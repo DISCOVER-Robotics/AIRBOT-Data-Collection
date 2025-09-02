@@ -431,7 +431,7 @@ class Demonstrator(System):
         if mode is ConcurrentMode.none:
             return MockHandler()
         else:
-            return ConcurrentHandler(ConcurrentMode.thread)
+            return ConcurrentHandler(mode)
 
 
 class MockDemonstratorConfig(BaseModel):

@@ -66,7 +66,7 @@ if __name__ == "__main__":
                     if sleep_time > 0:
                         time.sleep(sleep_time)
                     elif sleep_time < 0:
-                        logger.warning(f"Update took too long: exceed {-sleep_time}s.")
+                        logger.warning(f"Update took too long: exceed {-sleep_time} s.")
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received. Exiting...")
         finally:
