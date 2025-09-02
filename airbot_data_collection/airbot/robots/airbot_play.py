@@ -109,6 +109,9 @@ class AIRBOTPlay(System):
                         "Please check the configuration or the robot connection."
                     )
                     return False
+                if component == "eef" and not self.interface.get_eef_pos():
+                    self.get_logger().error(f"Can not get joint value of {component}")
+                    return False
             return True
         return False
 
