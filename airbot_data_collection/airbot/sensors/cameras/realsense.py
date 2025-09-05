@@ -1,47 +1,24 @@
-from airbot_data_collection.basis import Sensor
 from airbot_data_collection.common.devices.cameras.intelrealsense import (
     IntelRealSenseCamera,
     IntelRealSenseCameraConfig,
 )
 from time import time_ns
+from typing import Dict, Union
+from numpy import ndarray
 
 
-class RealSense(Sensor):
+class RealSense(IntelRealSenseCamera):
     config: IntelRealSenseCameraConfig
-    interface: IntelRealSenseCamera
-
-    def on_configure(self):
-        self.interface.connect()
-        return self.interface.is_connected
 
     def capture_observation(self):
         obs = {}
-        output = self.interface.read()
-        if self.config.enable_depth:
-            if self.config.enable_color:
-                obs["color/image_raw"] = self._get_value(output[0])
-            if self.config.align_depth:
-                key = "aligned_depth_to_color/image_raw"
-            else:
-                key = "depth/image_rect_raw"
-            obs[key] = self._get_value(output[1])
-        elif self.config.enable_color:
-            obs["color/image_raw"] = self._get_value(output)
-        else:
-            raise ValueError(
-                "At least one of color or depth must be enabled in the config."
-            )
+        output = super().capture_observation()
+        for key, value in output.items():
+            obs[key] = self._get_value(value)
         return obs
 
-    def _get_value(self, data) -> dict:
+    def _get_value(self, data) -> Dict[str, Union[int, ndarray]]:
         return {
             "t": time_ns(),
             "data": data,
         }
-
-    def get_info(self):
-        return self.interface.get_info()
-
-    def shutdown(self) -> bool:
-        self.interface.disconnect()
-        return not self.interface.is_connected

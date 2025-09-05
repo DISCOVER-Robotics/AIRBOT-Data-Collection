@@ -1,6 +1,7 @@
 from airbot_data_collection.common.devices.cameras.intelrealsense import (
     IntelRealSenseCamera,
     IntelRealSenseCameraConfig,
+    find_camera_indices,
 )
 import cv2
 import argparse
@@ -11,10 +12,10 @@ import time
 parser = argparse.ArgumentParser(description="Intel RealSense Camera Test")
 parser.add_argument(
     "-ci",
-    "--camera_index",
+    "--camera_indices",
     type=str,
-    default=None,
-    help="Camera index to connect to (default: None, auto-detect)",
+    nargs="*",
+    help="Camera indices to connect to (default: None, auto-detect)",
 )
 parser.add_argument(
     "-si",
@@ -24,27 +25,44 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+if args.camera_indices:
+    sns = args.camera_indices
+else:
+    sns = find_camera_indices()
 
-cam = IntelRealSenseCamera(
-    IntelRealSenseCameraConfig(
-        camera_index=args.camera_index,
-        width=640,
-        height=480,
-        fps=30,
+
+cameras: list[IntelRealSenseCamera] = []
+
+for sn in sns:
+    cam = IntelRealSenseCamera(
+        IntelRealSenseCameraConfig(
+            camera_index=sn,
+            width=1280,
+            height=720,
+            fps=30,
+            enable_depth=True,
+            align_depth=True,
+        )
     )
-)
-cam.connect()
-assert cam.is_connected, "Camera should be connected"
-print("Camera connected successfully: ", cam.camera_index)
-if args.show_info:
-    pprint(cam.get_info())
+    assert cam.configure(), f"Camera should be connected: {sn}"
+    print(f"Camera connected successfully: {sn}")
+    if args.show_info:
+        pprint(cam.get_info())
+    cameras.append(cam)
 
+print("Press 'q' or 'Esc' to quit")
 
 while True:
-    output = cam.read()
-    cv2.imshow("Intel RealSense Camera", output)
-    if cv2.waitKey(1) & 0xFF == ord("q"):
+    start = time.perf_counter()
+    for sn, cam in zip(sns, cameras):
+        obs = cam.capture_observation()
+        for key, image in obs.items():
+            cv2.imshow(f"{sn}/{key}", image)
+    end = time.perf_counter()
+    if cv2.waitKey(1) & 0xFF in [ord("q"), 27]:  # Press 'q' or 'Esc' to quit
         break
-cam.disconnect()
-cv2.destroyAllWindows()
+    print(f"fps: {1 / (end - start):.2f}")
+
+assert cam.shutdown()
 print("Camera disconnected successfully")
+cv2.destroyAllWindows()

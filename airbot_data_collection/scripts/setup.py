@@ -275,7 +275,10 @@ logger.info(
 )
 while True:
     for camera, vis_key, visualizer in zip(cameras, camera_vis_keys, visualizers):
-        visualizer.update({vis_key: camera.capture_observation()}, None)
+        obs = camera.capture_observation()
+        if isinstance(obs, dict):
+            obs = obs["color/image_raw"]
+        visualizer.update({vis_key: obs}, None)
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q") or key == 27:  # ESC or 'q' to quit
         logger.info("Exiting setup script.")

@@ -32,6 +32,11 @@ class PostCaptureConfig(BaseModel):
 
 class ConfigBasis(ABC):
     def __init__(self, config: Optional[BaseModel] = None, **kwargs) -> None:
+        """Base class for configurable components.
+        Args:
+            config: Configuration object, typically a pydantic BaseModel or a dataclass.
+            **kwargs: Additional keyword arguments to override config fields.
+        """
         config_type = self.__annotations__.get("config", None)
         assert config_type, "config must be annotated at the top level class"
         if config is None:  # mainly used by yaml config, e.g. hydra
@@ -56,6 +61,8 @@ class ConfigBasis(ABC):
 
     @final
     def configure(self) -> bool:
+        if self._configured:
+            raise RuntimeError("Already configured")
         class_type = self.__annotations__.get("interface", None)
         if class_type is not None:
             sig = inspect.signature(class_type)
@@ -103,6 +110,9 @@ class Sensor(ConfigBasis):
     @abstractmethod
     def shutdown(self) -> None:
         """Shutdown"""
+        # TODO: should use on_shutdown
+        # to set the internal state
+        # which can be used in __del__
         raise NotImplementedError
 
     @abstractmethod

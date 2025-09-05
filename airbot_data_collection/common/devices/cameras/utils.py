@@ -1,20 +1,8 @@
 import platform
-import numpy as np
-
 from enum import Enum
-from typing import Protocol, runtime_checkable, List, Dict, Tuple, Optional, Union
-from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
+from typing import List, Dict, Tuple, Optional, Union, Literal
+from pydantic import BaseModel, NonNegativeInt, PositiveInt, field_validator
 from collections import defaultdict
-
-
-@runtime_checkable
-class Camera(Protocol):
-    def connect(self): ...
-    def read(
-        self, temporary_color: Optional[str] = None
-    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]: ...
-    def async_read(self) -> np.ndarray: ...
-    def disconnect(self): ...
 
 
 class CameraRGBConfig(BaseModel):
@@ -22,7 +10,7 @@ class CameraRGBConfig(BaseModel):
     fps: Optional[int] = None
     width: Optional[int] = None
     height: Optional[int] = None
-    color_mode: str = Field(default="bgr", pattern="^(rgb|bgr)$")
+    color_mode: Literal["bgr", "rgb"] = "bgr"
     mock: bool = False
     pixel_format: Optional[Union[str, Enum]] = None
 
@@ -30,7 +18,13 @@ class CameraRGBConfig(BaseModel):
 class CameraRGBDConfig(CameraRGBConfig):
     enable_depth: bool = False
     enable_color: bool = True
-    align_depth: bool = True
+    align_depth: bool = False
+
+    @field_validator("align_depth", mode="after")
+    def check_align_depth(cls, align_depth, values):
+        if not values.data.get("enable_depth", False):
+            return False
+        return align_depth
 
 
 class RegionOfInterest(BaseModel):
