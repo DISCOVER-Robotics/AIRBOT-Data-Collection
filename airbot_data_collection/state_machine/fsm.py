@@ -61,3 +61,8 @@ class DemonstrateFSM(StateMachineBasis):
     def demonstrator(self) -> Demonstrator:
         """Get the demonstrator."""
         return self.__interface.demonstrator
+
+    @property
+    def metrics(self) -> dict:
+        """Get the metrics."""
+        return self.__interface.metrics

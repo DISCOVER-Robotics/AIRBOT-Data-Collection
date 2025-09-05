@@ -3,10 +3,11 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, replace
 from enum import Enum, auto
 from logging import getLogger
-from typing import Any, Dict, Union, List, Tuple, Optional, Set, final
+from typing import Any, Dict, Union, List, Tuple, Optional, Set, final, DefaultDict
 from typing_extensions import Self
 from pydantic import BaseModel
 from airbot_data_collection.utils import StrEnum
+from collections import defaultdict
 
 
 class SystemMode(Enum):
@@ -102,6 +103,10 @@ class ConfigBasis(ABC):
 
 
 class Sensor(ConfigBasis):
+    def __init__(self, config: BaseModel = None, **kwargs):
+        super().__init__(config, **kwargs)
+        self._metrics: DefaultDict[str, Dict[str, Any]] = defaultdict(dict)
+
     @abstractmethod
     def capture_observation(self) -> Dict[str, Any]:
         """Capture observation from the sensor"""
@@ -124,6 +129,12 @@ class Sensor(ConfigBasis):
         """Set post capture process"""
         # This method can be overridden by subclasses to set post capture processing
         pass
+
+    @final
+    @property
+    def metrics(self) -> Dict[str, Any]:
+        """Get metrics"""
+        return self._metrics
 
 
 class System(Sensor):

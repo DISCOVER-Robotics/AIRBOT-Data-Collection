@@ -482,8 +482,13 @@ class GroupedDemonstrator(Demonstrator):
         def add_data(
             group: DemonstrateGroup, component: Component, component_name: str
         ):
+            start = time.perf_counter()
+            prefix = self._get_component_data_prefix(group.name, component_name)
             for key, value in component.capture_observation().items():
-                data[self._get_component_key(group.name, component_name, key)] = value
+                data[self._get_component_data_key(prefix, key)] = value
+            self._metrics["durations"][f"capture/{prefix}"] = (
+                time.perf_counter() - start
+            )
 
         self._fully_process(add_data)
         return data
@@ -494,8 +499,9 @@ class GroupedDemonstrator(Demonstrator):
         def add_info(
             group: DemonstrateGroup, component: Component, component_name: str
         ):
+            prefix = self._get_component_data_prefix(group.name, component_name)
             for key, value in component.get_info().items():
-                info[self._get_component_key(group.name, component_name, key)] = value
+                info[self._get_component_data_key(prefix, key)] = value
 
         self._fully_process(add_info)
 
@@ -508,12 +514,14 @@ class GroupedDemonstrator(Demonstrator):
             ):
                 func(group, component, comp_name)
 
-    def _get_component_key(self, group_name: str, component_name: str, key: str) -> str:
-        # TODO: should allow component_name to be empty or the group name to be /?
+    def _get_component_data_prefix(self, group_name: str, component_name: str) -> str:
         if component_name:
-            return f"/{group_name}/{component_name}/{key}".removeprefix("//")
-        else:
-            return f"/{group_name}/{key}".removeprefix("//")
+            return f"/{group_name}/{component_name}"
+        return f"/{group_name}"
+
+    def _get_component_data_key(self, prefix: str, key: str) -> str:
+        # TODO: should allow component_name to be empty or the group name to be / ?
+        return f"{prefix}/{key}".removeprefix("//")
 
     def react(self, action):
         if action is DemonstrateAction.sample:

@@ -64,6 +64,7 @@ class DemonstrateInterface:
         self._save_futures: List[Future] = []
         # store current round data
         self._round_data = defaultdict(list)
+        self._metrics = defaultdict(dict)
 
     def get_logger(self):
         """
@@ -156,12 +157,19 @@ class DemonstrateInterface:
 
     def capture(self) -> Dict[str, Any]:
         # TODO: can be called when sampling?
+        start = time.perf_counter()
         data = self._demonstrator.capture_observation()
+        self._metrics["durations"]["capture/demonstrator"] = time.perf_counter() - start
         self.last_capture = data
         # update the visualizers
+        start = time.perf_counter()
         for name, visualizer in self._visualizers.items():
             self.get_logger().debug("Updating visualizer %s", name)
             visualizer.update(data, self._sample_info)
+        self._metrics["durations"]["update/visualizers"] = time.perf_counter() - start
+        self._metrics["durations"].update(
+            self._demonstrator.metrics.get("durations", {})
+        )
         return data
 
     def update(self) -> bool:
@@ -180,8 +188,10 @@ class DemonstrateInterface:
         else:
             data = self.capture()
             data.update({"log_stamps": time.time_ns()})
+            start = time.perf_counter()
             for key, value in self._sampler.update(data).items():
                 self._round_data[key].append(value)
+            self._metrics["durations"]["update/sampler"] = time.perf_counter() - start
             info.index += 1
             self._bar.update(info.index)
             return True
@@ -316,3 +326,7 @@ class DemonstrateInterface:
     @property
     def demonstrator(self) -> Demonstrator:
         return self._demonstrator
+
+    @property
+    def metrics(self) -> Dict[str, Any]:
+        return self._metrics

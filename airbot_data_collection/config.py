@@ -46,3 +46,5 @@ class DataCollectionArgs(DemonstrateConfig):
     fsm: StateMachineArgs = STATE_MACHINE_CONFIG.model_dump()
     # managers to control the demonstrate actions
     managers: ComponentsConfig = None
+    # log metrics
+    log_metrics: int = -1

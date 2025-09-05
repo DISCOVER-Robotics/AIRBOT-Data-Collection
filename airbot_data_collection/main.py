@@ -10,7 +10,7 @@ from airbot_data_collection.state_machine.fsm import (
 )
 from airbot_data_collection.utils import init_logging
 from importlib.metadata import version
-from collections import deque
+from collections import deque, defaultdict
 
 
 if __name__ == "__main__":
@@ -50,15 +50,28 @@ if __name__ == "__main__":
         # TODO: based on async io to update asynchronously?
         time_queue = deque(maxlen=20)
         total_start = time.perf_counter()
+        metrics = defaultdict(dict)
         try:
             while True:
                 start_time = time.perf_counter()
                 for name, manager in managers.items():
+                    m_start = time.perf_counter()
                     if not manager.update():
                         logger.warning(f"Failed to update manager: {name}.")
+                    metrics["durations"][f"update/manager/{name}"] = (
+                        time.perf_counter() - m_start
+                    )
                 if fsm.get_state() is DemonstrateState.finalized:
                     logger.info("Data collection finished.")
                     break
+                if config.log_metrics >= 0:
+                    logger.info(
+                        "\nManager Metrics:\n"
+                        + pformat(dict(metrics))
+                        + "\n"
+                        + "FSM Metrics:\n"
+                        + pformat(dict(fsm.metrics))
+                    )
                 cost_time = time.perf_counter() - start_time
                 time_queue.append(cost_time)
                 if interval > 0:
