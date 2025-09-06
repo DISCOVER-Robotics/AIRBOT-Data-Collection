@@ -246,6 +246,7 @@ class ProgressBar:
         self.total = total
         self.desc = desc
         from tqdm import tqdm
+        # from tqdm.asyncio import tqdm
 
         self.progress_bar = tqdm(
             total=total or self.total, desc=desc or self.desc, unit="step"

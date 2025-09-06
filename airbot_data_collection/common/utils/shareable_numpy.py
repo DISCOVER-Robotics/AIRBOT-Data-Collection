@@ -12,7 +12,7 @@ that provides:
 import numpy as np
 from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.managers import SharedMemoryManager
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union, Dict
 from typing_extensions import Self
 
 
@@ -52,7 +52,7 @@ class ShareableNumpy:
 
         if self.shape is None:
             raise ValueError("Unable to infer shape for ndarray view")
-        self.array = np.ndarray(self.shape, dtype=self.dtype, buffer=self.shm.buf)
+        self._array = np.ndarray(self.shape, dtype=self.dtype, buffer=self.shm.buf)
 
     @classmethod
     def from_array(
@@ -61,10 +61,36 @@ class ShareableNumpy:
         shm: Optional[SharedMemory] = None,
         name: Optional[str] = None,
         lock: Optional[Any] = None,
-    ) -> "ShareableNumpy":
-        obj = cls(shape=arr.shape, dtype=arr.dtype, shm=shm, name=name, lock=lock)
-        np.copyto(obj.array, arr)
+        smm: Optional[SharedMemoryManager] = None,
+    ) -> Self:
+        obj = cls(
+            shape=arr.shape, dtype=arr.dtype, shm=shm, name=name, lock=lock, smm=smm
+        )
+        np.copyto(obj._array, arr)
         return obj
+
+    @classmethod
+    def from_array_dict(
+        cls,
+        arr_dict: dict[str, np.ndarray],
+        shm_dict: Optional[dict[str, SharedMemory]] = None,
+        name_dict: Optional[dict[str, str]] = None,
+        lock: Optional[Any] = None,
+        smm: Optional[SharedMemoryManager] = None,
+        replace: bool = False,
+    ) -> Dict[str, Self]:
+        result = {}
+        for k, arr in arr_dict.items():
+            shm = shm_dict[k] if shm_dict is not None and k in shm_dict else None
+            name = name_dict[k] if name_dict is not None and k in name_dict else None
+            shm_arr = cls.from_array(arr, shm=shm, name=name, lock=lock, smm=smm)
+            if replace:
+                arr_dict[k] = shm_arr
+            else:
+                result[k] = shm_arr
+        if replace:
+            return arr_dict
+        return result
 
     @property
     def name(self) -> str:  # type: ignore[override]
@@ -76,8 +102,8 @@ class ShareableNumpy:
     def unlink(self) -> None:
         self.shm.unlink()
 
-    def to_numpy(self, readonly: bool = True) -> np.ndarray:
-        arr = np.array(self.array, copy=True)
+    def to_numpy(self, copy=True, readonly: bool = True) -> np.ndarray:
+        arr = np.array(self._array, copy=copy)
         if readonly:
             arr.flags.writeable = False
         return arr
@@ -85,31 +111,31 @@ class ShareableNumpy:
     def safe_get(self, idx: Any) -> Any:
         if self.lock:
             with self.lock:
-                return self.array[idx]
-        return self.array[idx]
+                return self._array[idx]
+        return self._array[idx]
 
     def safe_set(self, idx: Any, value: Any) -> None:
         if self.lock:
             with self.lock:
-                self.array[idx] = value
+                self._array[idx] = value
         else:
-            self.array[idx] = value
+            self._array[idx] = value
 
     def safe_update(self, func: Callable[[np.ndarray], None]) -> None:
         if self.lock:
             with self.lock:
-                func(self.array)
+                func(self._array)
         else:
-            func(self.array)
+            func(self._array)
 
     def __array__(self) -> np.ndarray:
-        return self.array
+        return self._array
 
     def __getitem__(self, idx: Any) -> Any:
-        return self.array[idx]
+        return self._array[idx]
 
     def __setitem__(self, idx: Any, value: Any) -> None:
-        self.array[idx] = value
+        self._array[idx] = value
 
     def __repr__(self) -> str:
         return f"ShareableNumpy(shape={self.shape}, dtype={self.dtype}, name={self.shm.name})"
@@ -129,6 +155,15 @@ class ShareableNumpy:
         finally:
             self.unlink()
 
+    @property
+    def array(self) -> np.ndarray:
+        """Get the underlying NumPy array (read-write)."""
+        return self._array
+
+    @array.setter
+    def array(self, value: np.ndarray) -> None:
+        self._array[:] = value
+
 
 # === extend SharedMemoryManager ===
 def _ShareableNumpy_factory(
@@ -145,22 +180,3 @@ SharedMemoryManager.register("ShareableNumpy", _ShareableNumpy_factory)
 SharedMemoryManager.register(
     "ShareableNumpy_from_array", _ShareableNumpy_from_array_factory
 )
-
-
-if __name__ == "__main__":
-    from multiprocessing import Process
-
-    def worker(arr: ShareableNumpy) -> None:
-        arr[:] += 10
-        print("Child process array after modification:", arr.array)
-
-    with SharedMemoryManager() as smm:
-        arr = ShareableNumpy(shape=(5,), dtype=np.int64, smm=smm)
-        arr[:] = np.arange(5)
-        print("Main process initial array:", arr.array)
-
-        p = Process(target=worker, args=(arr,))
-        p.start()
-        p.join()
-
-        print("Main process sees modified result:", arr.array)

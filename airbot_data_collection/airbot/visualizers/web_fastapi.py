@@ -4,7 +4,7 @@ from airbot_data_collection.common.visualizers.web_fastapi import (
 )
 
 
-class AIRBOTBsonFastAPIVisualizer(FastAPIVisualizer):
+class AIRBOTFastAPIVisualizer(FastAPIVisualizer):
     """Visualizer based on fastapi."""
 
     config: WebVisualizerConfig

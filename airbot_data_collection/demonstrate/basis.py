@@ -5,8 +5,7 @@ from airbot_data_collection.demonstrate.configs import (
     ComponentsConfig,
     DemonstrateAction,
 )
-from airbot_data_collection.basis import System
-from airbot_data_collection.demonstrate.configs import ConcurrentMode
+from airbot_data_collection.basis import System, ConcurrentMode
 from airbot_data_collection.utils import (
     bcolors,
     find_matching_files,

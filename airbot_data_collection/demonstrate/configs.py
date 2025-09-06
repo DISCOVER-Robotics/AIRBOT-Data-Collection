@@ -2,14 +2,8 @@ from pathlib import Path
 from enum import auto
 from typing import Any, Dict, Optional, Literal
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
+from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.utils import StrEnum
-
-
-class ConcurrentMode(StrEnum):
-    thread = auto()
-    process = auto()
-    asynchronous = auto()
-    none = auto()
 
 
 class ComponentConfig(BaseModel):

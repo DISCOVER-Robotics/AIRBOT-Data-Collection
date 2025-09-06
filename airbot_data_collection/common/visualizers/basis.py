@@ -1,9 +1,7 @@
 from abc import abstractmethod
-from typing import Any, Optional, Protocol, Union, runtime_checkable
-
+from typing import Any, Optional, Protocol, Union, runtime_checkable, final
 from pydantic import BaseModel, NonNegativeInt, PositiveInt
-
-from airbot_data_collection.basis import ConfigBasis
+from airbot_data_collection.basis import ConfigBasis, ConcurrentMode
 
 
 class GUIVisualizerConfig(BaseModel):
@@ -51,6 +49,9 @@ class GUIVisualizerConfig(BaseModel):
     # TODO: and for the YUYV format, the width and height
     # of the image should be passed to the visualizer
     # and it is hard to configure here
+    # concurrent mode for updating the GUI
+    concurrent_mode: ConcurrentMode = ConcurrentMode.none
+    rate: NonNegativeInt = 0  # update rate in Hz, 0 means no limit
 
 
 class WebVisualizerConfig(BaseModel):
@@ -75,10 +76,14 @@ class VisualizerBasis(ConfigBasis):
     """Visualizer for visualizing the data."""
 
     @abstractmethod
-    def update(self, data: Any, info: Optional[SampleInfo]) -> None: ...
+    def update(
+        self, data: Any, info: Optional[SampleInfo], warm_up: bool = False
+    ) -> None:
+        """Update the visualizer with the new data."""
 
     @abstractmethod
-    def shutdown(self) -> None: ...
+    def shutdown(self) -> None:
+        """Shutdown the visualizer."""
 
 
 @runtime_checkable
@@ -86,6 +91,5 @@ class Visualizer(Protocol):
     """Visualizer for visualizing the data."""
 
     def configure(self) -> bool: ...
-    def on_configure(self) -> bool: ...
-    def update(self, data: Any, info: SampleInfo) -> None: ...
+    def update(self, data: Any, info: SampleInfo, warm_up: bool = False) -> None: ...
     def shutdown(self) -> None: ...

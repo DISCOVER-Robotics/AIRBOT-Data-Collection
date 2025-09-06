@@ -1,14 +1,22 @@
 import logging
-from threading import current_thread, main_thread
 import cv2
 import numpy as np
+import time
 from pydantic import BaseModel
-
+from threading import current_thread, main_thread
 from airbot_data_collection.common.visualizers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
     VisualizerBasis,
+    ConcurrentMode,
 )
+from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
+from airbot_data_collection.utils import init_logging
+from multiprocessing.context import SpawnProcess
+from multiprocessing.managers import SharedMemoryManager
+from multiprocessing import get_context
+from multiprocessing.synchronize import Event
+from typing import Dict, Callable, Optional
 
 
 def prepare_cv2_imshow(logger: logging.Logger):
@@ -76,18 +84,72 @@ class OpenCVisualizer(VisualizerBasis):
     def on_configure(self) -> bool:
         if not self.config.ignore_info:
             self.text_config = TextConfig()
-            self.info_image = (
+            self.info_image_base = (
                 np.ones((self.config.height, self.config.width, 3), dtype=np.uint8)
                 * 255
             )
+        self._images = {}
+        self._concurrent: SpawnProcess = None
+        spawn_ctx = get_context("spawn")
+        self._smm: SharedMemoryManager = SharedMemoryManager(ctx=spawn_ctx)
+        self._stop_event = spawn_ctx.Event()
+        self.current_key = None
         return True
 
-    def update(self, data: dict[str, np.ndarray], info: SampleInfo) -> bool:
+    @classmethod
+    def update_loop_shm(
+        cls, rate: float, data_shm: Dict[str, ShareableNumpy], stop_event: Event
+    ):
+        init_logging()
+        period = 1 / rate if rate > 0 else 0
+        cls.get_logger().info("Update loop started")
+        while not stop_event.is_set():
+            start = time.perf_counter()
+            for key, shm_array in data_shm.items():
+                cv2.imshow(key, shm_array.array)
+            cv2.waitKey(1)
+            sleep_time = period - (time.perf_counter() - start)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+        cv2.destroyAllWindows()
+        cls.get_logger().info("Update loop stopped")
+
+    def update(
+        self, data: Dict[str, np.ndarray], info: SampleInfo, warm_up: bool = False
+    ) -> bool:
         """Show the data on the OpenCV window."""
+        if warm_up:
+            images = self._get_images(data, info, self._warm_up_images)
+            if self.config.concurrent_mode != ConcurrentMode.none:
+                self._smm.start()
+                ShareableNumpy.from_array_dict(
+                    self._images, smm=self._smm, replace=True
+                )
+                self._concurrent = SpawnProcess(
+                    target=self.update_loop_shm,
+                    args=(self.config.rate, self._images, self._stop_event),
+                )
+                self._concurrent.start()
+        else:
+            images = self._get_images(data, info, self._update_images)
+        if self._concurrent is None:
+            self.current_key = self.show_images(images, self.config.wait_key)
+        return True
+
+    @classmethod
+    def show_images(cls, images: Dict[str, np.ndarray], wait_key: int) -> Optional[int]:
         # TODO: add concatenation for the data?
         if current_thread() is not main_thread():
-            self.get_logger().warning("Not running in the main thread, skipping imshow")
-            return True
+            cls.get_logger().warning("Not running in the main thread, skipping imshow")
+            return -1
+        for key, image in images.items():
+            cv2.imshow(key, image)
+        if wait_key > 0:
+            return cv2.waitKey(wait_key)
+
+    def _get_images(
+        self, data: Dict[str, np.ndarray], info: SampleInfo, func: Callable
+    ) -> Dict[str, np.ndarray]:
         for key, value in data.items():
             if isinstance(value, bytes):
                 value = decode_image(value, self.config.pixel_format)
@@ -99,16 +161,26 @@ class OpenCVisualizer(VisualizerBasis):
                 continue
             if self.config.swap_rgb_bgr:
                 value = value[..., ::-1]
-            cv2.imshow(key, value)
+            func(key, value)
         if not self.config.ignore_info:
-            image = self._put_info(self.info_image.copy(), info)
-            cv2.imshow("info", image)
-        if self.config.wait_key > 0:
-            cv2.waitKey(1)
-        return True
+            image = self._put_info(self.info_image_base.copy(), info)
+            func("info", image)
+        return self._images
+
+    def _warm_up_images(self, key: str, value: np.ndarray) -> None:
+        self._images[key] = value
+
+    def _update_images(self, key: str, value: np.ndarray) -> None:
+        self._images[key][:] = value
 
     def shutdown(self):
-        cv2.destroyAllWindows()
+        if self._concurrent:
+            self._stop_event.set()
+            if self._concurrent.is_alive():
+                self._concurrent.join(5)
+            self._smm.shutdown()
+        else:
+            cv2.destroyAllWindows()
 
     def _put_info(self, image: np.ndarray, info: SampleInfo) -> None:
         """Put the current episode and step information on the image.
@@ -147,3 +219,31 @@ class OpenCVisualizer(VisualizerBasis):
         text_cfg_dict["org"] = (x_bottom, y_bottom)
         cv2.putText(image, **text_cfg_dict)
         return image
+
+
+if __name__ == "__main__":
+    visualizer = OpenCVisualizer(
+        OpenCVisualizerConfig(concurrent_mode=ConcurrentMode.process, rate=30)
+    )
+    assert visualizer.on_configure()
+    video_name = 12
+    # cap = cv2.VideoCapture(video_name)
+    # assert cap.isOpened(), "Cannot open camera"
+    # ret, frame = cap.read()
+    frame = np.ones((480, 640, 3), dtype=np.uint8) * 100
+    ret = True
+    assert ret, "Cannot read camera frame"
+    video_name = str(video_name)
+    visualizer.update({video_name: frame}, SampleInfo(round=0, index=0), warm_up=True)
+    for i in range(330):
+        start = time.perf_counter()
+        # ret, frame = cap.read()
+        if not ret:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+        visualizer.update({video_name: frame}, SampleInfo(round=i, index=i))
+        if visualizer.current_key == 27:
+            break
+        print(f"Frame {i} displayed in {(time.perf_counter() - start) * 1000:.3f} ms")
+        time.sleep(0.033)
+    visualizer.shutdown()

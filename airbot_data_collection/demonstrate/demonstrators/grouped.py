@@ -8,6 +8,7 @@ from airbot_data_collection.basis import (
     StrEnum,
     auto,
     PostCaptureConfig,
+    ConcurrentMode,
 )
 from airbot_data_collection.demonstrate.basis import (
     Demonstrator,
@@ -16,7 +17,7 @@ from airbot_data_collection.demonstrate.basis import (
     HandlerWaitable,
     ComponentsInstancer,
 )
-from airbot_data_collection.demonstrate.configs import ConcurrentMode, DemonstrateAction
+from airbot_data_collection.demonstrate.configs import DemonstrateAction
 from airbot_data_collection.utils import zip, bcolors, init_logging
 from logging import getLogger
 from collections import Counter

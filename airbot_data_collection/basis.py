@@ -31,6 +31,13 @@ class PostCaptureConfig(BaseModel):
     target_ranges: List[RangeConifg] = {}
 
 
+class ConcurrentMode(StrEnum):
+    thread = auto()
+    process = auto()
+    asynchronous = auto()
+    none = auto()
+
+
 class ConfigBasis(ABC):
     def __init__(self, config: Optional[BaseModel] = None, **kwargs) -> None:
         """Base class for configurable components.
@@ -93,8 +100,9 @@ class ConfigBasis(ABC):
         """Callback to be called when configuring"""
         raise NotImplementedError
 
-    def get_logger(self):
-        return getLogger(self.__class__.__name__)
+    @classmethod
+    def get_logger(cls):
+        return getLogger(cls.__name__)
 
     @final
     @property

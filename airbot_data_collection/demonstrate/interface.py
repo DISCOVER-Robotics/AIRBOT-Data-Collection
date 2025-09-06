@@ -128,6 +128,8 @@ class DemonstrateInterface:
             Path(self._config.dataset.absolute_directory).mkdir(
                 parents=True, exist_ok=True
             )
+            self.get_logger().info("Warming up...")
+            self.capture(warm_up=True)
             return self._post_action(DemonstrateAction.activate)
         return False
 
@@ -155,18 +157,22 @@ class DemonstrateInterface:
                 return True
         return False
 
-    def capture(self) -> Dict[str, Any]:
+    def capture(self, warm_up: bool = False) -> Dict[str, Any]:
         # TODO: can be called when sampling?
         start = time.perf_counter()
         data = self._demonstrator.capture_observation()
-        self._metrics["durations"]["capture/demonstrator"] = time.perf_counter() - start
+        self._metrics["durations"]["demonstrate/update/demonstrator"] = (
+            time.perf_counter() - start
+        )
         self.last_capture = data
         # update the visualizers
         start = time.perf_counter()
         for name, visualizer in self._visualizers.items():
             self.get_logger().debug("Updating visualizer %s", name)
-            visualizer.update(data, self._sample_info)
-        self._metrics["durations"]["update/visualizers"] = time.perf_counter() - start
+            visualizer.update(data, self._sample_info, warm_up)
+        self._metrics["durations"]["demonstrate/update/visualizers"] = (
+            time.perf_counter() - start
+        )
         self._metrics["durations"].update(
             self._demonstrator.metrics.get("durations", {})
         )
@@ -186,14 +192,24 @@ class DemonstrateInterface:
             )
             return False
         else:
+            start = time.perf_counter()
             data = self.capture()
             data.update({"log_stamps": time.time_ns()})
-            start = time.perf_counter()
+            start_sampler = time.perf_counter()
             for key, value in self._sampler.update(data).items():
                 self._round_data[key].append(value)
-            self._metrics["durations"]["update/sampler"] = time.perf_counter() - start
+            self._metrics["durations"]["demonstrate/update/sampler"] = (
+                time.perf_counter() - start_sampler
+            )
+            start_bar = time.perf_counter()
             info.index += 1
             self._bar.update(info.index)
+            self._metrics["durations"]["demonstrate/update/bar"] = (
+                time.perf_counter() - start_bar
+            )
+            self._metrics["durations"]["demonstrate/update"] = (
+                time.perf_counter() - start
+            )
             return True
 
     def _show_save_info(self, path: str, flag: bool) -> bool:
@@ -300,6 +316,7 @@ class DemonstrateInterface:
             )
             for vis in self._visualizers.values():
                 vis.shutdown()
+            self._bar.close()
             return self._post_action(DemonstrateAction.finish)
         return False
 
