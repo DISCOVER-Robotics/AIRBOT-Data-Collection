@@ -132,7 +132,7 @@ class Sensor(ConfigBasis):
 
     @final
     @property
-    def metrics(self) -> Dict[str, Any]:
+    def metrics(self) -> Dict[str, Dict[str, Any]]:
         """Get metrics"""
         return self._metrics
 

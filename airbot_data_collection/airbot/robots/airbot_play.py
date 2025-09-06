@@ -1,6 +1,6 @@
 from typing import List, Union, Dict, Tuple, Any, Iterable, Optional
 from pydantic import PositiveInt, Field, computed_field
-from time import time_ns
+from time import time_ns, perf_counter
 from collections import defaultdict
 from functools import partial, cached_property
 from airbot_data_collection.utils import linear_map, zip
@@ -233,6 +233,7 @@ class AIRBOTPlay(System):
         obs = {}
         # FIXME: Currently, the robot arm will have a large shake when acquiring pose
         if self.config.pose_observation:
+            start = perf_counter()
             pose = self.interface.get_end_pose()
             if self.config.relative_observation:
                 pose = self.rela_obs_ctrl.to_relative(*pose)
@@ -243,6 +244,8 @@ class AIRBOTPlay(System):
                     "orientation": pose[1],
                 },
             }
+            self._metrics["durations"]["capture/pose"] = perf_counter() - start
+        start = perf_counter()
         for component in self.config.components:
             obs[f"{component}/joint_state"] = {
                 "t": time_ns(),
@@ -251,6 +254,7 @@ class AIRBOTPlay(System):
                     for field in self._js_fields
                 },
             }
+        self._metrics["durations"]["capture/joint_state"] = perf_counter() - start
         return obs
 
     def _get_joint_state(self, component: str, field: str) -> List[float]:

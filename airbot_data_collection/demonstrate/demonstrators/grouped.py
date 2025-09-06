@@ -14,7 +14,6 @@ from airbot_data_collection.demonstrate.basis import (
     DemonstratorConfig,
     ComponentConfig,
     HandlerWaitable,
-    ConcurrentHandler,
     ComponentsInstancer,
 )
 from airbot_data_collection.demonstrate.configs import ConcurrentMode, DemonstrateAction
@@ -484,8 +483,11 @@ class GroupedDemonstrator(Demonstrator):
         ):
             start = time.perf_counter()
             prefix = self._get_component_data_prefix(group.name, component_name)
-            for key, value in component.capture_observation().items():
-                data[self._get_component_data_key(prefix, key)] = value
+            for mtype, value in component.capture_observation().items():
+                data[self._get_component_data_key(prefix, mtype)] = value
+            for mtype, value in component.metrics.items():
+                for key, v in value.items():
+                    self._metrics[mtype][f"{prefix}/{key}"] = v
             self._metrics["durations"][f"capture/{prefix}"] = (
                 time.perf_counter() - start
             )
@@ -516,12 +518,12 @@ class GroupedDemonstrator(Demonstrator):
 
     def _get_component_data_prefix(self, group_name: str, component_name: str) -> str:
         if component_name:
-            return f"/{group_name}/{component_name}"
-        return f"/{group_name}"
+            return f"{group_name}/{component_name}"
+        return f"{group_name}"
 
     def _get_component_data_key(self, prefix: str, key: str) -> str:
         # TODO: should allow component_name to be empty or the group name to be / ?
-        return f"{prefix}/{key}".removeprefix("//")
+        return f"/{prefix}/{key}".removeprefix("//")
 
     def react(self, action):
         if action is DemonstrateAction.sample:
