@@ -80,14 +80,14 @@ class SensorConcurrentWrapper(Sensor):
         logger = interface.get_logger()
         logger.info("Configuring the interface...")
         conn.send(interface.configure())
-        conn.send((interface.get_info(), interface.capture_observation()))
+        conn.send((interface.get_info(), interface.capture_observation(5.0)))
         if not conn.poll(5.0):
             logger.error("Timeout waiting for shm observation.")
             return
         shm_obs = conn.recv()
         conn.close()
         while rpc_server.wait():
-            for key, value in interface.capture_observation().items():
+            for key, value in interface.capture_observation(5.0).items():
                 shm_obs[key]["t"].value = value["t"]
                 shm_obs[key]["data"][:] = value["data"]
             rpc_server.respond()

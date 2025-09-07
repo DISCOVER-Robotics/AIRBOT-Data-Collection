@@ -227,7 +227,7 @@ class AIRBOTPlay(System):
         return self.interface.servo_cart_pose(self._process_pose(target))
 
     def capture_observation(
-        self,
+        self, timeout: Optional[float] = None
     ) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}

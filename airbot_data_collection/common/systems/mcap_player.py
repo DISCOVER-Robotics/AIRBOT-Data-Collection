@@ -6,7 +6,7 @@ from airbot_data_collection.common.systems.data_player import (
     DataPlayerConfig,
     IterablePlayer,
 )
-from typing import Dict, Union, Any
+from typing import Dict, Union, Any, Optional
 import numpy as np
 
 
@@ -20,5 +20,7 @@ class McapPlayer(IterablePlayer):
     config: McapPlayerConfig
     interface: McapFlatbufferSampleDataset
 
-    def capture_observation(self) -> Dict[str, Union[np.ndarray, Any]]:
-        return super().capture_observation()
+    def capture_observation(
+        self, timeout: Optional[float] = None
+    ) -> Dict[str, Union[np.ndarray, Any]]:
+        return super().capture_observation(timeout)

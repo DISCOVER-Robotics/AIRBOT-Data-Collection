@@ -1,5 +1,5 @@
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt
-from typing import Any
+from typing import Any, Optional
 from airbot_data_collection.basis import System, SystemMode
 from airbot_data_collection.common.datasets.dataset import IterableDatasetABC
 from more_itertools import consume, seekable
@@ -43,7 +43,7 @@ class IterablePlayer(System):
             self.send_action(0)
         return True
 
-    def capture_observation(self) -> Any:
+    def capture_observation(self, timeout: Optional[float] = None) -> Any:
         return next(self._stream, None)
 
     def get_info(self) -> dict:

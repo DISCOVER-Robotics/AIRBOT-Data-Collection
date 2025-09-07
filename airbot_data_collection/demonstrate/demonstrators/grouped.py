@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, computed_field, NonNegativeFloat, Field
-from typing import List, Union, Optional, Any, Dict, Callable
+from typing import List, Union, Optional, Any, Dict, Callable, Literal
 from typing_extensions import Self
 from airbot_data_collection.basis import (
     Sensor,
@@ -476,17 +476,28 @@ class GroupedDemonstrator(Demonstrator):
         self._role_mode_set[role] = mode
         return True
 
-    def capture_observation(self):
+    def capture_observation(self, timeout: Optional[float] = None):
         # TODO: can be called when sampling?
         data = {}
 
         def add_data(
-            group: DemonstrateGroup, component: Component, component_name: str
+            group: DemonstrateGroup,
+            component: Component,
+            component_name: str,
+            mode: Literal["capture", "result"] = "capture",
+            wait: bool = True,
         ):
             start = time.perf_counter()
             prefix = self._get_component_data_prefix(group.name, component_name)
-            for mtype, value in component.capture_observation().items():
-                data[self._get_component_data_key(prefix, mtype)] = value
+            if mode == "capture":
+                func = component.capture_observation
+                if not wait:  # just trigger capture
+                    return func(0.0)
+            else:
+                func = component.result
+            for key, value in func(5.0).items():
+                data[self._get_component_data_key(prefix, key)] = value
+            # TODO: what about the concurrent wrapper metrics?
             for mtype, value in component.metrics.items():
                 for key, v in value.items():
                     self._metrics[mtype][f"{prefix}/{key}"] = v
@@ -501,7 +512,7 @@ class GroupedDemonstrator(Demonstrator):
         info = {}
 
         def add_info(
-            group: DemonstrateGroup, component: Component, component_name: str
+            group: DemonstrateGroup, component: Component, component_name: str, *args
         ):
             prefix = self._get_component_data_prefix(group.name, component_name)
             for key, value in component.get_info().items():
@@ -512,11 +523,19 @@ class GroupedDemonstrator(Demonstrator):
         return info
 
     def _fully_process(self, func: Callable[[DemonstrateGroup, Component, str], None]):
+        concur_comps = []
         for group, all_names in zip(self.groups, self.group_component_names):
             for component, comp_name in zip(
                 group.get_all_components(), all_names.get_all_names()
             ):
-                func(group, component, comp_name)
+                if isinstance(component, SensorConcurrentWrapper):
+                    concur_comps.append((group, component, comp_name))
+                    wait = False
+                else:
+                    wait = True
+                func(group, component, comp_name, "capture", wait)
+        for group, component, comp_name in concur_comps:
+            func(group, component, comp_name, "result", True)
 
     def _get_component_data_prefix(self, group_name: str, component_name: str) -> str:
         if component_name:

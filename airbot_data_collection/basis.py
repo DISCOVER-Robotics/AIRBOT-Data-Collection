@@ -159,7 +159,9 @@ class Sensor(ConfigBasis):
             ValueError: If timeout is not None or positive.
         """
         # This method can be overridden by subclasses if needed
-        raise NotImplementedError
+        if timeout is not None and timeout <= 0:
+            raise ValueError("timeout must be None or positive")
+        return self.capture_observation(timeout)
 
     @abstractmethod
     def shutdown(self) -> None:

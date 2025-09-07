@@ -71,7 +71,9 @@ class V4L2Camera(Sensor):
         self._visualizer = None
         return True
 
-    def capture_observation(self) -> Union[bytes, np.ndarray]:
+    def capture_observation(
+        self, timeout: Optional[float] = None
+    ) -> Union[bytes, np.ndarray]:
         self.event.wait()
         self.event.clear()
         frame_bytes = bytes(self.frame)

@@ -1,6 +1,6 @@
 import math
 import traceback
-from typing import Union, Dict
+from typing import Union, Dict, Optional
 import numpy as np
 from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBDConfig,
@@ -171,7 +171,9 @@ class IntelRealSenseCamera(Sensor):
         self.width = round(actual_width)
         self.height = round(actual_height)
 
-    def capture_observation(self) -> Dict[str, np.ndarray]:
+    def capture_observation(
+        self, timeout: Optional[float] = None
+    ) -> Dict[str, np.ndarray]:
         """Capture an observation from the camera.
         Returns:
             A dictionary containing the captured images.

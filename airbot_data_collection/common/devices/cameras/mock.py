@@ -1,6 +1,7 @@
 from airbot_data_collection.common.devices.cameras.utils import CameraRGBDConfig
 from airbot_data_collection.basis import Sensor
 import numpy as np
+from typing import Optional
 
 
 class MockCameraConfig(CameraRGBDConfig):
@@ -24,7 +25,7 @@ class MockCamera(Sensor):
         self._update_random_image()
         return True
 
-    def capture_observation(self):
+    def capture_observation(self, timeout: Optional[float] = None):
         if self.config.random:
             self._update_random_image()
         observation = {}
