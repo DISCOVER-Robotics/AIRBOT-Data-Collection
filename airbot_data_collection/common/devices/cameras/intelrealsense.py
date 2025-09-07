@@ -60,7 +60,6 @@ def find_camera_device_ids(
 
 class IntelRealSenseCameraConfig(CameraRGBDConfig):
     force_hardware_reset: bool = True
-    align_depth: bool = False
 
     def model_post_init(self, context):
         at_least_one_is_not_none = (

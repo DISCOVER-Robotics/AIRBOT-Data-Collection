@@ -11,7 +11,6 @@ class CameraRGBConfig(BaseModel):
     width: Optional[int] = None
     height: Optional[int] = None
     color_mode: Literal["bgr", "rgb"] = "bgr"
-    mock: bool = False
     pixel_format: Optional[Union[str, Enum]] = None
 
 

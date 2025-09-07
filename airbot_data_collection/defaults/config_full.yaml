@@ -12,30 +12,40 @@ demonstrator:
         - left
         - right
         - right
-        - env_camera
+        - /
+        - /
+        - /
       names:
         - lead
         - follow
         - lead
         - follow
-        - env
+        - env_camera
+        - left_camera
+        - right_camera
       params:
         - port: 50050
         - port: 50051
         - port: 50052
         - port: 50053
         - camera_index: null
+        - camera_index: null
+        - camera_index: null
       paths:
         - airbot_play_mock
         - airbot_play_mock
         - airbot_play_mock
         - airbot_play_mock
-        - v4l2
+        - mock_camera
+        - mock_camera
+        - mock_camera
       roles:
         - l
         - f
         - l
         - f
+        - o
+        - o
         - o
   path: ""
 dataset:

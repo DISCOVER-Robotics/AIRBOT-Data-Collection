@@ -4,6 +4,5 @@ fps: null
 width: 640
 height: 480
 color_mode: bgr
-mock: false
 decode: false
 pixel_format: MJPEG

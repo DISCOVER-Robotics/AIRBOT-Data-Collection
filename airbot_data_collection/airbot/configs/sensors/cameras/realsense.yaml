@@ -5,6 +5,5 @@ width: 640
 height: 480
 force_hardware_reset: true
 color_mode: bgr
-mock: false
 enable_depth: false
 align_depth: false
