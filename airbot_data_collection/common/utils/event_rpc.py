@@ -6,6 +6,7 @@ from typing import Optional, Union, Type
 from airbot_data_collection.basis import ConcurrentMode
 from threading import Thread
 from multiprocessing.context import SpawnProcess
+import logging
 
 
 class ProcessEventRpcArgs(BaseModel):
@@ -35,8 +36,8 @@ class EventRpcServer:
         return ret
 
     def respond(self):
-        self._rsp_event.set()
         self._req_event.clear()
+        self._rsp_event.set()
 
 
 class EventRpcClient:
@@ -53,7 +54,7 @@ class EventRpcClient:
             True if the request was successful, False otherwise.
         """
         if self._req_event.is_set():
-            print("Warning: previous response not received yet.")
+            self.get_logger().warning("previous response not received yet.")
             return False
         self._rsp_event.clear()
         self._req_event.set()
@@ -73,11 +74,14 @@ class EventRpcClient:
 
     def shutdown(self) -> bool:
         if self._req_event.is_set():
-            print("Warning: previous response not received yet.")
+            self.get_logger().warning("previous response not received yet.")
             return False
         self._rsp_event.set()
         self._req_event.set()
         return True
+
+    def get_logger(self) -> logging.Logger:
+        return logging.getLogger(self.__class__.__name__)
 
 
 class EventRpcManager:
