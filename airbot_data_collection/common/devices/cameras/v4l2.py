@@ -154,7 +154,6 @@ class V4L2Camera(Sensor):
 
 if __name__ == "__main__":
     import time
-
     import cv2
 
     camera = V4L2Camera()
@@ -164,6 +163,6 @@ if __name__ == "__main__":
         image = camera.capture_observation()
         print(f"time cost: {time.monotonic() - start}s", end="\r")
         cv2.imshow("image", image)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        if cv2.waitKey(1) & 0xFF in (ord("q"), 27):  # 27 is the ESC key
             break
     assert camera.shutdown()

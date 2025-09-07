@@ -1,6 +1,6 @@
 from pathlib import Path
 from enum import auto
-from typing import Any, Dict, Optional, Literal
+from typing import Any, Dict, Optional, Literal, List, Union
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.utils import StrEnum
@@ -26,11 +26,13 @@ class ComponentsConfig(BaseModel):
 
     # names of the components, e.g. ("left_arm", "right_arm", "left_camera")
     # if empty, no component will be used
-    names: list[str] = []
-    paths: list[str] = []
-    params: list[dict] = []
-    concurrents: list[ConcurrentMode] = []
-    update_rates: list[NonNegativeFloat] = []
+    names: List[str] = []
+    # paths to the robot hydra config yaml files
+    paths: List[str] = []
+    # params to override the robot config in the yaml file
+    params: List[Union[str, dict]] = []
+    concurrents: List[ConcurrentMode] = []
+    update_rates: List[NonNegativeFloat] = []
 
     def model_post_init(self, context):
         assert len(self.names) == len(self.paths) == len(self.params), (

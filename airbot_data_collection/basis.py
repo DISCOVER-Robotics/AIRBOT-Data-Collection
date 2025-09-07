@@ -45,9 +45,10 @@ class ConfigBasis(ABC):
             config: Configuration object, typically a pydantic BaseModel or a dataclass.
             **kwargs: Additional keyword arguments to override config fields.
         """
-        config_type = self.__annotations__.get("config", None)
-        assert config_type, "config must be annotated at the top level class"
         if config is None:  # mainly used by yaml config, e.g. hydra
+            config_type = self.__annotations__.get("config", None)
+            if not config_type:
+                raise ValueError("`config` must be annotated at the top level class")
             config = config_type(**kwargs)
             # check pydantic extra kwargs
             if isinstance(config, BaseModel):

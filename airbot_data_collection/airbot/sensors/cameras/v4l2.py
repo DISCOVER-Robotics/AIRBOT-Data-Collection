@@ -4,6 +4,7 @@ from airbot_data_collection.common.devices.cameras.v4l2 import (
     V4L2Camera as V4L2CameraBasis,
     V4L2CameraConfig,
 )
+from airbot_data_collection.common.systems.wrappers import concurrent_wrapper
 from time import time_ns
 
 
@@ -19,3 +20,6 @@ class V4L2Camera(V4L2CameraBasis):
                 "data": super().capture_observation(),
             }
         }
+
+
+V4L2CameraConcurrent = concurrent_wrapper(V4L2Camera)

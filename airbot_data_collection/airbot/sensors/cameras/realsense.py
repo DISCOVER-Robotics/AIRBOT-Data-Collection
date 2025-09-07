@@ -2,6 +2,7 @@ from airbot_data_collection.common.devices.cameras.intelrealsense import (
     IntelRealSenseCamera,
     IntelRealSenseCameraConfig,
 )
+from airbot_data_collection.common.systems.wrappers import concurrent_wrapper
 from time import time_ns
 from typing import Dict, Union
 from numpy import ndarray
@@ -22,3 +23,6 @@ class RealSense(IntelRealSenseCamera):
             "t": time_ns(),
             "data": data,
         }
+
+
+RealSenseConcurrent = concurrent_wrapper(RealSense)

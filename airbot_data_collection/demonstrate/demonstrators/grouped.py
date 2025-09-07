@@ -17,8 +17,15 @@ from airbot_data_collection.demonstrate.basis import (
     Waitable,
     ComponentsInstancer,
 )
-from airbot_data_collection.demonstrate.configs import DemonstrateAction
+from airbot_data_collection.demonstrate.configs import (
+    DemonstrateAction,
+    ComponentsConfig,
+)
 from airbot_data_collection.utils import zip, bcolors, init_logging
+from airbot_data_collection.common.systems.wrappers import (
+    ConcurrentWrapperConfig,
+    SensorConcurrentWrapper,
+)
 from logging import getLogger
 from collections import Counter
 import json
@@ -48,13 +55,7 @@ class GroupConfig(BaseModel):
     others: List[ComponentConfig] = []
 
 
-class ComponentGroupsConfig(BaseModel):
-    # names of the robots, e.g. ("left_arm", "right_arm", "head_camera")
-    names: List[str] = []
-    # paths to the robot hydra config yaml files
-    paths: List[str] = []
-    # params to override the robot config in the yaml file
-    params: List[Union[str, dict]] = []
+class ComponentGroupsConfig(ComponentsConfig):
     # the groups to which the robot belongs,
     # each group must have one and only one leader robot
     # and no less than one follower robot

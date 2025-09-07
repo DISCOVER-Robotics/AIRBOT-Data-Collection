@@ -3,7 +3,7 @@ from multiprocessing import get_context
 from multiprocessing.connection import Connection
 from multiprocessing.sharedctypes import Synchronized
 from pydantic import BaseModel, ConfigDict
-from typing import Union, Dict
+from typing import Union, Dict, Type
 from airbot_data_collection.basis import Sensor, System
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.utils.event_rpc import (
@@ -71,16 +71,17 @@ class SensorConcurrentWrapper(Sensor):
             self.get_logger().error("Timeout waiting for configure response.")
         return False
 
-    @classmethod
+    @staticmethod
     def _concurrent_loop(
-        cls, interface: Sensor, conn: Connection, rpc_server: EventRpcServer
+        interface: Sensor, conn: Connection, rpc_server: EventRpcServer
     ):
         init_logging()
-        cls.get_logger().info("Configuring the interface...")
+        logger = interface.get_logger()
+        logger.info("Configuring the interface...")
         conn.send(interface.configure())
         conn.send((interface.get_info(), interface.capture_observation()))
         if not conn.poll(5.0):
-            cls.get_logger().error("Timeout waiting for shm observation.")
+            logger.error("Timeout waiting for shm observation.")
             return
         shm_obs = conn.recv()
         while rpc_server.wait():
@@ -88,7 +89,7 @@ class SensorConcurrentWrapper(Sensor):
                 shm_obs[key]["t"].value = value["t"]
                 shm_obs[key]["data"][:] = value["data"]
             rpc_server.respond()
-        cls.get_logger().info("Shutting down the interface...")
+        logger.info("Shutting down the interface...")
         interface.shutdown()
 
     def capture_observation(self):
@@ -111,28 +112,46 @@ class SensorConcurrentWrapper(Sensor):
         return True
 
 
+def concurrent_wrapper(interface_cls: Type[Sensor]):
+    class ConcurrentWrappedClass(SensorConcurrentWrapper):
+        def __init__(self, config: BaseModel, **kwargs):
+            super().__init__(
+                ConcurrentWrapperConfig(
+                    interface=interface_cls(config=config, **kwargs),
+                    mode=kwargs.get("concurrent", ConcurrentMode.process),
+                )
+            )
+
+    return ConcurrentWrappedClass
+
+
 if __name__ == "__main__":
     from airbot_data_collection.airbot.sensors.cameras.mock import (
         MockCamera,
         MockCameraConfig,
     )
     import cv2
+    import time
 
     init_logging()
-    con_mock_cam = SensorConcurrentWrapper(
-        ConcurrentWrapperConfig(
-            interface=MockCamera(MockCameraConfig()), mode=ConcurrentMode.process
-        )
+    # con_mock_cam = SensorConcurrentWrapper(
+    #     ConcurrentWrapperConfig(
+    #         interface=MockCamera(MockCameraConfig()), mode=ConcurrentMode.process
+    #     )
+    # )
+    con_mock_cam = concurrent_wrapper(MockCamera)(
+        MockCameraConfig(), concurrent=ConcurrentMode.process
     )
     assert con_mock_cam.configure()
     con_mock_cam.get_logger().info("Successfully configured")
-
     for i in range(10):
+        start = time.perf_counter()
         obs = con_mock_cam.capture_observation()
+        print(f"{(time.perf_counter() - start) * 1000:.3} ms")
         for key, value in obs.items():
             print(key, value["t"])
             cv2.imshow(key, value["data"])
-            cv2.waitKey(0)
+            cv2.waitKey(1)
 
     cv2.destroyAllWindows()
     con_mock_cam.shutdown()
