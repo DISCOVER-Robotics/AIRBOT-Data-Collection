@@ -25,4 +25,4 @@ class RealSense(IntelRealSenseCamera):
         }
 
 
-RealSenseConcurrent = concurrent_wrapper(RealSense)
+RealSenseConcurrent = concurrent_wrapper(RealSense, IntelRealSenseCameraConfig)

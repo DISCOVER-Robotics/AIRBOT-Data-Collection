@@ -3,7 +3,18 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, replace
 from enum import Enum, auto
 from logging import getLogger
-from typing import Any, Dict, Union, List, Tuple, Optional, Set, final, DefaultDict
+from typing import (
+    Any,
+    Dict,
+    Union,
+    List,
+    Tuple,
+    Optional,
+    Set,
+    final,
+    DefaultDict,
+    Type,
+)
 from typing_extensions import Self
 from pydantic import BaseModel
 from airbot_data_collection.utils import StrEnum
@@ -38,17 +49,23 @@ class ConcurrentMode(StrEnum):
     none = auto()
 
 
+ConfigType = Optional[Union[BaseModel, Type[BaseModel]]]
+
+
 class ConfigBasis(ABC):
-    def __init__(self, config: Optional[BaseModel] = None, **kwargs) -> None:
+    def __init__(self, config: ConfigType = None, **kwargs) -> None:
         """Base class for configurable components.
         Args:
             config: Configuration object, typically a pydantic BaseModel or a dataclass.
             **kwargs: Additional keyword arguments to override config fields.
         """
-        if config is None:  # mainly used by yaml config, e.g. hydra
-            config_type = self.__annotations__.get("config", None)
+        # mainly used by yaml config, e.g. hydra
+        if config is None or isinstance(config, type):
+            config_type = config or self.__annotations__.get("config", None)
             if not config_type:
-                raise ValueError("`config` must be annotated at the top level class")
+                raise ValueError(
+                    "`config` must be annotated at the top level class if not provided as an arg."
+                )
             config = config_type(**kwargs)
             # check pydantic extra kwargs
             if isinstance(config, BaseModel):
@@ -112,7 +129,7 @@ class ConfigBasis(ABC):
 
 
 class Sensor(ConfigBasis):
-    def __init__(self, config: BaseModel = None, **kwargs):
+    def __init__(self, config: ConfigType = None, **kwargs):
         super().__init__(config, **kwargs)
         self._metrics: DefaultDict[str, Dict[str, Any]] = defaultdict(dict)
 

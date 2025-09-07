@@ -3,7 +3,7 @@ from multiprocessing import get_context
 from multiprocessing.connection import Connection
 from multiprocessing.sharedctypes import Synchronized
 from pydantic import BaseModel, ConfigDict
-from typing import Union, Dict, Type
+from typing import Union, Dict, Type, Optional
 from airbot_data_collection.basis import Sensor, System
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.utils.event_rpc import (
@@ -114,13 +114,20 @@ class SensorConcurrentWrapper(Sensor):
         return True
 
 
-def concurrent_wrapper(interface_cls: Type[Sensor]):
+def concurrent_wrapper(
+    interface_cls: Type[Sensor], config_cls: Optional[Type[BaseModel]] = None
+):
     class ConcurrentWrappedClass(SensorConcurrentWrapper):
-        def __init__(self, config: BaseModel, **kwargs):
+        def __init__(
+            self,
+            config: Optional[BaseModel] = None,
+            _concurrent=ConcurrentMode.process,
+            **kwargs,
+        ):
             super().__init__(
                 ConcurrentWrapperConfig(
-                    interface=interface_cls(config=config, **kwargs),
-                    mode=kwargs.get("concurrent", ConcurrentMode.process),
+                    interface=interface_cls(config=config or config_cls, **kwargs),
+                    mode=_concurrent,
                 )
             )
 
@@ -141,8 +148,11 @@ if __name__ == "__main__":
     #         interface=MockCamera(MockCameraConfig()), mode=ConcurrentMode.process
     #     )
     # )
-    con_mock_cam = concurrent_wrapper(MockCamera)(
-        MockCameraConfig(random=True), concurrent=ConcurrentMode.process
+    # con_mock_cam = concurrent_wrapper(MockCamera)(
+    #     MockCameraConfig(random=True), concurrent=ConcurrentMode.process
+    # )
+    con_mock_cam = concurrent_wrapper(MockCamera, MockCameraConfig)(
+        _concurrent=ConcurrentMode.process, random=True
     )
     assert con_mock_cam.configure()
     con_mock_cam.get_logger().info("Successfully configured")

@@ -22,4 +22,4 @@ class V4L2Camera(V4L2CameraBasis):
         }
 
 
-V4L2CameraConcurrent = concurrent_wrapper(V4L2Camera)
+V4L2CameraConcurrent = concurrent_wrapper(V4L2Camera, V4L2CameraConfig)
