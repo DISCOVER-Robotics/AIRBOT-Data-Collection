@@ -7,9 +7,9 @@ from collections import defaultdict
 
 class CameraRGBConfig(BaseModel):
     camera_index: Optional[Union[int, str]] = None
-    fps: Optional[int] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
+    fps: Optional[PositiveInt] = None
+    width: Optional[PositiveInt] = None
+    height: Optional[PositiveInt] = None
     color_mode: Literal["bgr", "rgb"] = "bgr"
     pixel_format: Optional[Union[str, Enum]] = None
 

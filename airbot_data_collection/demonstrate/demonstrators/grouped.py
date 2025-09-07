@@ -14,7 +14,7 @@ from airbot_data_collection.demonstrate.basis import (
     Demonstrator,
     DemonstratorConfig,
     ComponentConfig,
-    HandlerWaitable,
+    Waitable,
     ComponentsInstancer,
 )
 from airbot_data_collection.demonstrate.configs import DemonstrateAction
@@ -343,7 +343,7 @@ class ComponentGroupManager:
         #     )
         return sleep_time
 
-    def auto_control_loop(self, waitable: HandlerWaitable):
+    def auto_control_loop(self, waitable: Waitable):
         """Control the followers to follow the leader in a loop."""
         period = 1 / self._config.auto_control.rates[0]
         if not waitable.is_same_process():

@@ -1,0 +1,138 @@
+from multiprocessing.managers import SharedMemoryManager
+from multiprocessing import get_context
+from multiprocessing.connection import Connection
+from multiprocessing.sharedctypes import Synchronized
+from pydantic import BaseModel, ConfigDict
+from typing import Union, Dict
+from airbot_data_collection.basis import Sensor, System
+from airbot_data_collection.basis import ConcurrentMode
+from airbot_data_collection.common.utils.event_rpc import (
+    EventRpcManager,
+    EventRpcServer,
+)
+from airbot_data_collection.utils import init_logging
+from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
+from airbot_data_collection.common.utils.shareable_value import ShareableValue
+from numpy import uint64
+
+
+class ConcurrentWrapperConfig(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    interface: Union[Sensor, System]
+    mode: ConcurrentMode = ConcurrentMode.process
+
+
+class SensorConcurrentWrapper(Sensor):
+    """A wrapper for sensors to run in a separate thread or process."""
+
+    config: ConcurrentWrapperConfig
+
+    def on_configure(self) -> bool:
+        # TODO: use protocol instead of inheriting Sensor?
+        if self.config.mode is not ConcurrentMode.process:
+            raise NotImplementedError(
+                "Only process mode is supported for SensorConcurrentWrapper."
+            )
+        self._rpc = EventRpcManager(EventRpcManager.get_args(self.config.mode))
+        spawn_ctx = get_context("spawn")
+        parent, child = spawn_ctx.Pipe()
+        self._smm = SharedMemoryManager(ctx=spawn_ctx)
+        self._smm.start()
+        self._concurrent = EventRpcManager.get_concurrent_cls(self.config.mode)(
+            target=self._concurrent_loop,
+            args=(self.config.interface, child, self._rpc.server),
+        )
+        self._concurrent.start()
+        if parent.poll(5.0):
+            if parent.recv():
+                self.get_logger().info("Receiving info and first observation...")
+                if parent.poll(5.0):
+                    self._info, obs = parent.recv()
+                    self._obs: Dict[
+                        str, Dict[str, Union[ShareableNumpy, Synchronized]]
+                    ] = {}
+                    obs: dict
+                    for key, value in obs.items():
+                        self._obs[key] = {
+                            # "t": spawn_ctx.Value("Q", value["t"], lock=True),
+                            "t": ShareableValue.from_value(
+                                value["t"], uint64, smm=self._smm
+                            ),
+                            "data": ShareableNumpy.from_array(
+                                value["data"], smm=self._smm
+                            ),
+                        }
+                    self.get_logger().info("Sending shm observation...")
+                    parent.send(self._obs)
+                    return True
+            else:
+                self.get_logger().error("Failed to configure the interface.")
+        else:
+            self.get_logger().error("Timeout waiting for configure response.")
+        return False
+
+    @classmethod
+    def _concurrent_loop(
+        cls, interface: Sensor, conn: Connection, rpc_server: EventRpcServer
+    ):
+        init_logging()
+        cls.get_logger().info("Configuring the interface...")
+        conn.send(interface.configure())
+        conn.send((interface.get_info(), interface.capture_observation()))
+        if not conn.poll(5.0):
+            cls.get_logger().error("Timeout waiting for shm observation.")
+            return
+        shm_obs = conn.recv()
+        while rpc_server.wait():
+            for key, value in interface.capture_observation().items():
+                shm_obs[key]["t"].value = value["t"]
+                shm_obs[key]["data"][:] = value["data"]
+            rpc_server.respond()
+        cls.get_logger().info("Shutting down the interface...")
+        interface.shutdown()
+
+    def capture_observation(self):
+        if self._rpc.client.request(timeout=5.0):
+            return {
+                key: {"t": value["t"].value, "data": value["data"].array}
+                for key, value in self._obs.items()
+            }
+        raise TimeoutError("Timeout waiting for observation.")
+
+    def get_info(self):
+        return self._info
+
+    def shutdown(self):
+        self._rpc.shutdown()
+        self._concurrent.join(timeout=5.0)
+        self._smm.shutdown()
+        if self._concurrent.is_alive():
+            self.get_logger().warning("Concurrent process did not terminate in time.")
+        return True
+
+
+if __name__ == "__main__":
+    from airbot_data_collection.airbot.sensors.cameras.mock import (
+        MockCamera,
+        MockCameraConfig,
+    )
+    import cv2
+
+    init_logging()
+    con_mock_cam = SensorConcurrentWrapper(
+        ConcurrentWrapperConfig(
+            interface=MockCamera(MockCameraConfig()), mode=ConcurrentMode.process
+        )
+    )
+    assert con_mock_cam.configure()
+    con_mock_cam.get_logger().info("Successfully configured")
+
+    for i in range(10):
+        obs = con_mock_cam.capture_observation()
+        for key, value in obs.items():
+            print(key, value["t"])
+            cv2.imshow(key, value["data"])
+            cv2.waitKey(0)
+
+    cv2.destroyAllWindows()
+    con_mock_cam.shutdown()

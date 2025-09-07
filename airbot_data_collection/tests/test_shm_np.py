@@ -42,6 +42,6 @@ if __name__ == "__main__":
         p.start()
         time.sleep(2)
         print("Main process sees modified result:", arr.array)
-        np_arr[:] -= 10
+        # np_arr[:] -= 10
         arr[:] -= 10
         p.join()

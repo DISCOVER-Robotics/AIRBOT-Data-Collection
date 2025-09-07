@@ -1,5 +1,4 @@
-from typing import Any, Set, Union, final, Callable, Literal, Type
-from typing_extensions import Self
+from typing import Any, Set, Union
 from airbot_data_collection.demonstrate.configs import (
     ComponentConfig,
     ComponentsConfig,
@@ -7,7 +6,6 @@ from airbot_data_collection.demonstrate.configs import (
 )
 from airbot_data_collection.basis import System, ConcurrentMode
 from airbot_data_collection.utils import (
-    bcolors,
     find_matching_files,
     zip,
 )
@@ -15,13 +13,15 @@ from airbot_data_collection.common.utils.utils import (
     hydra_instance_from_config_path,
     hydra_instance_from_dict,
 )
-from threading import Thread, Event, Lock
-from multiprocessing import get_context, synchronize
-from multiprocessing.context import SpawnProcess
-from pydantic import BaseModel, ConfigDict, Field
-from abc import abstractmethod, ABC
-from os import getpid
-import logging
+from airbot_data_collection.common.utils.progress import (
+    Waitable,
+    ProgressHandler,
+    MockProgressHandler,
+    ConcurrentProgressHandler,
+)
+from multiprocessing import get_context
+from pydantic import BaseModel
+from abc import abstractmethod
 import time
 
 
@@ -69,339 +69,6 @@ class ComponentsInstancer:
             return hydra_instance_from_dict(param)
 
 
-class HandlerWaitable(ABC):
-    def __init__(self):
-        self.__pid = getpid()
-
-    @abstractmethod
-    def wait(self) -> bool:
-        """Waits for the demonstration to start.
-        Blocks until the demonstration is started or not ok (exiting or exited).
-        Returns True if the demonstration has started, False otherwise.
-        """
-
-    @abstractmethod
-    def __enter__(self) -> Self:
-        """Marks the waitable as entered."""
-
-    @abstractmethod
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Marks the waitable as exited."""
-
-    @property
-    @final
-    def pid_init(self) -> int:
-        return self.__pid
-
-    @property
-    @final
-    def pid_current(self) -> int:
-        return getpid()
-
-    @final
-    def is_same_process(self) -> bool:
-        return self.pid_init == self.pid_current
-
-
-class MockWaitable(HandlerWaitable):
-    def wait(self) -> bool:
-        return True
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-
-class DemonstratorHandler:
-    """Handler for demonstration."""
-
-    def __init__(self):
-        self.__lock = Lock()
-        self.__callbacks = {"start": [], "stop": []}
-        self.__started = False
-        self.__exiting = False
-        self.__exited = False
-
-    @final
-    def start(self) -> bool:
-        """Starts the demonstration."""
-        if not self.is_launched():
-            raise RuntimeError("Demonstration is not launched.")
-        if self.is_stopped():
-            self._execute_callbacks(self.start.__name__)
-            if self.on_start():
-                self.__started = True
-                return True
-            return False
-        self.get_logger().warning("Already started.")
-        return True
-
-    @final
-    def stop(self) -> bool:
-        """Stops the demonstration."""
-        if self.is_stopped():
-            self.get_logger().warning("Already stopped.")
-            return True
-        elif self.__lock.locked():
-            self.get_logger().warning(
-                "Lock is already acquired (exiting), cannot stop."
-            )
-        with self.__lock:
-            self._execute_callbacks(self.stop.__name__)
-            if self.on_stop():
-                self.__started = False
-                return True
-            return False
-
-    @abstractmethod
-    def launch(self, *args, **kwargs) -> bool:
-        """Launches the demonstration."""
-
-    @abstractmethod
-    def on_start(self) -> bool:
-        """Called in start()."""
-
-    @abstractmethod
-    def on_stop(self) -> bool:
-        """Called in stop()."""
-
-    @abstractmethod
-    def on_exit(self) -> bool:
-        """Called in exit()"""
-
-    @abstractmethod
-    def is_launched(self) -> bool:
-        """Checks if the demonstration is launched."""
-
-    @abstractmethod
-    def get_waitable(self) -> HandlerWaitable:
-        """Gets the waitable for the demonstration."""
-
-    def is_stopped(self) -> bool:
-        """Checks if the demonstration is stopped."""
-        return not self.__started
-
-    def is_exiting(self) -> bool:
-        """Checks if the demonstration is exiting."""
-        return self.__exiting
-
-    def is_exited(self) -> bool:
-        """Checks if the demonstration is exited."""
-        return self.__exited
-
-    @final
-    def ok(self) -> bool:
-        """Checks if the demonstrator is OK."""
-        return not self.is_exiting() and not self.is_exited()
-
-    @final
-    def exit(self) -> bool:
-        """Exits the demonstration."""
-        # since the concurrent may wait
-        # forever if stop is called during
-        # exiting, a lock is needed
-        with self.__lock:
-            self.__exiting = True
-            success = False
-            if self.is_launched() and self.is_stopped():
-                if not self.start():
-                    self.get_logger().warning(
-                        "Failed to start, exiting may be blocked."
-                    )
-            if self.on_exit():
-                # after exit `is_stopped` should return True
-                if self.on_stop():
-                    success = True
-            self.__exited = True
-            self.__exiting = False
-            return success
-
-    @final
-    def register_callback(
-        self, action: Literal["start", "stop"], callback: Callable[[], bool]
-    ):
-        """Registers a callback for a specific action, which will
-        be executed before the `on_<action>` method."""
-        self.__callbacks[action].append(callback)
-
-    @final
-    def clear_callbacks(self):
-        """Clears all registered callbacks."""
-        self.__callbacks.clear()
-
-    def get_logger(self) -> logging.Logger:
-        """Gets the logger for the demonstration."""
-        return logging.getLogger(__name__)
-
-    def _execute_callbacks(self, action: str):
-        """Executes all callbacks registered for a specific action."""
-        for callback in self.__callbacks.get(action, []):
-            callback()
-
-    def __del__(self):
-        if not self.__exited:
-            self.exit()
-
-
-class MockHandler(DemonstratorHandler):
-    """Mock handler for demonstration."""
-
-    def __init__(self):
-        super().__init__()
-        # always launched
-        self._launched = True
-        self._waitable = MockWaitable()
-
-    def launch(self, *args, **kwargs):
-        self._launched = True
-        return True
-
-    def on_start(self):
-        return True
-
-    def on_stop(self):
-        return True
-
-    def on_exit(self):
-        return True
-
-    def is_launched(self):
-        return self._launched
-
-    def get_waitable(self) -> MockWaitable:
-        return self._waitable
-
-    def _execute_callbacks(self, action):
-        """Do not execute callbacks in mock handler."""
-
-
-class ThreadHandlerWaitableArgs(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    context_event: Event = Event()
-    start_event: Event = Event()
-    exiting_event: Event = Event()
-    exited_event: Event = Event()
-
-    @staticmethod
-    def concurrent_cls() -> Type[Thread]:
-        return Thread
-
-
-class ProcessHandlerWaitableArgs(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    context_event: synchronize.Event = Field(default_factory=SpawnEvent)
-    start_event: synchronize.Event = Field(default_factory=SpawnEvent)
-    exiting_event: synchronize.Event = Field(default_factory=SpawnEvent)
-    exited_event: synchronize.Event = Field(default_factory=SpawnEvent)
-
-    @staticmethod
-    def concurrent_cls() -> Type[SpawnProcess]:
-        return SpawnProcess
-
-
-class ConcurrentHandlerWaitable(HandlerWaitable):
-    def __init__(
-        self, args: Union[ThreadHandlerWaitableArgs, ProcessHandlerWaitableArgs]
-    ):
-        super().__init__()
-        self.args = args
-
-    def wait(self) -> bool:
-        """Waits for the demonstration to start.
-        Blocks until the demonstration is started or not ok (exiting or exited).
-        Returns True if the demonstration has started, False otherwise.
-        """
-        if self._is_ok():
-            self.args.start_event.wait(timeout=None)
-            if self._is_ok():
-                return True
-        return False
-
-    def __enter__(self) -> Self:
-        """Marks the waitable as entered."""
-        self.args.context_event.set()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Marks the waitable as exited."""
-        self.args.context_event.clear()
-
-    def _is_ok(self) -> bool:
-        return (
-            not self.args.exiting_event.is_set() and not self.args.exited_event.is_set()
-        )
-
-
-class ConcurrentHandler(DemonstratorHandler):
-    """Handler for concurrent demonstration."""
-
-    def __init__(self, mode: ConcurrentMode):
-        super().__init__()
-        if mode is ConcurrentMode.thread:
-            self._args = ThreadHandlerWaitableArgs()
-        elif mode is ConcurrentMode.process:
-            self._args = ProcessHandlerWaitableArgs()
-        else:
-            raise ValueError(f"Invalid mode: {mode}")
-        self._mode = mode
-        self._concurrent = None
-        self._waitable = ConcurrentHandlerWaitable(self._args)
-
-    def launch(
-        self, group=None, target=None, name=None, args=(), kwargs={}, *, daemon=None
-    ):
-        self.get_logger().info(bcolors.OKBLUE + f"Starting {name} in {self._mode} mode")
-        self._concurrent = self._args.concurrent_cls()(
-            group, target, name, args, kwargs, daemon=daemon
-        )
-        self._concurrent.start()
-        timeout = 5.0
-        self.get_logger().info(f"Waiting for {name} to enter waitable {timeout} s...")
-        self._args.context_event.wait(timeout=timeout)
-        return True
-
-    def on_start(self) -> bool:
-        if not self._concurrent.is_alive():
-            raise RuntimeError("Concurrent not alive")
-        self._args.start_event.set()
-        return True
-
-    def on_stop(self):
-        self._args.start_event.clear()
-        return True
-
-    def is_launched(self):
-        return self._concurrent is not None
-
-    def on_exit(self):
-        self._args.exiting_event.set()
-        if self.is_launched():
-            if self._mode is ConcurrentMode.thread or not self._concurrent.daemon:
-                self.get_logger().info("Waiting for the concurrent to finish...")
-                wait_time = 5.0
-                self._concurrent.join(wait_time)
-                if self._concurrent.is_alive():
-                    self.get_logger().error(
-                        f"Concurrent is still alive after waiting {wait_time} s"
-                    )
-                    return False
-                self.get_logger().info("Concurrent finished.")
-            elif self._mode is ConcurrentMode.process:
-                # daemon process is not joinable so just pass
-                # self.get_logger().info("Terminating concurrent...")
-                # self._concurrent.terminate()
-                # self._concurrent.kill()
-                pass
-        self._args.exited_event.set()
-        self._args.exiting_event.clear()
-        return True
-
-    def get_waitable(self) -> ConcurrentHandlerWaitable:
-        return self._waitable
-
-
 class DemonstratorConfig(BaseModel):
     auto_control: BaseModel
     post_capture: BaseModel
@@ -422,15 +89,15 @@ class Demonstrator(System):
 
     @property
     @abstractmethod
-    def handler(self) -> DemonstratorHandler:
+    def handler(self) -> ProgressHandler:
         """Gets the handler for the demonstrator."""
 
     @staticmethod
-    def create_handler(mode: ConcurrentMode) -> DemonstratorHandler:
+    def create_handler(mode: ConcurrentMode) -> ProgressHandler:
         if mode is ConcurrentMode.none:
-            return MockHandler()
+            return MockProgressHandler()
         else:
-            return ConcurrentHandler(mode)
+            return ConcurrentProgressHandler(mode)
 
 
 class MockDemonstratorConfig(BaseModel):
@@ -443,7 +110,7 @@ class MockDemonstrator(Demonstrator):
     config: MockDemonstratorConfig
 
     def on_configure(self):
-        self._handler = DemonstratorHandler()
+        self._handler = ProgressHandler()
 
 
 if __name__ == "__main__":
@@ -451,9 +118,9 @@ if __name__ == "__main__":
 
     init_logging()
 
-    handler = ConcurrentHandler(ConcurrentMode.thread)
+    handler = ConcurrentProgressHandler(ConcurrentMode.thread)
 
-    def auto_control(waitable: HandlerWaitable):
+    def auto_control(waitable: Waitable):
         time.sleep(2)
         with waitable:
             while waitable.wait():
