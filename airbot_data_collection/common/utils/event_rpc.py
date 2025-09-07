@@ -45,6 +45,13 @@ class EventRpcClient:
         self._rsp_event = args.rsp_event
 
     def request(self, timeout: Optional[float] = None) -> bool:
+        """Request a response from the server
+        Args:
+            timeout: Maximum time to wait for the response. If None, wait indefinitely.
+                If 0 or negative, do not wait.
+        Returns:
+            True if the request was successful, False otherwise.
+        """
         if self._req_event.is_set():
             print("Warning: previous response not received yet.")
             return False
@@ -52,7 +59,14 @@ class EventRpcClient:
         self._req_event.set()
         return self.wait(timeout=timeout)
 
-    def wait(self, timeout=None) -> bool:
+    def wait(self, timeout: Optional[float] = None) -> bool:
+        """Wait for the response from the server
+        Args:
+            timeout: Maximum time to wait for the response. If None, wait indefinitely.
+                If 0 or negative, do not wait.
+        Returns:
+            True if the response was received, False otherwise.
+        """
         if timeout is None or timeout > 0:
             return self._rsp_event.wait(timeout=timeout)
         return True

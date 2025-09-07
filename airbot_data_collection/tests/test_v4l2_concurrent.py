@@ -13,7 +13,9 @@ if __name__ == "__main__":
         pprint(v4l2.get_info())
         for i in range(10):
             start = time.perf_counter()
-            for key, value in v4l2.capture_observation().items():
+            v4l2.capture_observation(0)
+            obs = v4l2.result(5.0)
+            for key, value in obs.items():
                 print(
                     f"{i}: {key}: {value['t']}, {value['data'].shape}, {value['data'].dtype}"
                 )

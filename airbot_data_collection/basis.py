@@ -134,8 +134,31 @@ class Sensor(ConfigBasis):
         self._metrics: DefaultDict[str, Dict[str, Any]] = defaultdict(dict)
 
     @abstractmethod
-    def capture_observation(self) -> Dict[str, Any]:
-        """Capture observation from the sensor"""
+    def capture_observation(
+        self, timeout: Optional[float] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Capture observation from the sensor
+        Args:
+            timeout: Maximum time to wait for the observation to be ready. If None, wait indefinitely.
+                If 0, do not wait and return None immediately.
+        Returns:
+            The observation data as a dictionary, or None if timeout is zero.
+        Raises:
+            TimeoutError: If the observation is not ready within the timeout period.
+        """
+        raise NotImplementedError
+
+    def result(self, timeout: Optional[float] = None) -> Dict[str, Any]:
+        """Wait and get the result of the last capture_observation call
+        Args:
+            timeout: Maximum time to wait for the result. If None, wait indefinitely.
+        Returns:
+            The observation data as a dictionary.
+        Raises:
+            TimeoutError: If the result is not ready within the timeout period.
+            ValueError: If timeout is not None or positive.
+        """
+        # This method can be overridden by subclasses if needed
         raise NotImplementedError
 
     @abstractmethod

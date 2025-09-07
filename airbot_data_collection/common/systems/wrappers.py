@@ -94,13 +94,25 @@ class SensorConcurrentWrapper(Sensor):
         logger.info("Shutting down the interface...")
         interface.shutdown()
 
-    def capture_observation(self):
-        if self._rpc.client.request(timeout=5.0):
-            return {
-                key: {"t": value["t"].value, "data": value["data"].array}
-                for key, value in self._obs.items()
-            }
+    def _get_obs(self):
+        return {
+            key: {"t": value["t"].value, "data": value["data"].array}
+            for key, value in self._obs.items()
+        }
+
+    def capture_observation(self, timeout: Optional[float] = None):
+        if self._rpc.client.request(timeout=timeout):
+            if timeout is not None and timeout <= 0:
+                return None
+            return self._get_obs()
         raise TimeoutError("Timeout waiting for observation.")
+
+    def result(self, timeout: Optional[float] = None):
+        if timeout is None or timeout > 0:
+            if self._rpc.client.wait(timeout=timeout):
+                return self._get_obs()
+            raise TimeoutError("Timeout waiting for observation.")
+        raise ValueError("Timeout must be None or positive.")
 
     def get_info(self):
         return self._info
