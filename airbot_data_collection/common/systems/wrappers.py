@@ -64,6 +64,7 @@ class SensorConcurrentWrapper(Sensor):
                         }
                     self.get_logger().info("Sending shm observation...")
                     parent.send(self._obs)
+                    parent.close()
                     return True
             else:
                 self.get_logger().error("Failed to configure the interface.")
@@ -84,6 +85,7 @@ class SensorConcurrentWrapper(Sensor):
             logger.error("Timeout waiting for shm observation.")
             return
         shm_obs = conn.recv()
+        conn.close()
         while rpc_server.wait():
             for key, value in interface.capture_observation().items():
                 shm_obs[key]["t"].value = value["t"]
@@ -140,7 +142,7 @@ if __name__ == "__main__":
     #     )
     # )
     con_mock_cam = concurrent_wrapper(MockCamera)(
-        MockCameraConfig(), concurrent=ConcurrentMode.process
+        MockCameraConfig(random=True), concurrent=ConcurrentMode.process
     )
     assert con_mock_cam.configure()
     con_mock_cam.get_logger().info("Successfully configured")
