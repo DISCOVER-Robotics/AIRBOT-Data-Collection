@@ -23,81 +23,112 @@ def follow():
     """
     import argparse
     import time
-
     from airbot_py.arm import AIRBOTPlay, RobotMode, SpeedProfile
+    from typing import List, Tuple
 
-    parser = argparse.ArgumentParser(description="Switch control mode example")
+    logger = logging.getLogger(__name__)
+    parser = argparse.ArgumentParser(
+        description="Multi-pair lead/follow control example"
+    )
     parser.add_argument(
         "--lead-url",
         type=str,
-        default="localhost",
-        help="URL to connect to the lead server",
+        nargs="+",
+        help="URL(s) to connect to the lead server(s), space separated for multiple.",
     )
     parser.add_argument(
         "--follow-url",
         type=str,
-        default="localhost",
-        help="URL to connect to the follow server",
+        nargs="+",
+        help="URL(s) to connect to the follow server(s), space separated for multiple.",
     )
     parser.add_argument(
         "-lp",
         "--lead-port",
         type=int,
-        default=50050,
-        help="Server port for arm to lead",
+        nargs="+",
+        required=True,
+        help="Server port(s) for arm(s) to lead, space separated for multiple.",
     )
     parser.add_argument(
         "-fp",
         "--follow-port",
         type=int,
-        default=50051,
-        help="Server port for arm to follow",
+        nargs="+",
+        required=True,
+        help="Server port(s) for arm(s) to follow, space separated for multiple.",
     )
 
     args = parser.parse_args()
-    if args.lead_port == args.follow_port and args.lead_url == args.follow_url:
-        raise ValueError(
-            "Lead and follow port, lead and follow url cannot be the same at the same time."
-        )
-
-    with (
-        AIRBOTPlay(
-            url=args.lead_url,
-            port=args.lead_port,
-        ) as robot1,
-        AIRBOTPlay(
-            url=args.follow_url,
-            port=args.follow_port,
-        ) as robot2,
+    n = len(args.lead_port)
+    if not args.lead_url:
+        args.lead_url = ["localhost"] * n
+    if not args.follow_url:
+        args.follow_url = ["localhost"] * n
+    if not (
+        len(args.lead_url)
+        == len(args.lead_port)
+        == len(args.follow_url)
+        == len(args.follow_port)
     ):
-        robot1.switch_mode(RobotMode.PLANNING_POS)
+        raise ValueError("The number of lead/follow urls and ports must be the same.")
+    for i in range(n):
         if (
-            sum(
-                abs(i - j)
-                for i, j in zip(robot1.get_joint_pos(), robot2.get_joint_pos())
-            )
-            > 0.1
+            args.lead_port[i] == args.follow_port[i]
+            and args.lead_url[i] == args.follow_url[i]
         ):
-            robot2.switch_mode(RobotMode.PLANNING_POS)
-            robot2.move_to_joint_pos(robot1.get_joint_pos())
-            time.sleep(1)
-        print("Lead robot arm is ready to follow.")
-        robot1.switch_mode(RobotMode.GRAVITY_COMP)
-        robot2.switch_mode(RobotMode.SERVO_JOINT_POS)
-        robot2.set_speed_profile(SpeedProfile.FAST)
+            raise ValueError(
+                f"Pair {i}: Lead and follow port, lead and follow url cannot be the same at the same time."
+            )
+
+    robots: List[Tuple[AIRBOTPlay, AIRBOTPlay]] = []
+    for i in range(n):
+        lead = AIRBOTPlay(url=args.lead_url[i], port=args.lead_port[i])
+        follow = AIRBOTPlay(url=args.follow_url[i], port=args.follow_port[i])
+        print(
+            f"Connecting to lead {args.lead_url[i]}:{args.lead_port[i]} and follow {args.follow_url[i]}:{args.follow_port[i]}"
+        )
+        assert lead.connect()
+        assert follow.connect()
+        robots.append((lead, follow))
+
+    try:
+        for lead, follow in robots:
+            lead.switch_mode(RobotMode.PLANNING_POS)
+            if (
+                sum(
+                    abs(a - b)
+                    for a, b in zip(lead.get_joint_pos(), follow.get_joint_pos())
+                )
+                > 0.1
+            ):
+                follow.switch_mode(RobotMode.PLANNING_POS)
+                follow.move_to_joint_pos(lead.get_joint_pos())
+                time.sleep(1)
+            logger.info(f"Lead robot arm {lead} is ready to follow.")
+        for lead, follow in robots:
+            lead.switch_mode(RobotMode.GRAVITY_COMP)
+            follow.switch_mode(RobotMode.SERVO_JOINT_POS)
+            follow.set_speed_profile(SpeedProfile.FAST)
         factor = 0.072 / 0.0471
-        try:
-            while True:
-                robot2.servo_joint_pos(robot1.get_joint_pos())
-                eef_pos = robot1.get_eef_pos()
+        while True:
+            for lead, follow in robots:
+                follow.servo_joint_pos(lead.get_joint_pos())
+                eef_pos = lead.get_eef_pos()
                 if eef_pos:
                     eef_pos[0] *= factor
-                robot2.servo_eef_pos(eef_pos or [])
-                time.sleep(0.01)
-        finally:
-            robot1.switch_mode(RobotMode.PLANNING_POS)
-            robot2.switch_mode(RobotMode.PLANNING_POS)
-            robot2.set_speed_profile(SpeedProfile.DEFAULT)
+                else:
+                    logger.info("Failed to get lead eef pos")
+                follow.servo_eef_pos(eef_pos or [])
+            time.sleep(0.01)
+    finally:
+        for lead, follow in robots:
+            lead.switch_mode(RobotMode.PLANNING_POS)
+            follow.switch_mode(RobotMode.PLANNING_POS)
+            follow.set_speed_profile(SpeedProfile.DEFAULT)
+        for lead, follow in robots:
+            assert lead.disconnect()
+            assert follow.disconnect()
 
 
 if __name__ == "__main__":
