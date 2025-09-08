@@ -60,7 +60,7 @@ class V4L2Camera(Sensor):
         self._capture.set_format(config.width, config.height, config.pixel_format)
         if self.config.fps:
             self._capture.set_fps(self.config.fps)
-        self.event = Event()
+        self._event = Event()
         self._shutdown = False
         self._read_fut = asyncio.run_coroutine_threadsafe(
             self._read_frame(), run_event_loop()
@@ -74,8 +74,9 @@ class V4L2Camera(Sensor):
     def capture_observation(
         self, timeout: Optional[float] = None
     ) -> Union[bytes, np.ndarray]:
-        self.event.wait()
-        self.event.clear()
+        if not self._event.wait(timeout):
+            raise TimeoutError("Timeout waiting for camera frame.")
+        self._event.clear()
         frame_bytes = bytes(self.frame)
         if not self.config.decode:
             return frame_bytes
@@ -149,7 +150,7 @@ class V4L2Camera(Sensor):
         with self._capture as stream:
             async for frame in stream:
                 self.frame = frame
-                self.event.set()
+                self._event.set()
                 # if self._shutdown:
                 #     break
 

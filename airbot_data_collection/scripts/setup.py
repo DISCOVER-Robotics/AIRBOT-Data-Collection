@@ -275,7 +275,7 @@ logger.info(
 )
 while True:
     for camera, vis_key, visualizer in zip(cameras, camera_vis_keys, visualizers):
-        obs = camera.capture_observation()
+        obs = camera.capture_observation(2.0)
         if isinstance(obs, dict):
             obs = obs["color/image_raw"]
         visualizer.update({vis_key: obs}, None)

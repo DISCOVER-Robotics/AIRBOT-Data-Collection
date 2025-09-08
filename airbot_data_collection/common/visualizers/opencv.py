@@ -94,6 +94,7 @@ class OpenCVisualizer(VisualizerBasis):
         self._smm: SharedMemoryManager = SharedMemoryManager(ctx=spawn_ctx)
         self._stop_event = spawn_ctx.Event()
         self.current_key = None
+        self._is_concurrent = self.config.concurrent_mode != ConcurrentMode.none
         return True
 
     @classmethod
@@ -118,9 +119,9 @@ class OpenCVisualizer(VisualizerBasis):
         self, data: Dict[str, np.ndarray], info: SampleInfo, warm_up: bool = False
     ) -> bool:
         """Show the data on the OpenCV window."""
-        if warm_up:
+        if warm_up or not self._is_concurrent:
             images = self._get_images(data, info, self._warm_up_images)
-            if self.config.concurrent_mode != ConcurrentMode.none:
+            if self._is_concurrent:
                 self._smm.start()
                 ShareableNumpy.from_array_dict(
                     self._images, smm=self._smm, replace=True
@@ -132,7 +133,7 @@ class OpenCVisualizer(VisualizerBasis):
                 self._concurrent.start()
         else:
             images = self._get_images(data, info, self._update_images)
-        if self._concurrent is None:
+        if not self._is_concurrent:
             self.current_key = self.show_images(images, self.config.wait_key)
         return True
 
