@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Future
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Future, wait
 from logging import getLogger
 from typing import Any, List, Dict, Union
 from send2trash import send2trash
@@ -62,6 +62,9 @@ class DemonstrateInterface:
         else:
             self._save_executor = None
         self._save_futures: List[Future] = []
+        self._update_executor = ThreadPoolExecutor(1, "update_thread")
+        self._update_executor._work_queue
+        self._update_futures: List[Future] = []
         # store current round data
         self._round_data = defaultdict(list)
         self._metrics = defaultdict(dict)
@@ -195,12 +198,20 @@ class DemonstrateInterface:
             start = time.perf_counter()
             data = self.capture()
             data.update({"log_stamps": time.time_ns()})
-            start_sampler = time.perf_counter()
-            for key, value in self._sampler.update(data).items():
-                self._round_data[key].append(value)
-            self._metrics["durations"]["demonstrate/update/sampler"] = (
-                time.perf_counter() - start_sampler
+
+            # update the sampler
+            def update_sampler(data: dict):
+                start_sampler = time.perf_counter()
+                for key, value in self._sampler.update(data).items():
+                    self._round_data[key].append(value)
+                self._metrics["durations"]["demonstrate/update/sampler"] = (
+                    time.perf_counter() - start_sampler
+                )
+
+            self._update_futures.append(
+                self._update_executor.submit(update_sampler, data)
             )
+            # update the progress bar
             start_bar = time.perf_counter()
             info.index += 1
             self._bar.update(info.index)
@@ -221,6 +232,15 @@ class DemonstrateInterface:
 
     def save(self) -> None:
         """Save the sampled data and be ready for the next round."""
+        self.get_logger().info(
+            "Waiting for the update queue to finish..."
+            f"(size:{self._update_executor._work_queue.qsize()})"
+        )
+        start = time.perf_counter()
+        wait(self._update_futures)
+        self.get_logger().info(
+            f"Update queue finished in {time.perf_counter() - start:.2f} seconds"
+        )
         concurrent_save = self._config.concurrent_save
         save_path = self._save_path
         if concurrent_save != ConcurrentMode.none:

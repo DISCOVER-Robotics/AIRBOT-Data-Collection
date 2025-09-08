@@ -24,7 +24,7 @@ class AvCoder:
         self,
         time_base: int = int(1e9),
         frame_format: str = "bgr24",
-        async_encode: bool = True,
+        async_encode: bool = False,
         log_level: Optional[int] = None,
     ):
         av.logging.set_level(log_level)

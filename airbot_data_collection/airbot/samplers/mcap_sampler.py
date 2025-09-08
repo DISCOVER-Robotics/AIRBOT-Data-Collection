@@ -14,7 +14,7 @@ from airbot_data_collection.common.utils.mcap_utils import (
     FlatbufferSchemas,
 )
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from functools import partial
 from pathlib import Path
 from functools import cache
@@ -99,9 +99,12 @@ class AIRBOTMcapDataSampler(DataSampler):
         self._coders = defaultdict(
             partial(AvCoder, time_base=self.config.video_time_base)
         )
-        self._executor = ThreadPoolExecutor(
-            max_workers=4, thread_name_prefix="mcap_h264_coder"
-        )
+        # self._save_executor = ThreadPoolExecutor(
+        #     max_workers=4, thread_name_prefix="mcap_h264_coder"
+        # )
+        # self._update_executor = ThreadPoolExecutor(
+        #     max_workers=1, thread_name_prefix="mcap_updater"
+        # )
         self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
         return True
 
@@ -172,7 +175,8 @@ class AIRBOTMcapDataSampler(DataSampler):
                 # )
                 self.add_video_attachment(writer, key, coder.end())
 
-            [_ for _ in as_completed(futures)]
+            # [_ for _ in as_completed(futures)]
+            # wait(futures, 10.0)
 
         writer.finish()
 

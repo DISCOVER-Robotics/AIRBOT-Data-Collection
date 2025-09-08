@@ -1,4 +1,4 @@
-_target_: airbot_data_collection.airbot.sensors.cameras.mock.MockCamera
+_target_: airbot_data_collection.airbot.sensors.cameras.mock.MockCameraConcurrent
 camera_index: null
 fps: 30
 width: 1280
@@ -6,3 +6,4 @@ height: 720
 color_mode: bgr
 enable_depth: true
 align_depth: true
+random: true
