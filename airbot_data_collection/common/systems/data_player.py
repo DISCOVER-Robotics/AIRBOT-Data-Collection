@@ -20,14 +20,14 @@ class IterablePlayer(System):
     """A system that plays back data from a stream."""
 
     config: DataPlayerConfig
-    interface: IterableDatasetABC
 
     def on_configure(self) -> bool:
-        self.interface.load()
+        interface: IterableDatasetABC = self.interface
+        interface.load()
         if self.config.cache:
-            self._stream = seekable(self.interface)
+            self._stream = seekable(interface)
         else:
-            self._stream = iter(self.interface)
+            self._stream = iter(interface)
         return True
 
     def send_action(self, action: int):

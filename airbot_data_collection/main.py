@@ -19,11 +19,14 @@ if __name__ == "__main__":
     from argdantic import ArgParser
 
     init_logging(logging.INFO)
-    logger = getLogger("airbot_data_collection")
+    pkg_name = "airbot-data-collection"
+    logger = getLogger(pkg_name)
 
     from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
+    from setproctitle import setproctitle
 
     prepare_cv2_imshow(logger)
+    setproctitle(pkg_name)
 
     cli = ArgParser("Demonstrate and collect data")
 

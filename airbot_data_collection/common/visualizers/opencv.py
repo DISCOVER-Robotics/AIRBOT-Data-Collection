@@ -14,8 +14,9 @@ from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
 from airbot_data_collection.utils import init_logging
 from multiprocessing.context import SpawnProcess
 from multiprocessing.managers import SharedMemoryManager
-from multiprocessing import get_context
+from multiprocessing import get_context, current_process
 from multiprocessing.synchronize import Event
+from setproctitle import setproctitle
 from typing import Dict, Callable, Optional
 
 
@@ -103,6 +104,7 @@ class OpenCVisualizer(VisualizerBasis):
     ):
         init_logging()
         period = 1 / rate if rate > 0 else 0
+        setproctitle(current_process().name)
         cls.get_logger().info("Update loop started")
         while not stop_event.is_set():
             start = time.perf_counter()
@@ -129,6 +131,7 @@ class OpenCVisualizer(VisualizerBasis):
                 self._concurrent = SpawnProcess(
                     target=self.update_loop_shm,
                     args=(self.config.rate, self._images, self._stop_event),
+                    name=self.__class__.__name__,
                 )
                 self._concurrent.start()
         else:

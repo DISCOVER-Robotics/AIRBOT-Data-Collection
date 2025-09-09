@@ -1,5 +1,5 @@
 from multiprocessing.managers import SharedMemoryManager
-from multiprocessing import get_context
+from multiprocessing import get_context, current_process
 from multiprocessing.connection import Connection
 from multiprocessing.sharedctypes import Synchronized
 from pydantic import BaseModel, ConfigDict
@@ -14,6 +14,7 @@ from airbot_data_collection.utils import init_logging
 from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
 from airbot_data_collection.common.utils.shareable_value import ShareableValue
 from numpy import uint64
+from setproctitle import setproctitle
 
 
 class ConcurrentWrapperConfig(BaseModel):
@@ -41,6 +42,7 @@ class SensorConcurrentWrapper(Sensor):
         self._concurrent = EventRpcManager.get_concurrent_cls(self.config.mode)(
             target=self._concurrent_loop,
             args=(self.config.interface, child, self._rpc.server),
+            name=f"{self.__class__.__name__}Concurrent",
         )
         self._concurrent.start()
         if parent.poll(5.0):
@@ -79,6 +81,7 @@ class SensorConcurrentWrapper(Sensor):
         init_logging()
         logger = interface.get_logger()
         logger.info("Configuring the interface...")
+        setproctitle(f"{current_process().name}:{logger.name}")
         conn.send(interface.configure())
         conn.send((interface.get_info(), interface.capture_observation(5.0)))
         if not conn.poll(5.0):

@@ -123,7 +123,7 @@ class ComponentGroupsConfig(ComponentsConfig):
 
     @computed_field
     @property
-    def grouped_config(self) -> list[GroupConfig]:
+    def grouped_config(self) -> List[GroupConfig]:
         """
         Returns a set of grouped configs.
         """
@@ -329,7 +329,8 @@ class ComponentGroupManager:
             # merge leader observations
             leader_obs = {}
             for leader in group.leader:
-                leader_obs.update(leader.capture_observation())
+                # TODO: add and use capture_as_action to just capture needed obs?
+                leader_obs.update(leader.capture_observation(1.0))
             # self.get_logger().info(f"{leader_obs}")
             if leader_obs:
                 for follower in group.followers:
@@ -349,6 +350,7 @@ class ComponentGroupManager:
         period = 1 / self._config.auto_control.rates[0]
         if not waitable.is_same_process():
             init_logging()
+            waitable.set_process_title(waitable.current_process().name)
         logger = self.get_logger()
         configure_here = False
         if not self.is_instanced:

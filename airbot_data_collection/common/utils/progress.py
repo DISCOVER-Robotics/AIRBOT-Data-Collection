@@ -1,13 +1,14 @@
 from typing import Union, final, Callable, Literal, Type
 from typing_extensions import Self
 from threading import Thread, Event, Lock
-from multiprocessing import get_context, synchronize
+from multiprocessing import get_context, synchronize, current_process
 from multiprocessing.context import SpawnProcess
+from multiprocessing.process import BaseProcess
 from pydantic import BaseModel, ConfigDict, Field
 from abc import abstractmethod, ABC
-from os import getpid
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.utils import bcolors
+from setproctitle import setproctitle
 import logging
 
 
@@ -16,7 +17,7 @@ SpawnEvent = get_context("spawn").Event
 
 class Waitable(ABC):
     def __init__(self):
-        self.__pid = getpid()
+        self.__pid = current_process().pid
 
     @abstractmethod
     def wait(self) -> bool:
@@ -41,11 +42,19 @@ class Waitable(ABC):
     @property
     @final
     def pid_current(self) -> int:
-        return getpid()
+        return current_process().pid
 
     @final
     def is_same_process(self) -> bool:
         return self.pid_init == self.pid_current
+
+    @staticmethod
+    def current_process() -> BaseProcess:
+        return current_process()
+
+    @staticmethod
+    def set_process_title(title: str):
+        setproctitle(title)
 
 
 class MockWaitable(Waitable):
