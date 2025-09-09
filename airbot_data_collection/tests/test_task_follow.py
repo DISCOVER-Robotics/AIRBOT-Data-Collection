@@ -109,7 +109,16 @@ def follow():
         for lead, follow in robots:
             lead.switch_mode(RobotMode.GRAVITY_COMP)
             follow.switch_mode(RobotMode.SERVO_JOINT_POS)
-            follow.set_speed_profile(SpeedProfile.FAST)
+            # follow.set_speed_profile(SpeedProfile.FAST)
+            follow.set_params(
+                {
+                    "servo_node.moveit_servo.scale.linear": 10.0,
+                    "servo_node.moveit_servo.scale.rotational": 10.0,
+                    "servo_node.moveit_servo.scale.joint": 1.0,
+                    "sdk_server.max_velocity_scaling_factor": 1.0,
+                    "sdk_server.max_acceleration_scaling_factor": 0.5,
+                }
+            )
         factor = 0.072 / 0.0471
         while True:
             for lead, follow in robots:
