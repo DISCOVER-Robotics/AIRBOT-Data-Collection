@@ -49,6 +49,9 @@ class AIRBOTArmMock:
     def get_product_info(self):
         return {"product_type": "replay", "eef_types": ["PE2"]}
 
+    def set_params(self, params: dict):
+        return True
+
 
 class AIRBOTPlay(AIRBOTPlayReal):
     """

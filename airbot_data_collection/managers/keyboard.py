@@ -23,6 +23,7 @@ class KeyboardCallbackConfig(BaseModel):
         "i": "Show this instruction again",
         "g": "Switch passive (gravity composation) / resetting mode of the leaders",
         "f": "Start / stop following",
+        "f2": "Lock / unlock the keyboard control",
     }
     # TODO: auto add mapped keys to the instruction
     key_mapping: dict[str, str] = {
@@ -59,6 +60,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         self.listener = keyboard.Listener(on_press=self.keypress_callback)
         self.listener.start()
         self.key_to_action = bidict(self.config.action_key).inverse
+        self._locked = False
         return True
 
     def update(self) -> bool:
@@ -88,6 +90,15 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             None: This function does not return any value.
         """
         key = self._key_to_str(key).lower()
+        if key == "f2":
+            self._locked = not self._locked
+            self.get_logger().info(
+                bcolors.OKGREEN
+                + f"Keyboard control is now {'locked' if self._locked else 'unlocked'}."
+            )
+            return
+        elif self._locked:
+            return
         action = self.key_to_action.get(self.config.key_mapping.get(key, key), None)
         if action is Action.capture:
             self.fsm.act(action)
