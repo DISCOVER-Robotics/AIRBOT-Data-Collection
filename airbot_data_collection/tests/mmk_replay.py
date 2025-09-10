@@ -1,28 +1,16 @@
-import argparse
 from dataclasses import dataclass, replace, field
-from typing import Optional, Dict, List, Union
-import time
-import logging
-import numpy as np
+from typing import Optional, Dict, List
 from pathlib import Path
-from bson import BSON
-
-# MCAP 相关导入
 from mcap.reader import make_reader
-import flatbuffers
 from airbot_data_collection.airbot.schemas.airbot_fbs.FloatArray import FloatArray
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from mmk2_types.types import (
     RobotComponents,
     JointNames,
     ComponentTypes,
+    ImageTypes,
     TopicNames,
     RobotComponentsGroup,
-    ImageTypes,
     ControllerTypes,
 )
 from mmk2_types.grpc_msgs import (
@@ -31,6 +19,21 @@ from mmk2_types.grpc_msgs import (
     MoveServoParams,
     ForwardPositionParams,
 )
+import argparse
+import time
+import logging
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+try:
+    from bson import BSON
+except Exception as e:
+    logger.warning(
+        "未安装 bson 库，无法处理 BSON 文件。若不需要处理 BSON 文件，可忽略此警告。"
+    )
 
 
 def load_bson(bson_file: str) -> dict:
