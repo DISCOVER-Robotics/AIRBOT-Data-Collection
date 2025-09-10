@@ -1,13 +1,13 @@
 from airbot_data_collection.common.visualizers.opencv import (
-    OpenCVisualizer,
-    OpenCVisualizerConfig,
+    OpenCVVisualizer,
+    OpenCVVisualizerConfig,
 )
 
 
-class AIRBOTOpenCVisualizer(OpenCVisualizer):
+class AIRBOTOpenCVVisualizer(OpenCVVisualizer):
     """Visualizer based on OpenCV."""
 
-    config: OpenCVisualizerConfig
+    config: OpenCVVisualizerConfig
 
     def update(self, data, info, warm_up: bool = False) -> bool:
         """Update the visualizer with new data and info."""

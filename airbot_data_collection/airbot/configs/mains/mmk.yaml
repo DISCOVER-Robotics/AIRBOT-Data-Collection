@@ -1,16 +1,21 @@
-auto_control:
-  groups: []
-components:
-  groups:
-  - /
-  names:
-  - mmk
-  params:
-  - {}
-  paths:
-  - airbot_mmk
-  roles:
-  - o
+demonstrator:
+  name: grouped
+  param:
+    _target_: airbot_data_collection.demonstrate.demonstrators.grouped.GroupedDemonstrator
+    auto_control:
+      groups: []
+    components:
+      groups:
+      - /
+      names:
+      - mmk
+      params:
+      - {}
+      paths:
+      - airbot_mmk
+      roles:
+      - o
+  path: ''
 dataset:
   directory: airbot_mmk
 managers:
@@ -59,6 +64,8 @@ visualizers:
   names:
   - opencv
   params:
-  - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTOpenCVisualizer
+    - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTOpenCVVisualizer
+      rate: 30
+      concurrent_mode: process
   paths:
   - ''

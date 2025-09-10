@@ -58,7 +58,7 @@ def decode_image(
         raise ValueError(f"Unsupported pixel format: {pixel_format}")
 
 
-class OpenCVisualizerConfig(GUIVisualizerConfig):
+class OpenCVVisualizerConfig(GUIVisualizerConfig):
     """Configuration for OpenCV visualizer."""
 
     window_type: int = cv2.WINDOW_NORMAL
@@ -77,10 +77,10 @@ class TextConfig(BaseModel):
     org: tuple[int, int] = (0, 0)
 
 
-class OpenCVisualizer(VisualizerBasis):
+class OpenCVVisualizer(VisualizerBasis):
     """Visualizer based on OpenCV."""
 
-    config: OpenCVisualizerConfig
+    config: OpenCVVisualizerConfig
 
     def on_configure(self) -> bool:
         if not self.config.ignore_info:
@@ -226,8 +226,8 @@ class OpenCVisualizer(VisualizerBasis):
 
 
 if __name__ == "__main__":
-    visualizer = OpenCVisualizer(
-        OpenCVisualizerConfig(concurrent_mode=ConcurrentMode.process, rate=30)
+    visualizer = OpenCVVisualizer(
+        OpenCVVisualizerConfig(concurrent_mode=ConcurrentMode.process, rate=30)
     )
     assert visualizer.on_configure()
     video_name = 12

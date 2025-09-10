@@ -3,8 +3,8 @@ from airbot_data_collection.common.devices.cameras.v4l2 import (
     V4L2CameraConfig,
 )
 from airbot_data_collection.common.visualizers.opencv import (
-    OpenCVisualizer,
-    OpenCVisualizerConfig,
+    OpenCVVisualizer,
+    OpenCVVisualizerConfig,
 )
 from airbot_data_collection.common.devices.cameras.utils import (
     find_video_capture_devices,
@@ -188,7 +188,7 @@ logger.info(bcolors.OKBLUE + f"Used camera indices: {used_camera_indices}")
 cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []
 camera_bus_serials: list[str] = []
-visualizers: list[OpenCVisualizer] = []
+visualizers: list[OpenCVVisualizer] = []
 camera_types: dict[str, str] = {}
 camera_indices = []
 camera_filenames = []
@@ -218,7 +218,7 @@ for i, index in enumerate(list(used_camera_indices)):
         )
         camera = V4L2Camera(config)
         camera_type = "v4l2"
-    visualizer = OpenCVisualizer(OpenCVisualizerConfig(ignore_info=True, wait_key=-1))
+    visualizer = OpenCVVisualizer(OpenCVVisualizerConfig(ignore_info=True, wait_key=-1))
     if camera.configure():
         if visualizer.configure():
             if is_realsense:

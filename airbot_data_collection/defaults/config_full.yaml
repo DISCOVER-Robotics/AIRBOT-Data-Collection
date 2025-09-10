@@ -96,7 +96,7 @@ visualizers:
   names:
     - opencv
   params:
-    - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTOpenCVisualizer
+    - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTOpenCVVisualizer
       rate: 30
       concurrent_mode: process
   paths:

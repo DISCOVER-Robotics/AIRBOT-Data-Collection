@@ -18,7 +18,6 @@ from mmk2_types.grpc_msgs import (
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from typing import Optional, List, Union, Dict
 import time
-from pprint import pformat
 
 
 class AIRBOTMMKConfig(BaseModel):
@@ -42,9 +41,9 @@ class AIRBOTMMKConfig(BaseModel):
 
 class AIRBOTMMK(System):
     config: AIRBOTMMKConfig
+    interface: AirbotMMK2
 
     def on_configure(self) -> bool:
-        self.interface = AirbotMMK2(ip=self.config.ip)
         if self.config.demonstrate:
             self._action_topics = {
                 comp: TopicNames.tracking.format(component=comp.value)
@@ -63,7 +62,7 @@ class AIRBOTMMK(System):
             self.interface.listen_to(self._action_topics.values())
         self.interface.enable_resources(self.config.cameras)
         # get the camera goal by the config
-        self.cameras_goal = {}
+        self._cameras_goal = {}
         for cam, cfg in self.config.cameras.items():
             goal = [ImageTypes.COLOR]
             if (
@@ -74,9 +73,12 @@ class AIRBOTMMK(System):
                     goal.append(ImageTypes.ALIGNED_DEPTH_TO_COLOR)
                 else:
                     goal.append(ImageTypes.DEPTH)
-            self.cameras_goal[cam] = goal
-        self.get_logger().info(f"Camera goals: {self.cameras_goal}")
-        self._check_joints(self.interface.get_robot_state().joint_state.name)
+            self._cameras_goal[cam] = goal
+        self.get_logger().info(f"Camera goals: {self._cameras_goal}")
+        self._check_joint_names(self.interface.get_robot_state().joint_state.name)
+        self._expected_dim = sum(
+            len(JointNames[comp.name].value) for comp in self.config.components
+        )
         self._reset()
         self._logs = {}
         return True
@@ -119,7 +121,10 @@ class AIRBOTMMK(System):
         return action
 
     def _action_to_goal(self, action) -> Dict[RobotComponents, JointState]:
-        self._action_check(action)
+        if len(action) != self._expected_dim:
+            raise ValueError(
+                f"Action dimension mismatch: expected {self._expected_dim}, got {len(action)}"
+            )
         goal = {}
         j_cnt = 0
         for comp in self.config.components:
@@ -127,16 +132,6 @@ class AIRBOTMMK(System):
             goal[comp] = JointState(position=action[j_cnt:end])
             j_cnt = end
         return goal
-
-    def _action_check(self, action):
-        """Check the action dimension"""
-        expected_dim = sum(
-            len(JointNames[comp.name].value) for comp in self.config.components
-        )
-        if len(action) != expected_dim:
-            raise ValueError(
-                f"Action dimension mismatch: expected {expected_dim}, got {len(action)}"
-            )
 
     def on_switch_mode(self, mode: SystemMode):
         self._current_mode = mode
@@ -217,7 +212,7 @@ class AIRBOTMMK(System):
                     self._logs[f"get_listened_{comp.value}_dt_s"] = (
                         time.perf_counter() - start
                     )
-                    if listened_data and listened_data.data:  # 检查是否有数据
+                    if listened_data and listened_data.data:
                         jq = list(listened_data.data)
                         data[f"action/{comp.value}/joint_state"] = {
                             "t": t,
@@ -247,7 +242,7 @@ class AIRBOTMMK(System):
     def _capture_images(self) -> dict:
         images_obs = {}
         start = time.perf_counter()
-        comp_images = self.interface.get_image(self.cameras_goal)
+        comp_images = self.interface.get_image(self._cameras_goal)
         self._logs["get_image_dt_s"] = time.perf_counter() - start
         for comp, images in comp_images.items():
             stamp = self._to_time_ns(images.stamp)
@@ -267,7 +262,7 @@ class AIRBOTMMK(System):
                 }
         return images_obs
 
-    def capture_observation(self):
+    def capture_observation(self, timeout: Optional[float] = None):
         """The returned observations do not have a batch dimension."""
         obs_act_dict = self._get_low_dim()
         obs_act_dict.update(self._capture_images())
@@ -278,15 +273,13 @@ class AIRBOTMMK(System):
         """Get the current time in nanoseconds."""
         return int(stamp.sec * 1e9 + stamp.nanosec)
 
-    def _check_joints(self, joint_names: List[str]):
-        required_joints = []
-        for component in (
-            RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE
-        ):
-            required_joints.extend(JointNames[component.name].value)
-        missing = [j for j in required_joints if j not in joint_names]
+    def _check_joint_names(self, joint_names: List[str]):
+        required_joints = set()
+        for component in self.config.components:
+            required_joints.update(JointNames[component.name].value)
+        missing = required_joints - set(joint_names)
         if missing:
-            raise KeyError(f"Missing required joints: {missing}")
+            raise ValueError(f"Missing required joints: {missing}")
 
     def shutdown(self) -> bool:
         self.interface.close()

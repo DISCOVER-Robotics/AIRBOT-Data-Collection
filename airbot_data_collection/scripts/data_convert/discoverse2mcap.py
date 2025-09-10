@@ -101,7 +101,9 @@ for folder in folders:
         stamps_ns = []
         for stamp, obs, act in zip(
             act_obs["time"],
-            act_obs["obs"]["jq"],
+            # act_obs["obs"]["jq"],
+            act_obs["obs"]["eef_pos"],
+            act_obs["obs"]["eef_eff"],
             act_obs["act"],
             strict=True,
         ):
