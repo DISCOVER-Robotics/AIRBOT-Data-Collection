@@ -26,25 +26,25 @@ VIDEO_PROBLEMS = [
 
 # Topic configurations
 MCAP_STATE_TOPICS = [
-    "mmk/observation/left_arm/joint_state/position",
-    "mmk/observation/left_arm_eef/joint_state/position",
-    "mmk/observation/right_arm/joint_state/position",
-    "mmk/observation/right_arm_eef/joint_state/position",
-    "mmk/observation/head/joint_state/position",
-    "mmk/observation/spine/joint_state/position",
+    "/mmk/observation/left_arm/joint_state/position",
+    "/mmk/observation/left_arm_eef/joint_state/position",
+    "/mmk/observation/right_arm/joint_state/position",
+    "/mmk/observation/right_arm_eef/joint_state/position",
+    "/mmk/observation/head/joint_state/position",
+    "/mmk/observation/spine/joint_state/position",
 ]
 MCAP_ACTION_TOPICS = [
-    "mmk/action/left_arm/joint_state/position",
-    "mmk/action/left_arm_eef/joint_state/position",
-    "mmk/action/right_arm/joint_state/position",
-    "mmk/action/right_arm_eef/joint_state/position",
-    "mmk/action/head/joint_state/position",
-    "mmk/action/spine/joint_state/position",
+    "/mmk/action/left_arm/joint_state/position",
+    "/mmk/action/left_arm_eef/joint_state/position",
+    "/mmk/action/right_arm/joint_state/position",
+    "/mmk/action/right_arm_eef/joint_state/position",
+    "/mmk/action/head/joint_state/position",
+    "/mmk/action/spine/joint_state/position",
 ]
 MCAP_CAMERA_NAMES = [
-    "mmk/head_camera/color/video",
-    "mmk/left_camera/color/video",
-    "mmk/right_camera/color/video",
+    "/mmk/head_camera/color/image_raw",
+    "/mmk/left_camera/color/image_raw",
+    "/mmk/right_camera/color/image_raw",
 ]
 
 # Frame rate thresholds
