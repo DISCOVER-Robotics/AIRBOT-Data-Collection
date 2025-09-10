@@ -6,43 +6,43 @@ demonstrator:
       groups: []
     components:
       groups:
-      - /
+        - /
       # - /
       names:
-      - ""
+        - ""
       # - follow_camera
       params:
-      - port: 50051
+        - port: 50051
       # - camera_index: null
       #   height: 480
       #   width: 640
       paths:
-      - airbot_play_mock
+        - airbot_play_mock
       # - realsense
       roles:
-      - f
+        - f
       # - o
     post_capture:
       /:
         keys:
-        - eef/joint_state/position
+          - eef/joint_state/position
         target_ranges:
-        - 0:
-          - 0
-          - 0.072
-  path: ''
+          - 0:
+              - 0
+              - 0.072
+  path: ""
 dataset:
   directory: arm1-001
 managers:
   names:
-  - self_manager
-  - keyboard
+    - self_manager
+    - keyboard
   params:
-  - _target_: airbot_data_collection.managers.basis.SelfManager
-  - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+    - _target_: airbot_data_collection.managers.basis.SelfManager
+    - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
   paths:
-  - ''
-  - ''
+    - ""
+    - ""
 sample_limit:
   size: 1000
   start_round: -1
@@ -52,35 +52,36 @@ sampler:
     _target_: airbot_data_collection.airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
     task_info:
       object:
-      - wooden_blocks
-      - bowl
+        - wooden_blocks
+        - bowl
       operator: Anonymous
       scene: desktop
       skill:
-      - pick
-      - place
+        - pick
+        - place
       station: ptk-001
       subtasks:
-      - description: pick the wooden blocks from the bowl with the gripper
-        description_zh: "\u7528\u5939\u722A\u4ECE\u7897\u4E2D\u62FE\u53D6\u6728\u5236\
-          \u79EF\u6728"
-        skill: pick
+        - description: pick the wooden blocks from the bowl with the gripper
+          description_zh:
+            "\u7528\u5939\u722A\u4ECE\u7897\u4E2D\u62FE\u53D6\u6728\u5236\
+            \u79EF\u6728"
+          skill: pick
       task_description: do some thing
-      task_id: '135'
+      task_id: "135"
       task_name: anonymous task
     upload:
       enabled: false
       endpoint: 192.168.215.80
-      password: '123456'
+      password: "123456"
       username: admin
-  path: ''
+  path: ""
 update_rate: 20
 visualizers:
   names:
-  - opencv
+    - opencv
   params:
     - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTOpenCVVisualizer
       rate: 30
       concurrent_mode: process
   paths:
-  - ''
+    - ""
