@@ -11,9 +11,9 @@ from mmk2_types.types import (
 from mmk2_types.grpc_msgs import (
     JointState,
     Time,
-    MoveServoParams,
-    ForwardPositionParams,
     TrajectoryParams,
+    ForwardPositionParams,
+    MoveServoParams,
 )
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from typing import Optional, List, Union, Dict
@@ -115,7 +115,7 @@ class AIRBOTMMK(System):
         if self._current_mode is SystemMode.RESETTING:
             self.interface.set_goal(goal, TrajectoryParams())
         else:
-            self.interface.set_goal(goal, MoveServoParams())
+            self.interface.set_goal(goal, ForwardPositionParams())
 
     def _action_dict_to_goal(self, obs: dict) -> List[float]:
         goal = {}

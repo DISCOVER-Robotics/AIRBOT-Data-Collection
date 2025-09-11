@@ -10,7 +10,7 @@ from mmk2_types.types import RobotComponents
 
 
 class MMKMcapDataReplay:
-    def __init__(self, file_path: str, topics: Optional[List[str]] = None):
+    def __init__(self, file_path: str, topics: Optional[List[str]], ip: str):
         components = [
             RobotComponents.LEFT_ARM,
             RobotComponents.LEFT_ARM_EEF,
@@ -31,7 +31,7 @@ class MMKMcapDataReplay:
         )
         self._mcap_player = McapPlayer(self.config)
         self._robot = AIRBOTMMK(
-            AIRBOTMMKConfig(ip="172.25.12.57", components=components, demonstrate=False)
+            AIRBOTMMKConfig(ip=ip, components=components, demonstrate=False)
         )
 
     def configure(self) -> bool:
@@ -57,15 +57,38 @@ class MMKMcapDataReplay:
 
 if __name__ == "__main__":
     from airbot_data_collection.utils import init_logging
+    import argparse
+    import time
+    from logging import getLogger
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-path", "--file_path", type=str, required=True)
+    parser.add_argument("-f", "--fps", type=int, default=15)
+    parser.add_argument("-ip", "--ip", type=str, default="192.168.11.200")
+    args = parser.parse_args()
+
+    period = 1.0 / args.fps
 
     init_logging()
+    logger = getLogger("MMKMcapDataReplay")
 
-    mmk_replay = MMKMcapDataReplay("/home/ghz/下载/task_0911_rs435i1_usb2/0.mcap")
+    mmk_replay = MMKMcapDataReplay(args.file_path, None, args.ip)
     assert mmk_replay.configure()
     assert mmk_replay.reset()
+    logger.info("Press Enter to start replay...")
+    input()
+    logger.info("Starting replay...")
     try:
-        while mmk_replay.update():
-            input("Press Enter to continue...")
+        while True:
+            start = time.perf_counter()
+            if mmk_replay.update():
+                sleep_time = period - (time.perf_counter() - start)
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+            else:
+                logger.info("Replay finished.")
+                break
     except KeyboardInterrupt:
         pass
+    logger.info("Shutting down...")
     assert mmk_replay.shutdown()
