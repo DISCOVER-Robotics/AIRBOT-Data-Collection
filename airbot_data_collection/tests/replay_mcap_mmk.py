@@ -62,7 +62,7 @@ if __name__ == "__main__":
     from logging import getLogger
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("file_path", type=str, required=True)
+    parser.add_argument("file_path", type=str)
     parser.add_argument("-f", "--fps", type=int, default=15)
     parser.add_argument("-ip", "--ip", type=str, default="192.168.11.200")
     args = parser.parse_args()
