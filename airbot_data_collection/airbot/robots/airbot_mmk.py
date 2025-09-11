@@ -81,6 +81,9 @@ class AIRBOTMMK(System):
         )
         self._reset()
         self._logs = {}
+        while not self._capture_images(False):
+            self.get_logger().info("Waiting for valid images...")
+            time.sleep(1)
         return True
 
     def get_info(self):
@@ -239,7 +242,7 @@ class AIRBOTMMK(System):
             comp_data["data"][field] = value
         data[f"observation/{comp.value}/joint_state"] = comp_data
 
-    def _capture_images(self) -> dict:
+    def _capture_images(self, strict: bool = True) -> dict:
         images_obs = {}
         start = time.perf_counter()
         comp_images = self.interface.get_image(self._cameras_goal)
@@ -248,9 +251,12 @@ class AIRBOTMMK(System):
             stamp = self._to_time_ns(images.stamp)
             for img_type, image in images.data.items():
                 if image.shape[0] == 1:
-                    raise ValueError(
-                        f"Image from {comp.value}/{img_type.value} is not valid"
-                    )
+                    desc = f"Image from {comp.value}/{img_type.value} is not valid"
+                    if strict:
+                        raise ValueError(desc)
+                    else:
+                        self.get_logger().warning(desc)
+                        return {}
                 suffix = (
                     "image_raw"
                     if img_type is not ImageTypes.DEPTH
