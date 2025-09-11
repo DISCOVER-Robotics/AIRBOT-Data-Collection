@@ -70,6 +70,7 @@ class McapFlatbufferWriter:
         types: Optional[Set[FlatbufferSchemas]] = None,
     ) -> Dict[FlatbufferSchemas, int]:
         types = set(FlatbufferSchemas) if types is None else types
+        types.discard(FlatbufferSchemas.NONE)
         for stype in types:
             self._smapping[stype] = self._writer.register_schema(
                 stype.value[0],
@@ -189,31 +190,41 @@ class McapFlatbufferWriter:
     def add_field_array(
         self,
         topics: Dict[str, str],
-        data: dict[str, list[float]],
+        data: dict[str, List[float]],
         publish_time: int,
         log_time: int,
-        fields: Optional[list[str]] = None,
+        fields: Optional[List[str]] = None,
     ):
         """Add a joint state message to the MCAP writer in separate field channel as FloatArray schema."""
         fields = fields or list(topics.keys())
         for field in fields:
             raw_data = data[field]
-            FloatArray.StartValuesVector(self.builder, len(raw_data))
-            for d in reversed(raw_data):
-                self.builder.PrependFloat32(d)
-            vec_data = self.builder.EndVector()
-            FloatArray.Start(self.builder)
-            FloatArray.AddValues(self.builder, vec_data)
-            end_data = FloatArray.End(self.builder)
-            self.builder.Finish(end_data)
-            msg_data = self.builder.Output()
-            self._writer.add_message(
-                channel_id=self._cmapping[topics[field]],
-                data=bytes(msg_data),
-                publish_time=publish_time,
-                log_time=log_time,
+            self.add_array(
+                topics[field],
+                raw_data,
+                publish_time,
+                log_time,
             )
-            self.builder.Clear()
+
+    def add_array(
+        self, topic: str, data: List[float], publish_time: int, log_time: int
+    ):
+        FloatArray.StartValuesVector(self.builder, len(data))
+        for d in reversed(data):
+            self.builder.PrependFloat32(d)
+        vec_data = self.builder.EndVector()
+        FloatArray.Start(self.builder)
+        FloatArray.AddValues(self.builder, vec_data)
+        end_data = FloatArray.End(self.builder)
+        self.builder.Finish(end_data)
+        msg_data = self.builder.Output()
+        self._writer.add_message(
+            channel_id=self._cmapping[topic],
+            data=bytes(msg_data),
+            publish_time=publish_time,
+            log_time=log_time,
+        )
+        self.builder.Clear()
 
     def _get_image_encoding(self, image: np.ndarray) -> str:
         """Get the image encoding string for a given channel and dtype."""
