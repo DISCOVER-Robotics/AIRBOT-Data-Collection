@@ -30,6 +30,9 @@ class IterablePlayer(System):
             self._stream = iter(interface)
         return True
 
+    def _create_interface(self, class_type: IterableDatasetABC):
+        self.interface = class_type(self.config.source)
+
     def send_action(self, action: int):
         """Set the stream position to the action index."""
         if self.config.cache:
@@ -49,5 +52,5 @@ class IterablePlayer(System):
     def get_info(self) -> dict:
         return {}
 
-    def shutdown(self):
+    def shutdown(self) -> bool:
         return True

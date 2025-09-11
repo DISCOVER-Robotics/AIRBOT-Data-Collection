@@ -81,9 +81,10 @@ class AIRBOTMMK(System):
         )
         self._reset()
         self._logs = {}
-        while not self._capture_images(False):
-            self.get_logger().info("Waiting for valid images...")
-            time.sleep(1)
+        if self._cameras_goal:
+            while not self._capture_images(False):
+                self.get_logger().info("Waiting for valid images...")
+                time.sleep(1)
         return True
 
     def get_info(self):
@@ -91,7 +92,7 @@ class AIRBOTMMK(System):
 
     def _reset(self, sleep_time=0):
         if self.config.default_action is not None:
-            goal = self._action_to_goal(self.config.default_action)
+            goal = self._action_array_to_goal(self.config.default_action)
             self._move_by_traj(goal)
         else:
             self.get_logger().warning("No default action is set.")
@@ -108,22 +109,23 @@ class AIRBOTMMK(System):
 
     def send_action(self, action):
         if isinstance(action, dict):
-            action = self._observation_to_action(action)
-
-        goal = self._action_to_goal(action)
+            goal = self._action_dict_to_goal(action)
+        else:
+            goal = self._action_array_to_goal(action)
         if self._current_mode is SystemMode.RESETTING:
             self.interface.set_goal(goal, TrajectoryParams())
         else:
             self.interface.set_goal(goal, MoveServoParams())
 
-    def _observation_to_action(self, obs: dict) -> List[float]:
-        action = []
+    def _action_dict_to_goal(self, obs: dict) -> List[float]:
+        goal = {}
         for comp in self.config.components:
-            comp_name = comp.value
-            action.append(obs[f"mmk/action/{comp_name}/joint_state/position"])
-        return action
+            goal[comp] = JointState(
+                position=obs[f"/mmk/action/{comp.value}/joint_state/position"]
+            )
+        return goal
 
-    def _action_to_goal(self, action) -> Dict[RobotComponents, JointState]:
+    def _action_array_to_goal(self, action) -> Dict[RobotComponents, JointState]:
         if len(action) != self._expected_dim:
             raise ValueError(
                 f"Action dimension mismatch: expected {self._expected_dim}, got {len(action)}"

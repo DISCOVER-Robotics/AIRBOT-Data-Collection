@@ -91,23 +91,7 @@ class ConfigBasis(ABC):
             raise RuntimeError("Already configured")
         class_type = self.__annotations__.get("interface", None)
         if class_type is not None:
-            sig = inspect.signature(class_type)
-            if "config" in sig.parameters.keys():
-                self.interface = class_type(config=self.config)
-            else:
-                # convert the first level config to dict
-                if isinstance(self.config, BaseModel):
-                    # dict(self.config) has some bugs
-                    # so we use the following way
-                    cfg_dict = {
-                        k: getattr(self.config, k)
-                        for k in self.config.__class__.model_fields.keys()
-                    }
-                else:  # dataclass
-                    # TODO: error when using nested dataclass
-                    cfg_dict = asdict(self.config)
-                com_keys = cfg_dict.keys() & sig.parameters.keys()
-                self.interface = class_type(**{key: cfg_dict[key] for key in com_keys})
+            self._create_interface(class_type)
         else:
             self.interface = None
         self._configured = self.on_configure()
@@ -126,6 +110,28 @@ class ConfigBasis(ABC):
     @property
     def configured(self) -> bool:
         return self._configured
+
+    def _create_interface(self, class_type: Type):
+        """Create the interface instance based on the config and the class type annotation.
+        The subclasses can override this method if needed.
+        """
+        sig = inspect.signature(class_type)
+        if "config" in sig.parameters.keys():
+            self.interface = class_type(config=self.config)
+        else:
+            # convert the first level config to dict
+            if isinstance(self.config, BaseModel):
+                # dict(self.config) has some bugs
+                # so we use the following way
+                cfg_dict = {
+                    k: getattr(self.config, k)
+                    for k in self.config.__class__.model_fields.keys()
+                }
+            else:  # dataclass
+                # TODO: error when using nested dataclass
+                cfg_dict = asdict(self.config)
+            com_keys = cfg_dict.keys() & sig.parameters.keys()
+            self.interface = class_type(**{key: cfg_dict[key] for key in com_keys})
 
 
 class Sensor(ConfigBasis):
