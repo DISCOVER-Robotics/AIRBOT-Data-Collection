@@ -219,6 +219,8 @@ class InterfaceType(StrEnum):
     JOINT_POSITION = auto()
     JOINT_VELOCITY = auto()
     JOINT_EFFORT = auto()
+    JOINT_KP = auto()
+    JOINT_KD = auto()
     POSE = auto()
     TWIST = auto()
 

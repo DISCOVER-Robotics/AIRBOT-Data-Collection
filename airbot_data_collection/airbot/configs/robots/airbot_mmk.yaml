@@ -16,13 +16,26 @@ cameras:
   #     image_height: "480"
   #     framerate: "25"
   # right_camera:
-  #     video_device: /dev/right_camera
-  #     camera_type: USB
-  #     image_width: "640"
-  #     image_height: "480"
-  #     framerate: "25"
-default_action:
-  [
+  #   video_device: /dev/right_camera
+  #   camera_type: USB
+  #   image_width: "640"
+  #   image_height: "480"
+  #   framerate: "25"
+  # left_camera: # D405
+  #   camera_type: REALSENSE
+  #   rgb_camera.color_profile: 640,480,30
+  #   depth_module.color_profile: 640,480,30
+  #   enable_depth: "false"
+  #   align_depth.enable: "false"
+  #   serial_no: '427622272912'  # multiple rs-cameras case
+  # right_camera: # D405
+  #   camera_type: REALSENSE
+  #   rgb_camera.color_profile: 640,480,30
+  #   depth_module.color_profile: 640,480,30
+  #   enable_depth: "false"
+  #   align_depth.enable: "false"
+  #   serial_no: '427622272922'  # multiple rs-cameras case
+default_action: [
     # arms will not move when demonstrating
     -0.233,-0.73, 1.088, 1.774, -1.1475, -0.1606,    # left_arm (6 joints)
     1.0,                             # left_arm_eef (1 joint)
