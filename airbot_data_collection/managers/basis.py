@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Optional, Protocol, Dict, Any, final, runtime_checkable
 from pydantic import BaseModel
-from airbot_data_collection.basis import ConfigBasis
+from airbot_data_collection.basis import ConfigurableBasis
 from airbot_data_collection.state_machine.fsm import (
     DemonstrateAction,
     DemonstrateFSM,
@@ -39,7 +39,7 @@ class DemonstrateManager(Protocol):
     def shutdown(self) -> bool: ...
 
 
-class DemonstrateManagerBasis(ConfigBasis):
+class DemonstrateManagerBasis(ConfigurableBasis):
     """Demonstrate manager for managing the demonstration."""
 
     config: ManagerConfigBasis

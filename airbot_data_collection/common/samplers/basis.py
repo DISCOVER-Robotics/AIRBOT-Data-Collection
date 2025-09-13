@@ -1,10 +1,10 @@
 import os
 from abc import abstractmethod
 from typing import Any, Dict, Optional
-from airbot_data_collection.basis import ConfigBasis
+from airbot_data_collection.basis import ConfigurableBasis
 
 
-class DataSampler(ConfigBasis):
+class DataSampler(ConfigurableBasis):
     """Data sampler for sampling kinds of data.TODO: add a close method?"""
 
     @abstractmethod

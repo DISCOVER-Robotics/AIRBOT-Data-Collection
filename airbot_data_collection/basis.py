@@ -52,7 +52,7 @@ class ConcurrentMode(StrEnum):
 ConfigType = Optional[Union[BaseModel, Type[BaseModel]]]
 
 
-class ConfigBasis(ABC):
+class ConfigurableBasis(ABC):
     def __init__(self, config: ConfigType = None, **kwargs) -> None:
         """Base class for configurable components.
         Args:
@@ -134,7 +134,7 @@ class ConfigBasis(ABC):
             self.interface = class_type(**{key: cfg_dict[key] for key in com_keys})
 
 
-class Sensor(ConfigBasis):
+class Sensor(ConfigurableBasis):
     def __init__(self, config: ConfigType = None, **kwargs):
         super().__init__(config, **kwargs)
         self._metrics: DefaultDict[str, Dict[str, Any]] = defaultdict(dict)

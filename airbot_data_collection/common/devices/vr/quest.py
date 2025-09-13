@@ -11,12 +11,11 @@ from typing import Optional, Callable, List, Dict, Union, Type
 from enum import IntEnum, auto
 from functools import partial
 from collections import defaultdict
-
-from airbot_data_collection.utils import StrEnum
-from airbot_data_collection.basis import ConfigBasis
+from airbot_data_collection.basis import ConfigurableBasis
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.common.utils.coordinate import CoordinateConverter
 from airbot_data_collection.common.utils.ros2 import TFPublisher
+from airbot_data_collection.common.devices.basis import EventValueMode
 
 
 class VRControllerEvent(IntEnum):
@@ -34,15 +33,6 @@ class VRControllerEvent(IntEnum):
     Y = auto()
 
 
-class ControllerEventMode(StrEnum):
-    NOT_ZERO = auto()
-    VALUE_CHANGE = auto()
-    LEAVE_ZERO = auto()
-    ENTER_ZERO = auto()
-    ENTER_POSITIVE = auto()
-    ENTER_NEGATIVE = auto()
-
-
 class VRQuestConfig(BaseModel):
     init_rcl: bool = True
     node_name: str = "vr_quest"
@@ -57,14 +47,14 @@ class VRQuestConfig(BaseModel):
     publish_tf: bool = True
 
 
-class VRQuest(ConfigBasis):
+class VRQuest(ConfigurableBasis):
     config: VRQuestConfig
     event: VRControllerEvent
 
     def on_configure(self):
         self._pos = {"left", "right"}
         self._event_callbacks: Dict[
-            ControllerEventMode, Dict[VRControllerEvent, List[Callable]]
+            EventValueMode, Dict[VRControllerEvent, List[Callable]]
         ] = defaultdict(lambda: defaultdict(list))
         self._callbacks = []
         self._vr_info_data = {}
@@ -102,7 +92,7 @@ class VRQuest(ConfigBasis):
             self.register_event_callback(
                 event,
                 partial(self._update_rela, pos),
-                ControllerEventMode.LEAVE_ZERO,
+                EventValueMode.LEAVE_ZERO,
             )
         self.wait_for_info()
 
@@ -125,22 +115,6 @@ class VRQuest(ConfigBasis):
             )
             for pos in self._pos
         ]
-
-    def _init_judgers(self):
-        """Initialize the judgers for the VR controller events."""
-        self._judgers = {
-            ControllerEventMode.NOT_ZERO: lambda data, event: data != 0,
-            ControllerEventMode.VALUE_CHANGE: lambda data, event: data
-            != self._vr_control_data[event],
-            ControllerEventMode.LEAVE_ZERO: lambda data, event: data != 0
-            and self._vr_control_data[event] == 0,
-            ControllerEventMode.ENTER_ZERO: lambda data, event: data == 0
-            and self._vr_control_data[event] != 0,
-            ControllerEventMode.ENTER_POSITIVE: lambda data, event: data > 0
-            and self._vr_control_data[event] <= 0,
-            ControllerEventMode.ENTER_NEGATIVE: lambda data, event: data < 0
-            and self._vr_control_data[event] >= 0,
-        }
 
     def _update_rela(self, pos: str, data: float):
         """Update the relative control data."""
@@ -200,18 +174,6 @@ class VRQuest(ConfigBasis):
                 data[3:7],
                 child_frame_id=f"/{pos}Info",
             )
-
-    def register_event_callback(
-        self,
-        event: VRControllerEvent,
-        callback: Callable,
-        mode: ControllerEventMode = ControllerEventMode.NOT_ZERO,
-    ):
-        self._event_callbacks[mode][event].append(callback)
-
-    def register_callback(self, callback: Callable):
-        """Register a callback for the VR controller events."""
-        self._callbacks.append(callback)
 
     def get_control_data(self) -> List[float]:
         return self._vr_control_data
@@ -275,7 +237,7 @@ if __name__ == "__main__":
     vr.register_event_callback(
         VRControllerEvent.B,
         lambda data: vr.get_logger().info(f"B button value changed with data: {data}"),
-        mode=ControllerEventMode.VALUE_CHANGE,
+        mode=EventValueMode.VALUE_CHANGE,
     )
     for event in {VRControllerEvent.RIGHT_STICK_V, VRControllerEvent.RIGHT_STICK_H}:
         vr.register_event_callback(

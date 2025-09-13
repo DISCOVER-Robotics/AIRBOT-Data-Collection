@@ -14,6 +14,8 @@ import time
 import json
 from pydantic import BaseModel
 from pydantic_settings import CliApp
+from typing import Dict
+from functools import cache
 
 
 class Config(BaseModel):
@@ -76,66 +78,73 @@ for folder in folders:
                 f.read(),
             )
 
-    def to_topic(group: str, component: str) -> str:
-        return f"/{group}/arm/pose/position"
-
-    # load json dict
-    groups = ["lead", "follow"]
-    components = ["arm", "eef"]
-    slices = [slice(0, 6), slice(6, 7)]
+    topic_mapping = {
+        "obs": {
+            "jq": (
+                ("/follow/arm/joint_states/position", slice(0, 6)),
+                ("/follow/eef/joint_states/position", slice(6, 7)),
+            ),
+            "eef_pos": "/follow/arm/pose/position",
+            "end_force": ("/follow/arm/wrench/force", slice(0, 3)),
+        },
+        "act": "/lead/arm/pose/position",
+    }
 
     path = f"{folder}/obs_action.json"
     if not os.path.exists(path):
         print(f"Skipping file {path} as it does not exist.")
         continue
+
+    @cache
+    def to_topic_with_slice(key: str, name: str):
+        topic = topic_mapping[key][name]
+        topics = (
+            ((topic, None),)
+            if isinstance(topic, str)
+            else (topic,)
+            if isinstance(topic[0], str)
+            else topic,
+        )
+        return topics
+
     with open(path) as f:
-        act_obs: dict = json.load(f)
+        act_obs: Dict[str, Dict[str, list]] = json.load(f)
         print(f"{act_obs.keys()=}")
         # register joint state channels
-        for topic in (
-            "/follow/arm/joint_states/position",
-            "/follow/eef/joint_states/position",
-            "/follow/arm/pose/position",
-            "/follow/arm/wrench/force",
-            "/lead/arm/pose/position",
-        ):
-            flb_writer.register_channel(topic, FlatbufferSchemas.FLOAT_ARRAY)
+        for key, value in act_obs.items():
+            for name, data in value.items():
+                topic_with_slices = to_topic_with_slice(key, name)
+                for tpc, _ in topic_with_slices:
+                    print(f"register channel for topic: {tpc}")
+                    flb_writer.register_channel(tpc, FlatbufferSchemas.FLOAT_ARRAY)
+
+        # for keys, values in
+
         # add joint states messages
         stamps_ns = []
+        # for stamp, jq, eef_pos, eer_eff, act in zip(
+        #     act_obs["time"],
+        #     act_obs["obs"]["jq"],
+        #     act_obs["obs"]["eef_pos"],
+        #     act_obs["obs"]["end_force"],
+        #     act_obs["act"],
+        #     strict=True,
+        # ):
+        #     stamp_ns = int(stamp * 1e9)
+        #     for group, value in zip(groups, [act, jq]):
+        #         for component, slc in zip(components, slices):
+        #             flb_writer.add_field_array(
+        #                 {"position": to_topic(group, component)},
+        #                 data={"position": value[slc]},
+        #                 publish_time=stamp_ns,
+        #                 log_time=stamp_ns,
+        #             )
 
-        for stamp, jq, eef_pos, end_force, act in zip(
-            act_obs["time"],
-            act_obs["obs"]["jq"],
-            # act_obs["obs"]["jv"],
-            # act_obs["obs"]["tau"],
-            act_obs["obs"]["eef_pos"],
-            # act_obs["obs"]["eef_quat"],
-            # act_obs["obs"]["eef_vel"],
-            # act_obs["obs"]["eef_gyro"],
-            # act_obs["obs"]["eef_acc"],
-            act_obs["obs"]["end_force"],
-            act_obs["act"],
-            strict=True,
-        ):
-            stamp_ns = int(stamp * 1e9)
-            flb_writer.add_array(
-                "/follow/arm/joint_states/position", jq[:6], stamp_ns, stamp_ns
-            )
-            flb_writer.add_array(
-                "/follow/eef/joint_states/position", jq[6:7], stamp_ns, stamp_ns
-            )
-            flb_writer.add_array(
-                "/follow/arm/pose/position", eef_pos, stamp_ns, stamp_ns
-            )
-            flb_writer.add_array(
-                "/follow/arm/wrench/force", end_force[:3], stamp_ns, stamp_ns
-            )
-            flb_writer.add_array("/lead/arm/pose/position", act[:3], stamp_ns, stamp_ns)
-            stamps_ns.append(stamp_ns)
-        AIRBOTMcapDataSampler.add_log_stamps_attachment(
-            mcap_writer,
-            stamps_ns,
-        )
+        #     stamps_ns.append(stamp_ns)
+        # AIRBOTMcapDataSampler.add_log_stamps_attachment(
+        #     mcap_writer,
+        #     stamps_ns,
+        # )
     mcap_writer.finish()
 
 
