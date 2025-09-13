@@ -4,13 +4,17 @@ from bidict import bidict
 from pydantic import BaseModel
 from pynput import keyboard
 from airbot_data_collection.basis import SystemMode
-from airbot_data_collection.managers.basis import DemonstrateManagerBasis
+from airbot_data_collection.managers.basis import (
+    DemonstrateManagerBasis,
+    ManagerConfigBasis,
+)
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
 from airbot_data_collection.utils import bcolors
+from typing import Dict
 
 
-class KeyboardCallbackConfig(BaseModel):
-    action_key: dict[Action, str] = {
+class KeyboardCallbackConfig(ManagerConfigBasis):
+    action_key: Dict[Action, str] = {
         Action.sample: keyboard.Key.space.name,
         Action.save: "s",
         Action.abandon: "q",
@@ -18,7 +22,7 @@ class KeyboardCallbackConfig(BaseModel):
         Action.capture: "p",
         Action.finish: "z",
     }
-    instruction: dict[str, str] = {
+    instruction: Dict[str, str] = {
         "b": "Back to sample the last round (override the last saved file)",
         "i": "Show this instruction again",
         "g": "Switch passive (gravity composation) / resetting mode of the leaders",
@@ -26,23 +30,11 @@ class KeyboardCallbackConfig(BaseModel):
         "f2": "Lock / unlock the keyboard control",
     }
     # TODO: auto add mapped keys to the instruction
-    key_mapping: dict[str, str] = {
+    key_mapping: Dict[str, str] = {
         keyboard.Key.esc.name: "z",
         keyboard.Key.enter.name: "s",
         keyboard.Key.shift.name: "q",
     }
-
-    def model_post_init(self, context):
-        action_info = {
-            Action.sample: "Start sampling",
-            Action.save: "Save sampled data in the current round",
-            Action.abandon: "Abandon current sampling without saving",
-            Action.finish: "Finish the current round and save all data",
-            Action.remove: "Remove the last saved episode",
-            Action.capture: "Capture current component observations",
-        }
-        for action, key in self.action_key.items():
-            self.instruction[key] = action_info[action]
 
 
 class KeyboardCallbackManager(DemonstrateManagerBasis):
@@ -56,8 +48,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
     config: KeyboardCallbackConfig
 
     def on_configure(self):
-        self.show_instruction()
-        self.listener = keyboard.Listener(on_press=self.keypress_callback)
+        self.listener = keyboard.Listener(on_press=self._keypress_callback)
         self.listener.start()
         self.key_to_action = bidict(self.config.action_key).inverse
         self._locked = False
@@ -66,17 +57,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
     def update(self) -> bool:
         return True
 
-    def show_instruction(self) -> None:
-        """Displays the instructions for the key press actions.
-
-        This function provides a user-friendly guide to inform the user about the available
-        key press actions for controlling the system.
-        """
-        self.get_logger().info(
-            bcolors.OKCYAN + f" \n{pformat(self.config.instruction)}"
-        )
-
-    def keypress_callback(self, key: keyboard.Key) -> None:
+    def _keypress_callback(self, key: keyboard.Key) -> None:
         """Handles key press events and triggers the appropriate actions.
 
         This function listens for key presses and initiates the corresponding actions in the

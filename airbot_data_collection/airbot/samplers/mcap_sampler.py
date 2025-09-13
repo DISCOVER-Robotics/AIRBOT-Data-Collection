@@ -286,7 +286,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                 return FlatbufferSchemas.RAW_IMAGE
             else:
                 raise NotImplementedError
-        save_field_arr = "joint_state" in key or "pose" in key
+        save_field_arr = "joint_state" in key or "pose" in key or "wrench" in key
         if save_field_arr:
             return FlatbufferSchemas.FLOAT_ARRAY
         return FlatbufferSchemas.NONE

@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional, Protocol, final, runtime_checkable
+from typing import Optional, Protocol, Dict, Any, final, runtime_checkable
 from pydantic import BaseModel
 from airbot_data_collection.basis import ConfigBasis
 from airbot_data_collection.state_machine.fsm import (
@@ -7,6 +7,27 @@ from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSM,
     State,
 )
+from airbot_data_collection.utils import bcolors
+from pprint import pformat
+
+
+class ManagerConfigBasis(BaseModel):
+    """Configuration for the manager."""
+
+    action_key: Dict[DemonstrateAction, Any] = {}
+    instruction: Dict[str, str] = {}
+
+    def model_post_init(self, context):
+        action_info = {
+            DemonstrateAction.sample: "Start sampling",
+            DemonstrateAction.save: "Save sampled data in the current round",
+            DemonstrateAction.abandon: "Abandon current sampling without saving",
+            DemonstrateAction.finish: "Finish the current round and save all data",
+            DemonstrateAction.remove: "Remove the last saved episode",
+            DemonstrateAction.capture: "Capture current component observations",
+        }
+        for action, key in self.action_key.items():
+            self.instruction[key] = action_info[action]
 
 
 @runtime_checkable
@@ -21,10 +42,14 @@ class DemonstrateManager(Protocol):
 class DemonstrateManagerBasis(ConfigBasis):
     """Demonstrate manager for managing the demonstration."""
 
+    config: ManagerConfigBasis
+
     @final
     def set_fsm(self, fsm: DemonstrateFSM):
         self.fsm = fsm
         self.finalized = False
+        if getattr(self.config, "instruction", {}):
+            self.show_instruction()
 
     @final
     def shutdown(self) -> bool:
@@ -39,6 +64,17 @@ class DemonstrateManagerBasis(ConfigBasis):
     @abstractmethod
     def on_shutdown(self) -> bool:
         """Callback to be called when shutting down the manager."""
+
+    @final
+    def show_instruction(self) -> None:
+        """Displays the instructions for the key press actions.
+
+        This function provides a user-friendly guide to inform the user about the available
+        key press actions for controlling the system.
+        """
+        self.get_logger().info(
+            bcolors.OKCYAN + f" \n{pformat(self.config.instruction)}"
+        )
 
 
 class SelfManagerConfig(BaseModel):
