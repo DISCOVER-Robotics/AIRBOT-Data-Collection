@@ -5,7 +5,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from airbot_data_collection.common.devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
-    ControllerEventMode,
+    EventValueMode,
 )
 from airbot_data_collection.common.utils.ros2 import TFDiscover
 from typing import List

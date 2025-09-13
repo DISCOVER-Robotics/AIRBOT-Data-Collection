@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Any, Optional, Protocol, Union, runtime_checkable, final
 from pydantic import BaseModel, NonNegativeInt, PositiveInt
-from airbot_data_collection.basis import ConfigBasis, ConcurrentMode
+from airbot_data_collection.basis import ConfigurableBasis, ConcurrentMode
 
 
 class GUIVisualizerConfig(BaseModel):
@@ -72,7 +72,7 @@ class SampleInfo(BaseModel):
     round: NonNegativeInt = 0
 
 
-class VisualizerBasis(ConfigBasis):
+class VisualizerBasis(ConfigurableBasis):
     """Visualizer for visualizing the data."""
 
     @abstractmethod

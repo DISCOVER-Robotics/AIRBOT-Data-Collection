@@ -4,7 +4,7 @@ from airbot_data_collection.common.devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
     VRControllerEvent,
-    ControllerEventMode,
+    EventValueMode,
 )
 from airbot_data_collection.utils import bcolors
 from pprint import pformat
@@ -160,12 +160,12 @@ class VRQuestController(InputController):
             self._vr.register_event_callback(
                 event,
                 partial(self._set_episode_end_status, status),
-                ControllerEventMode.LEAVE_ZERO,
+                EventValueMode.LEAVE_ZERO,
             )
             self._vr.register_event_callback(
                 event,
                 self._clear_episode_end_status,
-                ControllerEventMode.ENTER_ZERO,
+                EventValueMode.ENTER_ZERO,
             )
         self.get_logger().info("Started.")
 
