@@ -7,13 +7,13 @@ from airbot_data_collection.airbot.samplers.mcap_sampler import (
     AIRBOTMcapDataSamplerConfig,
     TaskInfo,
 )
-from airbot_data_collection.utils import zip
 from mcap.writer import Writer
+from pydantic import BaseModel
+from pydantic_settings import CliApp
+from typing import Dict
 import os
 import time
 import json
-from pydantic import BaseModel
-from pydantic_settings import CliApp
 
 
 class Config(BaseModel):
@@ -40,7 +40,7 @@ os.makedirs(output_dir, exist_ok=True)
 
 # find all folders in the directory
 folders = [f.path for f in os.scandir(directory) if f.is_dir()]
-print(folders)
+# print(folders)
 
 config = AIRBOTMcapDataSamplerConfig(task_info=TaskInfo(task_name=config.task_name))
 
@@ -77,7 +77,7 @@ for folder in folders:
             )
 
     def to_topic(group: str, component: str) -> str:
-        return f"/{group}/{component}/joint_state/position"
+        return f"/{group}/arm/pose/position"
 
     # load json dict
     groups = ["lead", "follow"]
@@ -88,39 +88,78 @@ for folder in folders:
     if not os.path.exists(path):
         print(f"Skipping file {path} as it does not exist.")
         continue
+
+    topic_mapping: Dict[str, dict] = {
+        "jq": {
+            "/follow/arm/joint_states/position": slice(0, 6),
+            "/follow/eef/joint_states/position": slice(6, 7),
+        },
+        "jv": {
+            "/follow/arm/joint_states/velocity": slice(0, 6),
+            "/follow/eef/joint_states/velocity": slice(6, 7),
+        },
+        "tau": {
+            "/follow/arm/joint_states/effort": slice(0, 6),
+            "/follow/eef/joint_states/effort": slice(6, 7),
+        },
+        "eef_pos": "/follow/arm/pose/position",
+        "end_force": {
+            "/follow/arm/wrench/force": slice(0, 3),
+            "/follow/arm/wrench/torque": slice(3, 6),
+        },
+        "act": "/lead/arm/pose/position",
+    }
+
+    topic_names = set()
+    for key, value in topic_mapping.items():
+        if isinstance(value, str):
+            topic_mapping[key] = {value: None}
+            topic_names.add(value)
+        else:
+            assert isinstance(value, dict), f"Value for key {key} must be a dict."
+            topic_names.update(value.keys())
+
     with open(path) as f:
         act_obs: dict = json.load(f)
         print(f"{act_obs.keys()=}")
+        obs: dict = act_obs.pop("obs", {})
+        print(f"{obs.keys()=}")
+        times = act_obs.pop("time", [])
+        acts: list = act_obs.pop("act", [])
+        not_mapping_keys = (act_obs.keys() | obs.keys()) - topic_mapping.keys()
+        print(f"Not mapping keys: {not_mapping_keys}")
+        topic_names.update(not_mapping_keys)
+        print(f"All topic names: {topic_names}")
         # register joint state channels
-        for group in groups:
-            for comp in components:
-                flb_writer.register_channel(
-                    to_topic(group, comp), FlatbufferSchemas.FLOAT_ARRAY
-                )
+        for topic in topic_names:
+            flb_writer.register_channel(topic, FlatbufferSchemas.FLOAT_ARRAY)
         # add joint states messages
         stamps_ns = []
-        for stamp, obs, act in zip(
-            act_obs["time"],
-            # act_obs["obs"]["jq"],
-            act_obs["obs"]["eef_pos"],
-            act_obs["obs"]["eef_eff"],
-            act_obs["act"],
-            strict=True,
-        ):
-            stamp_ns = int(stamp * 1e9)
-            for group, value in zip(groups, [act, obs]):
-                for component, slc in zip(components, slices):
-                    flb_writer.add_field_array(
-                        {"position": to_topic(group, component)},
-                        data={"position": value[slc]},
-                        publish_time=stamp_ns,
-                        log_time=stamp_ns,
-                    )
-            stamps_ns.append(stamp_ns)
+
+        for stamp in times:
+            stamps_ns.append(int(stamp * 1e9))
         AIRBOTMcapDataSampler.add_log_stamps_attachment(
             mcap_writer,
             stamps_ns,
         )
+
+        for i, action in enumerate(acts):
+            stamp_ns = stamps_ns[i]
+            for topic, slc in topic_mapping["act"].items():
+                if slc:
+                    flb_writer.add_array(topic, action[slc], stamp_ns, stamp_ns)
+                else:
+                    flb_writer.add_array(topic, action, stamp_ns, stamp_ns)
+
+        for key, values in obs.items():
+            for topic, slc in topic_mapping.get(key, {key: None}).items():
+                for i, value in enumerate(values):
+                    stamp_ns = stamps_ns[i]
+                    if slc:
+                        flb_writer.add_array(topic, value[slc], stamp_ns, stamp_ns)
+                    else:
+                        flb_writer.add_array(topic, value, stamp_ns, stamp_ns)
+
     mcap_writer.finish()
 
 
