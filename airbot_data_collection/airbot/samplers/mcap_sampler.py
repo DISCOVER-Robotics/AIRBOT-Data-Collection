@@ -111,6 +111,8 @@ class AIRBOTMcapDataSampler(DataSampler):
     def compose_path(self, directory, round) -> str:
         path = str(Path(directory) / f"{round}.mcap")
         self._mf_writer.set_writer(Writer(path))
+        for coder in self._coders.values():
+            coder.reset()
         return path
 
     def update(self, data: dict):

@@ -54,6 +54,7 @@ class McapFlatbufferWriter:
         """Set the MCAP writer for this instance."""
         self._smapping.clear()
         self._cmapping.clear()
+        self.builder.Clear()
         self._writer = writer
         if start:
             writer.start()

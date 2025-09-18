@@ -167,6 +167,16 @@ class AvCoder:
                     f.write(value)
             return value
 
+    def reset(self):
+        """
+        Close the encoder and release resources.
+        """
+        if self._executor is not None:
+            self._executor.shutdown(wait=True, cancel_futures=True)
+        self._container.close()
+        self._outbuf.close()
+        self._reset()
+
     @classmethod
     def get_logger(cls):
         """

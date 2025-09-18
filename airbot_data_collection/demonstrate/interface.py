@@ -62,8 +62,8 @@ class DemonstrateInterface:
         else:
             self._save_executor = None
         self._save_futures: List[Future] = []
-        self._update_executor = ThreadPoolExecutor(1, "update_thread")
-        self._update_executor._work_queue
+        self._update_executor = None
+        self._reset_update_executor()
         self._update_futures: List[Future] = []
         # store current round data
         self._round_data = defaultdict(list)
@@ -317,8 +317,14 @@ class DemonstrateInterface:
         self._sample_info.index = 0
         self._save_path = ""
 
+    def _reset_update_executor(self) -> None:
+        if self._update_executor is not None:
+            self._update_executor.shutdown(wait=True, cancel_futures=True)
+        self._update_executor = ThreadPoolExecutor(1, "update_thread")
+
     def abandon(self) -> bool:
         """Abandon the current round of sampling."""
+        self._reset_update_executor()
         self._remove_path(self._save_path, False)
         self._clear()
         self.get_logger().info(
