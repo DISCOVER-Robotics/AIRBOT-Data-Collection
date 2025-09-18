@@ -373,12 +373,16 @@ class McapFlatbufferReader:
             assert not names, (
                 f"Not all requested attachments found: {names} vs {attch_names}"
             )
-
-        for values in zip(*iters):
-            data = {}
-            for name, value in zip(attch_names, values):
-                data[name] = value
-            yield data
+        try:
+            for values in zip(*iters):
+                data = {}
+                for name, value in zip(attch_names, values):
+                    data[name] = value
+                yield data
+        except ValueError as e:
+            raise ValueError(
+                f"Attachment iterators have different lengths: {attch_names}"
+            ) from e
 
     def iter_samples(
         self,
