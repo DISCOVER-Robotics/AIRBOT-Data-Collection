@@ -77,6 +77,7 @@ soft = [
     "send2trash",
 ]
 ml = ["torch", "torchvision"]
+plt = ["ipykernel", "holoviews"]
 
 [tool.setuptools.packages.find]
 where = ["."]

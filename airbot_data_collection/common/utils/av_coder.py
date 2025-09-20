@@ -307,6 +307,7 @@ class AvCoder:
         container, video_stream, base_stamp, frame_cnt = cls._init_decode(
             video, thread_type, ensure_base_stamp
         )
+        # cls.get_logger().info(f"Decoding video with {frame_cnt} frames.")
         cnt = 0
         time_factor = fractions.Fraction(target_time_base, 1) * video_stream.time_base
         for frame in container.decode(video=0):

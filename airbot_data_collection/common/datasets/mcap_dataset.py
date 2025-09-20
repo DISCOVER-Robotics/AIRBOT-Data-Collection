@@ -121,6 +121,9 @@ class McapFlatbufferSampleDataset(IterableDatasetABC):
         else:
             return nth(self._flatten_iter(), index)
 
+    def __iter__(self) -> Iterator[Dict[str, np.ndarray]]:
+        return super().__iter__()
+
 
 class McapFlatbufferEpisodeDatasetConfig(McapDatasetConfig):
     """
