@@ -4,23 +4,15 @@
 """
 
 import os
-import sys
 import argparse
 import uuid
 import json
 import logging
 from pathlib import Path
-
-# 添加项目路径
-project_root = Path(__file__).parent / "airbot_data_collection"
-sys.path.insert(0, str(project_root))
-
-# MCAP 相关导入
 from mcap.reader import make_reader
-import flatbuffers
-from airbot_data_collection.airbot.schemas.airbot_fbs.FloatArray import FloatArray
+from mcap_data_loader.schemas.airbot_fbs.FloatArray import FloatArray
 
-# 配置日志
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

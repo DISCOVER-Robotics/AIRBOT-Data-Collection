@@ -1,4 +1,4 @@
-from airbot_data_collection.common.utils.mcap_utils import (
+from mcap_data_loader.utils.mcap_utils import (
     McapFlatbufferWriter,
     FlatbufferSchemas,
 )

@@ -8,7 +8,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pydantic import BaseModel
 from transitions import EventData
 from transitions.extensions import LockedMachine
-
 from airbot_data_collection.utils import StrEnum
 
 State = Optional[Union[str, Enum, dict]]

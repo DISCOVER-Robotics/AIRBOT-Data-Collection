@@ -6,26 +6,12 @@ import threading
 import time
 import numpy as np
 import subprocess
-import sys
-from enum import Enum
-from typing import List, Optional
-from functools import partial
+from typing import Optional
+from mcap_data_loader.utils.basic import bcolors, get_items_by_ext, zip, StrEnum
 
 
 def get_stamp_ms() -> int:
     return int(time.time() * 1e3)
-
-
-class bcolors:
-    MAGENTA = "\033[95m"
-    OKBLUE = "\033[94m"
-    OKCYAN = "\033[96m"
-    OKGREEN = "\033[92m"
-    WARNING = "\033[93m"
-    FAIL = "\033[91m"
-    ENDC = "\033[0m"
-    BOLD = "\033[1m"
-    UNDERLINE = "\033[4m"
 
 
 def find_matching_files(
@@ -67,49 +53,6 @@ def find_matching_files(
                 )
         result.append(found_path)  # None if not found
     return result
-
-
-class ReprEnum(Enum):
-    """
-    Only changes the repr(), leaving str() and format() to the mixed-in type.
-    """
-
-
-class StrEnum(str, ReprEnum):
-    """
-    Enum where members are also (and must be) strings
-    """
-
-    def __new__(cls, *values):
-        "values must already be of type `str`"
-        if len(values) > 3:
-            raise TypeError(f"too many arguments for str(): {values!r}")
-        if len(values) == 1:
-            # it must be a string
-            if not isinstance(values[0], str):
-                raise TypeError(f"{values[0]!r} is not a string")
-        if len(values) >= 2:
-            # check that encoding argument is a string
-            if not isinstance(values[1], str):
-                raise TypeError(f"encoding must be a string, not {values[1]!r}")
-        if len(values) == 3:
-            # check that errors argument is a string
-            if not isinstance(values[2], str):
-                raise TypeError("errors must be a string, not %r" % (values[2]))
-        value = str(*values)
-        member = str.__new__(cls, value)
-        member._value_ = value
-        return member
-
-    @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
-        """
-        Return the lower-cased version of the member name.
-        """
-        return name.lower()
-
-    def __str__(self):
-        return self.value
 
 
 class CustomFormatter(logging.Formatter):
@@ -156,38 +99,6 @@ def run_event_loop() -> asyncio.AbstractEventLoop:
         asyncio.set_event_loop(event_loop)
         threading.Thread(target=event_loop.run_forever, daemon=True).start()
     return event_loop
-
-
-def get_items_by_ext(
-    directory: str, extension: str, with_directory: bool = False
-) -> List[str]:
-    """Get all files or directories in a directory with a specific extension (suffix).
-    Args:
-        directory (str): The directory to search in.
-        extension (str): The file extension to filter by. If empty, return directories.
-            If extension is ".", return all files.
-    Returns:
-        List[str]: A list of file or directory names that match the extension.
-    """
-    if not os.path.exists(directory):
-        return []
-    entries = os.scandir(directory)
-    if with_directory:
-        prefix = directory.removesuffix("/") + "/"
-    else:
-        prefix = ""
-    if extension == ".":
-        return [prefix + entry.name for entry in entries if entry.is_file()]
-    elif not extension:
-        return [entry.name for entry in entries if entry.is_dir()]
-    else:
-        if not extension.startswith("."):
-            extension = "." + extension
-        return [
-            prefix + entry.name
-            for entry in entries
-            if entry.name.endswith(extension) and entry.is_file()
-        ]
 
 
 def optimal_grid(
@@ -452,23 +363,3 @@ def sort_index(order: list, name_list: list, value_list: list) -> tuple:
     sorted_pairs = sorted(zip(value_list, name_list), key=lambda x: order_dict[x[1]])
     sorted_value_list, _ = zip(*sorted_pairs)
     return sorted_value_list
-
-
-if sys.version_info >= (3, 10):
-    zip = partial(zip, strict=True)
-else:
-    from more_itertools import zip_equal as zip  # noqa: F401
-
-
-if __name__ == "__main__":
-    # bar = ProgressBar(100, "Round 0")
-    # for rd in range(10):
-    #     for i in range(5):
-    #         input("Press Enter to continue...")
-    #         bar.update(i + 1)
-    #     bar.reset(desc=f"Round {rd + 1}")
-
-    # print(linear_map(-0.1, (0, 1), (0, 100)))
-
-    for item in zip([1, 2], [3, 4, 5]):
-        print(item)
