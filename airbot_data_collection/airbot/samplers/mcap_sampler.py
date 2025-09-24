@@ -5,17 +5,17 @@ from typing import Literal, Dict, Union, List
 from mcap.writer import Writer
 from flatten_dict import flatten
 from time import time_ns
-from mcap_data_loader.utils.av_coder import AvCoder
-from mcap_data_loader.utils.mcap_utils import McapFlatBuffersWriter, FlatBuffersSchemas
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from functools import partial
 from pathlib import Path
 from functools import cache
 from logging import getLogger
+from mcap_data_loader.utils.av_coder import AvCoder
+from mcap_data_loader.utils.mcap_utils import McapFlatBuffersWriter, FlatBuffersSchemas
 from airbot_data_collection.common.samplers.basis import DataSampler
-from airbot_data_collection import __version__ as collector_version
 from airbot_data_collection.utils import bcolors
+from airbot_data_collection import __version__ as collector_version
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 
 try:
@@ -114,6 +114,7 @@ class AIRBOTMcapDataSampler(DataSampler):
 
     def update(self, data: dict):
         """Update the data with the latest frames."""
+        # print(f"Updating data: {data.keys()}...")
         for key in tuple(data.keys()):
             if self._is_save_h264(key):
                 frame = data.pop(key)

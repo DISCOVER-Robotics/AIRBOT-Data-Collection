@@ -1,4 +1,9 @@
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, Future, wait
+from concurrent.futures import (
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    Future,
+    as_completed,
+)
 from logging import getLogger
 from typing import Any, List, Dict, Union
 from send2trash import send2trash
@@ -23,6 +28,7 @@ from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.demonstrate.basis import ComponentsInstancer, Demonstrator
 from collections import defaultdict
 from pathlib import Path
+from tqdm import tqdm
 import time
 import shutil
 
@@ -232,15 +238,12 @@ class DemonstrateInterface:
 
     def save(self) -> None:
         """Save the sampled data and be ready for the next round."""
-        self.get_logger().info(
-            "Waiting for the update queue to finish..."
-            f"(size:{self._update_executor._work_queue.qsize()})"
-        )
-        start = time.perf_counter()
-        wait(self._update_futures)
-        self.get_logger().info(
-            f"Update queue finished in {time.perf_counter() - start:.2f} seconds"
-        )
+        for update_future in tqdm(
+            as_completed(self._update_futures),
+            "Completing update futures",
+            len(self._update_futures),
+        ):
+            update_future.result()
         concurrent_save = self._config.concurrent_save
         save_path = self._save_path
         if concurrent_save != ConcurrentMode.none:
