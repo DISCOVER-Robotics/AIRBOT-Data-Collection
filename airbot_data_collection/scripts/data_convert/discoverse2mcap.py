@@ -1,6 +1,6 @@
 from mcap_data_loader.utils.mcap_utils import (
-    McapFlatbufferWriter,
-    FlatbufferSchemas,
+    McapFlatBuffersWriter,
+    FlatBuffersSchemas,
 )
 from airbot_data_collection.airbot.samplers.mcap_sampler import (
     AIRBOTMcapDataSampler,
@@ -54,10 +54,10 @@ for folder in folders:
     print(f"{output_file_path=}")
     mcap_writer = Writer(output_file_path)
     mcap_writer.start()
-    flb_writer = McapFlatbufferWriter()
+    flb_writer = McapFlatBuffersWriter()
     flb_writer.set_writer(mcap_writer)
-    all_schemas = set(FlatbufferSchemas)
-    all_schemas.remove(FlatbufferSchemas.COMPRESSED_IMAGE)
+    all_schemas = set(FlatBuffersSchemas)
+    all_schemas.remove(FlatBuffersSchemas.COMPRESSED_IMAGE)
     flb_writer.register_schemas(all_schemas)
     AIRBOTMcapDataSampler.add_config_metadata(mcap_writer, config)
     # find all .mp4 files in the folder
@@ -132,7 +132,7 @@ for folder in folders:
         print(f"All topic names: {topic_names}")
         # register joint state channels
         for topic in topic_names:
-            flb_writer.register_channel(topic, FlatbufferSchemas.FLOAT_ARRAY)
+            flb_writer.register_channel(topic, FlatBuffersSchemas.FLOAT_ARRAY)
         # add joint states messages
         stamps_ns = []
 

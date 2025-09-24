@@ -1,4 +1,4 @@
-from mcap_data_loader.utils.mcap_utils import McapFlatbufferReader
+from mcap_data_loader.utils.mcap_utils import McapFlatBuffersReader
 from pprint import pprint
 import time
 
@@ -7,7 +7,7 @@ with open(
     "/home/ghz/Work/OpenGHz/data-collection/airbot-data-collection/airbot_data_collection/data/arm1-001/0.mcap",
     "rb",
 ) as f:
-    reader = McapFlatbufferReader(f)
+    reader = McapFlatBuffersReader(f)
 
     pprint(reader.all_topic_names())
     pprint(reader.all_attachment_names())

@@ -6,7 +6,7 @@ from mcap.writer import Writer
 from flatten_dict import flatten
 from time import time_ns
 from mcap_data_loader.utils.av_coder import AvCoder
-from mcap_data_loader.utils.mcap_utils import McapFlatbufferWriter, FlatbufferSchemas
+from mcap_data_loader.utils.mcap_utils import McapFlatBuffersWriter, FlatBuffersSchemas
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from functools import partial
@@ -91,7 +91,7 @@ class AIRBOTMcapDataSampler(DataSampler):
 
     def on_configure(self):
         """Configure the mcap data sampler."""
-        self._mf_writer = McapFlatbufferWriter(self.config.initial_builder_size)
+        self._mf_writer = McapFlatBuffersWriter(self.config.initial_builder_size)
         self._init_upload()
         self._coders = defaultdict(
             partial(AvCoder, time_base=self.config.video_time_base)
@@ -190,21 +190,21 @@ class AIRBOTMcapDataSampler(DataSampler):
     ) -> str:
         # self.get_logger().info(f"Adding messages for key: {key}")
         schema_type = self._key_to_schema_type(key)
-        if schema_type is FlatbufferSchemas.NONE:
+        if schema_type is FlatBuffersSchemas.NONE:
             return ""
         color_save_type = self.config.save_type.color
         topics = key
         topic_iter = [key]
-        if schema_type is FlatbufferSchemas.COMPRESSED_IMAGE:
+        if schema_type is FlatBuffersSchemas.COMPRESSED_IMAGE:
             data_type = "compressed_image"
             kwargs = {
                 "format": color_save_type,
                 "frame_id": "airbot",
             }
-        elif schema_type is FlatbufferSchemas.RAW_IMAGE:
+        elif schema_type is FlatBuffersSchemas.RAW_IMAGE:
             data_type = "raw_image"
             kwargs = {"encoding": "", "frame_id": "airbot"}
-        elif schema_type is FlatbufferSchemas.FLOAT_ARRAY:
+        elif schema_type is FlatBuffersSchemas.FLOAT_ARRAY:
             data_type = "field_array"
             # FIXME: handle when data is not a dict
             fields = values[0]["data"].keys()
@@ -270,25 +270,25 @@ class AIRBOTMcapDataSampler(DataSampler):
         return "/color/" in key and self.config.save_type.color == "h264"
 
     @cache
-    def _key_to_schema_type(self, key: str) -> FlatbufferSchemas:
+    def _key_to_schema_type(self, key: str) -> FlatBuffersSchemas:
         color_save_type = self.config.save_type.color
         is_color = "/color/" in key
         if is_color:
             if color_save_type == "jpeg":
-                return FlatbufferSchemas.COMPRESSED_IMAGE
+                return FlatBuffersSchemas.COMPRESSED_IMAGE
             elif color_save_type == "raw":
-                return FlatbufferSchemas.RAW_IMAGE
+                return FlatBuffersSchemas.RAW_IMAGE
         depth_save_type = self.config.save_type.depth
         is_depth = "depth" in key
         if is_depth:
             if depth_save_type == "raw":
-                return FlatbufferSchemas.RAW_IMAGE
+                return FlatBuffersSchemas.RAW_IMAGE
             else:
                 raise NotImplementedError
         save_field_arr = "joint_state" in key or "pose" in key or "wrench" in key
         if save_field_arr:
-            return FlatbufferSchemas.FLOAT_ARRAY
-        return FlatbufferSchemas.NONE
+            return FlatBuffersSchemas.FLOAT_ARRAY
+        return FlatBuffersSchemas.NONE
 
     @classmethod
     def add_video_attachment(cls, writer: Writer, key: str, data: bytes):

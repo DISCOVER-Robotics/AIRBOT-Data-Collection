@@ -1,5 +1,5 @@
 from airbot_data_collection.common.datasets.mcap_dataset import (
-    McapFlatbufferSampleDataset,
+    McapFlatBuffersSampleDataset,
     McapDatasetConfig,
 )
 from airbot_data_collection.common.systems.data_player import (
@@ -18,7 +18,7 @@ class McapPlayer(IterablePlayer):
     """A system that plays back data from an MCAP dataset."""
 
     config: McapPlayerConfig
-    interface: McapFlatbufferSampleDataset
+    interface: McapFlatBuffersSampleDataset
 
     def capture_observation(
         self, timeout: Optional[float] = None
