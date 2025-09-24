@@ -295,10 +295,17 @@ class AIRBOTMMK(System):
 
 
 if __name__ == "__main__":
+    from airbot_data_collection.airbot.visualizers.opencv import (
+        AIRBOTOpenCVVisualizer,
+        OpenCVVisualizerConfig,
+    )
+    from itertools import count
+
+    viser = AIRBOTOpenCVVisualizer(OpenCVVisualizerConfig(ignore_info=True))
     mmk = AIRBOTMMK(
         AIRBOTMMKConfig(
-            # ip="192.168.11.200",
-            ip="172.25.12.57",
+            ip="192.168.11.200",
+            # ip="172.25.12.57",
             components=RobotComponentsGroup.ARMS_EEFS + RobotComponentsGroup.HEAD_SPINE,
             cameras={
                 RobotComponents.HEAD_CAMERA: {
@@ -306,22 +313,22 @@ if __name__ == "__main__":
                     "rgb_camera.color_profile": "640,480,30",
                     "enable_depth": "false",
                 },
-                # RobotComponents.LEFT_CAMERA: {
-                #     "camera_type": "USB",
-                #     "video_device": "/dev/left_camera",
-                #     "image_width": "640",
-                #     "image_height": "480",
-                #     "framerate": "25",
-                # },
-                # RobotComponents.RIGHT_CAMERA: {
-                #     "camera_type": "USB",
-                #     "video_device": "/dev/right_camera",
-                #     "image_width": "640",
-                #     "image_height": "480",
-                #     "framerate": "25",
-                # },
+                RobotComponents.LEFT_CAMERA: {
+                    "camera_type": "USB",
+                    "video_device": "/dev/left_camera",
+                    "image_width": "640",
+                    "image_height": "480",
+                    "framerate": "25",
+                },
+                RobotComponents.RIGHT_CAMERA: {
+                    "camera_type": "USB",
+                    "video_device": "/dev/right_camera",
+                    "image_width": "640",
+                    "image_height": "480",
+                    "framerate": "25",
+                },
             },
-            demonstrate=True,
+            demonstrate=False,
             default_action=[
                 # arms will not move when demonstrating
                 # left_arm (6 joints)
@@ -348,16 +355,24 @@ if __name__ == "__main__":
         )
     )
     assert mmk.configure()
-    total_start = time.perf_counter()
+    assert viser.configure()
     costs = []
-    times = 20
-    for i in range(times):
-        start = time.perf_counter()
-        mmk.capture_observation()
-        costs.append(time.perf_counter() - start)
+    total_start = time.perf_counter()
+    try:
+        for times in count():
+            start = time.perf_counter()
+            obs = mmk.capture_observation()
+            costs.append(time.perf_counter() - start)
+            viser.update(obs, None)
+            if viser.current_key in {27, ord("q")}:
+                print("Exiting...")
+                break
+    except KeyboardInterrupt:
+        print("Interrupted by user.")
         # print(f"Iteration {i} took {time.perf_counter() - start:.4f} seconds")
     print(f"Min: {min(costs)} Max: {max(costs)}")
     print(f"Total time taken: {time.perf_counter() - total_start:.4f} seconds")
     print(f"Average frequency: {(times / (time.perf_counter() - total_start)):.4f} Hz")
     print("Shutting down the robot...")
     mmk.shutdown()
+    viser.shutdown()
