@@ -60,7 +60,7 @@ sampler:
       password: "123456"
       username: admin
   path: ""
-update_rate: 15
+update_rate: 20
 visualizers:
   names:
     - opencv
@@ -70,3 +70,4 @@ visualizers:
       concurrent_mode: process
   paths:
     - ""
+log_jitter: false

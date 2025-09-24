@@ -48,3 +48,4 @@ class DataCollectionArgs(DemonstrateConfig):
     managers: ComponentsConfig = None
     # log metrics
     log_metrics: int = -1
+    log_jitter: bool = True

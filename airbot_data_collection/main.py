@@ -81,7 +81,7 @@ if __name__ == "__main__":
                     sleep_time = interval - cost_time
                     if sleep_time > 0:
                         time.sleep(sleep_time)
-                    elif sleep_time < 0:
+                    elif sleep_time < 0 and config.log_jitter:
                         logger.warning(f"Update took too long: exceed {-sleep_time} s.")
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received. Exiting...")
