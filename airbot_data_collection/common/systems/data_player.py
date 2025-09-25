@@ -1,8 +1,8 @@
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt
 from typing import Any, Optional
 from airbot_data_collection.basis import System, SystemMode
-from airbot_data_collection.common.datasets.dataset import IterableDatasetABC
 from more_itertools import consume, seekable
+from mcap_data_loader.datasets.dataset import IterableDatasetABC
 
 
 class DataPlayerConfig(BaseModel):

@@ -1,4 +1,4 @@
-from airbot_data_collection.common.datasets.mcap_dataset import (
+from mcap_data_loader.datasets.mcap_dataset import (
     McapFlatBuffersSampleDataset,
     McapDatasetConfig,
 )
