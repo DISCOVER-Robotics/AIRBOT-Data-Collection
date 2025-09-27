@@ -74,6 +74,9 @@ class EventRpcClient:
             return self._rsp_event.wait(timeout=timeout)
         return True
 
+    def is_responded(self) -> bool:
+        return self._rsp_event.is_set()
+
     def shutdown(self) -> bool:
         if self._req_event.is_set():
             self.get_logger().warning("previous response not received yet.")
@@ -82,8 +85,9 @@ class EventRpcClient:
         self._req_event.set()
         return True
 
-    def get_logger(self) -> logging.Logger:
-        return logging.getLogger(self.__class__.__name__)
+    @classmethod
+    def get_logger(cls) -> logging.Logger:
+        return logging.getLogger(cls.__name__)
 
 
 class EventRpcManager:
