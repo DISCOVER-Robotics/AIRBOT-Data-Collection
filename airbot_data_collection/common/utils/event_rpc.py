@@ -44,6 +44,8 @@ class EventRpcClient:
     def __init__(self, args: EventRpcArgs):
         self._req_event = args.req_event
         self._rsp_event = args.rsp_event
+        # no response to wait at the beginning
+        self._rsp_event.set()
 
     def request(self, timeout: Optional[float] = None) -> bool:
         """Request a response from the server
