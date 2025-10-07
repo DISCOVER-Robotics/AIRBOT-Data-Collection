@@ -1,20 +1,24 @@
 import numpy as np
 from typing import Callable, Any, final
 from typing_extensions import Self
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from pydantic import BaseModel, PositiveInt
 from logging import getLogger
+from airbot_data_collection.basis import ConfigurableBasis
 from airbot_data_collection.common.environments.basis import (
     EnvironmentBasis,
     EnvironmentOutput,
 )
 
 
-class WrapperBasis(ABC):
+class WrapperBasis(ConfigurableBasis):
     caller: Callable
     # the chained outputs of the wrappers, cleared on reset
     output_chain: list = []
     should_take_over_env: bool = False
+
+    def on_configure(self) -> bool:
+        return True
 
     @final
     def wrap(self, caller: Callable) -> Self:
@@ -168,8 +172,7 @@ class ForwardingWrapper(WrapperBasis):
 class TakeOverEnvWrapper(WrapperBasis):
     """A wrapper that just takes over the environment"""
 
-    def __init__(self):
-        self.should_take_over_env = True
+    should_take_over_env = True
 
     def on_warm_up(self, output: Any):
         return output
@@ -211,8 +214,7 @@ class NormalizerConfig(BaseModel):
 
 
 class Normalizer(WrapperBasis):
-    def __init__(self, config: NormalizerConfig):
-        self.config = config
+    config: NormalizerConfig
 
     def normalize_input(self, data: Any) -> Any:
         if isinstance(data, dict):
@@ -245,8 +247,7 @@ class FrequencyReductionCallConfig(BaseModel):
 
 
 class FrequencyReductionCall(WrapperBasis):
-    def __init__(self, config: FrequencyReductionCallConfig) -> None:
-        self.config = config
+    config: FrequencyReductionCallConfig
 
     def on_warm_up(self, output: Any):
         horizon = output.shape[1]

@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Callable, List, Any, Union
+from typing import List, Any, Union
 from pydantic import BaseModel, NonNegativeInt
 from logging import getLogger
 from airbot_data_collection.common.utils.event_rpc import (
@@ -20,10 +20,9 @@ class TemporalEnsemblingWithDroppingConfig(BaseModel):
 class TemporalEnsemblingWithDropping(WrapperBasis):
     """Temporal Ensembling for output time serial data with dropping method"""
 
-    caller: Callable
+    config: TemporalEnsemblingWithDroppingConfig
 
-    def __init__(self, config: TemporalEnsemblingWithDroppingConfig):
-        self.config = config
+    def on_configure(self) -> bool:
         # TODO: use a dynamic method to adjust the
         # buffer size instead of allocating a very
         # large memory
@@ -37,6 +36,7 @@ class TemporalEnsemblingWithDropping(WrapperBasis):
                 target=self._async_call, args=(self._rpc_manager.server,), daemon=True
             )
             self._call_thread.start()
+        return True
 
     def on_warm_up(self, output: Any):
         self._horizon = output.shape[1]

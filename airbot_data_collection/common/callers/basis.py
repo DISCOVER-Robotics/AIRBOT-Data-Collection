@@ -1,11 +1,12 @@
 import torch
-from abc import ABC, abstractmethod
-from typing import Any, Tuple, Literal
 import numpy as np
+from abc import abstractmethod
+from typing import Any, Tuple, Literal
 from pydantic import BaseModel
+from airbot_data_collection.basis import ConfigurableBasis
 
 
-class CallerBasis(ABC):
+class CallerBasis(ConfigurableBasis):
     @abstractmethod
     def reset(self):
         """Reset the internal state of the caller, if any."""
@@ -26,8 +27,12 @@ class MockCallerConfig(BaseModel):
 
 
 class MockCaller(CallerBasis):
-    def __init__(self, config: MockCallerConfig):
-        self.config = config
+    """A mock caller that outputs a sequence of numbers based on the input."""
+
+    config: MockCallerConfig
+
+    def on_configure(self):
+        return True
 
     def reset(self):
         """Do nothing"""

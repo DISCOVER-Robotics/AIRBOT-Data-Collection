@@ -18,9 +18,9 @@ from airbot_data_collection.common.callers.basis import CallerBasis
 class WrappedDemonstratorConfig(BaseModel):
     """Configuration for WrappedDemonstrator"""
 
+    environment: ComponentConfig
     caller: ComponentConfig
     wrappers: ComponentsConfig
-    environment: ComponentConfig
     # the directories where the configuration files are stored
     # if empty, the main config search_dirs will be used
     search_dirs: set[str] = set()
@@ -34,16 +34,21 @@ class WrappedDemonstrator(Demonstrator):
     def on_configure(self):
         instancer = ComponentsInstancer(self.config.search_dirs)
         self._caller: CallerBasis = instancer.instance(self.config.caller)
-        self._wrappers: List[WrapperBasis] = instancer.instance(self.config.wrappers)
-        self._env: EnvironmentBasis = instancer.instance(self.config.environment)
-        if not isinstance(self._env, EnvironmentBasis):
-            raise TypeError("The environment must inherit from EnvironmentBasis")
-        if self._env.configure():
-            self._env.reset()
-            self._init_wrapped()
-            self._last_action = None
-            return True
-        self.get_logger().error("Failed to configure the environment")
+        if self._caller.configure():
+            self._wrappers: List[WrapperBasis] = instancer.instance(
+                self.config.wrappers
+            )
+            self._env: EnvironmentBasis = instancer.instance(self.config.environment)
+            if not isinstance(self._env, EnvironmentBasis):
+                raise TypeError("The environment must inherit from EnvironmentBasis")
+            if self._env.configure():
+                self._env.reset()
+                if self._init_wrapped():
+                    self._last_action = None
+                    return True
+            self.get_logger().error("Failed to configure the environment")
+        else:
+            self.get_logger().error("Failed to configure the caller")
         return False
 
     def _init_wrapped(self):
@@ -54,8 +59,15 @@ class WrappedDemonstrator(Demonstrator):
         # using the initial observation from the environment
         init_input = env.output().observation
         # wrap by a forwarding wrapper to make a complete output chain
-        wrapped = ForwardingWrapper().wrap(caller)
+        wrapped = (
+            ForwardingWrapper().wrap(caller)
+            if not isinstance(wrappers[0], ForwardingWrapper)
+            else caller
+        )
         for i, wrapper in enumerate(wrappers):
+            if not wrapper.configure():
+                self.get_logger().error(f"Failed to configure wrapper: {wrapper}")
+                return False
             wrapped = wrapper.wrap(wrapped)
             wrapped.warm_up(init_input)
             # reset all the wrapped wrappers since the topper
@@ -81,6 +93,7 @@ class WrappedDemonstrator(Demonstrator):
         wrapped.get_logger().info("Taking over the environment")
         wrapped.take_over_env(env)
         self._wrapped = wrapped
+        return True
 
     def react(self, action):
         if action is DemonstrateAction.sample:
@@ -106,3 +119,7 @@ class WrappedDemonstrator(Demonstrator):
                 self.get_logger().error(f"Failed to shutdown wrapper: {wrapper}")
                 return False
         return True
+
+
+if __name__ == "__main__":
+    WrappedDemonstrator(WrappedDemonstratorConfig())

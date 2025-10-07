@@ -28,7 +28,6 @@ from airbot_data_collection.common.systems.wrappers import (
 from airbot_data_collection.common.utils.progress import create_handler
 from logging import getLogger
 from collections import Counter
-import json
 import time
 
 
