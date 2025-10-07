@@ -52,8 +52,9 @@ if __name__ == "__main__":
     # param["_target_"] = (
     #     "airbot_data_collection.common.environments.grouped.GroupedEnvironment"
     # )
+    param["components"]["ignore_roles"] = ["l"]
     pprint(param)
-    groups = param["components"]["groups"]
+    groups = set(param["components"]["groups"])
     print(groups)
     reset_action = GroupsSendActionConfig(
         groups=groups, action_values=[[0.0] * 6], modes=[SystemMode.RESETTING]
@@ -63,7 +64,7 @@ if __name__ == "__main__":
         search_dirs=config_dict.get("search_dirs", ["."]),
         reset_action=reset_action,
     )
-
+    pprint(config.model_dump())
     env: GroupedEnvironment = GroupedEnvironment(config)
     assert env.configure()
     env.reset()

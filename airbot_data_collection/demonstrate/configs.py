@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Literal, List, Union
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.utils import StrEnum
+import json
 
 
 class ComponentConfig(BaseModel):
@@ -35,10 +36,32 @@ class ComponentsConfig(BaseModel):
     update_rates: List[NonNegativeFloat] = []
 
     def model_post_init(self, context):
-        assert len(self.names) == len(self.paths) == len(self.params), (
-            f"names: {self.names}, paths: {self.paths}, params: {self.params} "
-            f"must have the same length"
-        )
+        name_length = len(self.names)
+        if len(self.paths) == 1:
+            self.paths *= name_length
+        if name_length != len(self.paths):
+            raise ValueError("names and paths must have the same length")
+        if not self.params:
+            self.params = [{}] * name_length
+        elif len(self.params) == 1:
+            self.params *= name_length
+        if name_length != len(self.params):
+            raise ValueError("names and params must have the same length")
+        self.params = [
+            json.loads(param) if isinstance(param, str) else param
+            for param in self.params
+        ]
+        if len(self.concurrents) == 1:
+            self.concurrents *= name_length
+        elif not self.concurrents:
+            self.concurrents = [ConcurrentMode.none] * name_length
+
+        if len(self.update_rates) == 1:
+            self.update_rates *= name_length
+        elif not self.update_rates:
+            self.update_rates = [0.0] * name_length
+        if name_length != len(self.update_rates):
+            raise ValueError("names and update_rates must have the same length")
 
 
 class DatasetConfig(BaseModel):

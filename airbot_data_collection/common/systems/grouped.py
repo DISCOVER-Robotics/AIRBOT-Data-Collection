@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, computed_field, NonNegativeFloat, Field
-from typing import List, Union, Optional, Any, Dict, Callable, Literal
+from typing import List, Union, Optional, Any, Dict, Callable, Literal, Set
 from typing_extensions import Self
 from airbot_data_collection.basis import (
     Sensor,
@@ -56,44 +56,33 @@ class GroupConfig(BaseModel):
 
 
 class ComponentGroupsConfig(ComponentsConfig):
-    # the groups to which the robot belongs,
-    # each group must have one and only one leader robot
-    # and no less than one follower robot
+    """Configuration for multiple components in groups."""
+
+    # the group names of each component
     groups: List[str] = []
+    # the role of each component in the group
     roles: List[ComponentRole] = []
+    # the components with these roles will be ignored,
+    # which can be used to reuse the demonstration
+    # configuration when not demonstrating by ignoring
+    # some roles, e.g. ignoring the followers
+    ignore_roles: Set[ComponentRole] = set()
 
     def model_post_init(self, context):
-        if not self.names:
-            ref_length = max(len(self.paths), len(self.params))
-            self.names = [f"robot{i}" for i in range(ref_length)]
         # TODO: should check if the names are unique across all groups or
         # only within the same group at only within the same group and the
         # same role?
-        # else:
-        #     assert len(set(self.names)) == len(self.names), "names must be unique"
+        super().model_post_init(context)
         name_length = len(self.names)
-        if len(self.paths) == 1:
-            self.paths = [self.paths[0]] * name_length
-        assert name_length == len(self.paths), (
-            "names and paths must have the same length"
-        )
-        if not self.params:
-            self.params = [{}] * name_length
-        elif len(self.params) == 1:
-            self.params = [self.params[0]] * name_length
-        assert name_length == len(self.params), (
-            "names and params must have the same length"
-        )
-        self.params = [
-            json.loads(param) if isinstance(param, str) else param
-            for param in self.params
-        ]
         group_num = len(self.groups)
         role_num = len(self.roles)
         if group_num == 1:
             self.groups = [self.groups[0]] * name_length
-        assert group_num == len(self.names), "groups must have the same length as names"
-        assert role_num == len(self.groups), "roles must have the same length as groups"
+        if group_num != name_length:
+            raise ValueError("groups and names must have the same length")
+        if role_num != name_length:
+            raise ValueError("roles must have the same length as names")
+
         # check if each group has one and only one leader robot
         # and no less than one follower robot
         group_set = set(self.groups)
@@ -105,21 +94,25 @@ class ComponentGroupsConfig(ComponentsConfig):
             indexes = get_all_index(group)
             group_roles = [self.roles[i] for i in indexes]
             group_counter = Counter(group_roles)
-            leader_cnt = 0
-            leader_cnt += group_counter[ComponentRole.l]
-            # TODO: support groups that only have other roles
-            assert leader_cnt in [
-                0,
-                1,
-            ], (
-                f"each group can have zero or only one leader robot, but {group} has {leader_cnt} leaders"
-            )
-            follower_cnt = 0
-            follower_cnt += group_counter[ComponentRole.f]
-            if leader_cnt > 0 and follower_cnt == 0:
-                raise RuntimeError(
-                    f"each group must have at least one robot when there is one leader, but {group} has {follower_cnt} followers"
+            leader_cnt = group_counter[ComponentRole.l]
+            follower_cnt = group_counter[ComponentRole.f]
+            if leader_cnt == 0 and follower_cnt != 0:
+                raise ValueError(
+                    f"Group {group} must have at least one leader if it has followers"
                 )
+        # remove the components with ignored roles
+        index = 0
+        for role in self.roles.copy():
+            if role in self.ignore_roles:
+                self.roles.pop(index)
+                self.names.pop(index)
+                self.paths.pop(index)
+                self.params.pop(index)
+                self.groups.pop(index)
+                self.concurrents.pop(index)
+                self.update_rates.pop(index)
+            else:
+                index += 1
 
     @computed_field
     @property
@@ -237,7 +230,6 @@ class GroupsSendActionConfig(BaseModel):
 
 
 class GroupedComponentsSystemConfig(BaseModel):
-    # model_config = ConfigDict(arbitrary_types_allowed=True)
     components: ComponentGroupsConfig
     auto_control: AutoControlConfig = Field(default_factory=AutoControlConfig)
     # the post capture config for each group leader
