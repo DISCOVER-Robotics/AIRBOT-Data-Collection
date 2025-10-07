@@ -46,7 +46,6 @@ class DemonstrateInterface:
             config.visualizers, True
         )
         self._demonstrator: Demonstrator = self._instancer.instance(config.demonstrator)
-        self._demonstrator.set_instancer(self._instancer)
         # init sample info
         start_round = self._config.sample_limit.start_round
         if start_round < 0:

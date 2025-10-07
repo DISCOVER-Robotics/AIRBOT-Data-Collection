@@ -206,14 +206,17 @@ class AIRBOTMcapDataSampler(DataSampler):
             data_type = "raw_image"
             kwargs = {"encoding": "", "frame_id": "airbot"}
         elif schema_type is FlatBuffersSchemas.FLOAT_ARRAY:
-            data_type = "field_array"
-            # FIXME: handle when data is not a dict
-            fields = values[0]["data"].keys()
-            topics = {}
-            for field in fields:
-                topics[field] = f"{key}/{field}"
-            topic_iter = topics.values()
-            kwargs = {"fields": fields}
+            if self._is_field_arr(key):
+                data_type = "field_array"
+                # FIXME: handle when data is not a dict
+                fields = values[0]["data"].keys()
+                topics = {}
+                for field in fields:
+                    topics[field] = f"{key}/{field}"
+                topic_iter = topics.values()
+                kwargs = {"fields": fields}
+            else:
+                data_type = "array"
         else:
             data_type = ""
         for topic in topic_iter:
@@ -286,10 +289,16 @@ class AIRBOTMcapDataSampler(DataSampler):
                 return FlatBuffersSchemas.RAW_IMAGE
             else:
                 raise NotImplementedError
+        # TODO: use flatten array
         save_field_arr = "joint_state" in key or "pose" in key or "wrench" in key
-        if save_field_arr:
+        save_arr = "action" in key
+        if save_field_arr or save_arr:
             return FlatBuffersSchemas.FLOAT_ARRAY
         return FlatBuffersSchemas.NONE
+
+    @cache
+    def _is_field_arr(self, key: str) -> bool:
+        return "joint_state" in key or "pose" in key or "wrench" in key
 
     @classmethod
     def add_video_attachment(cls, writer: Writer, key: str, data: bytes):

@@ -1,4 +1,4 @@
-from typing import Any, Set, Union
+from typing import Any, Set, Union, Optional, final
 from airbot_data_collection.demonstrate.configs import (
     ComponentConfig,
     ComponentsConfig,
@@ -16,7 +16,6 @@ from airbot_data_collection.common.utils.utils import (
 from airbot_data_collection.common.utils.progress import (
     Waitable,
     ProgressHandler,
-    MockProgressHandler,
     ConcurrentProgressHandler,
 )
 from multiprocessing import get_context
@@ -29,8 +28,12 @@ SpawnEvent = get_context("spawn").Event
 
 
 class ComponentsInstancer:
-    def __init__(self, search_dirs: Set[str]):
-        self.search_dirs = search_dirs
+    search_dirs: Set[str] = set()
+
+    def __init__(self, search_dirs: Optional[Set[str]] = None):
+        self.search_dirs = search_dirs or ComponentsInstancer.search_dirs
+        if not self.search_dirs:
+            raise ValueError("No search directories provided for ComponentsInstancer.")
 
     def instance(
         self, config: Union[ComponentConfig, ComponentsConfig], name_dict: bool = False
@@ -69,35 +72,17 @@ class ComponentsInstancer:
             return hydra_instance_from_dict(param)
 
 
-class DemonstratorConfig(BaseModel):
-    auto_control: BaseModel
-    post_capture: BaseModel
-
-
 class Demonstrator(System):
     """Abstract base class for all demonstrators."""
-
-    config: DemonstratorConfig
 
     @abstractmethod
     def react(self, action: DemonstrateAction) -> bool:
         """React to a demonstration action."""
 
-    def set_instancer(self, instancer: ComponentsInstancer):
-        """Sets the instancer for the demonstrator."""
-        self.instancer = instancer
-
     @property
     @abstractmethod
     def handler(self) -> ProgressHandler:
         """Gets the handler for the demonstrator."""
-
-    @staticmethod
-    def create_handler(mode: ConcurrentMode) -> ProgressHandler:
-        if mode is ConcurrentMode.none:
-            return MockProgressHandler()
-        else:
-            return ConcurrentProgressHandler(mode)
 
 
 class MockDemonstratorConfig(BaseModel):

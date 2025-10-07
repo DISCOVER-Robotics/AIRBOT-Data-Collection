@@ -123,7 +123,7 @@ class ConcurrentWaitable(Waitable):
         )
 
 
-class ProgressHandler:
+class ProgressHandler(ABC):
     """Handler for progress."""
 
     def __init__(self):
@@ -188,9 +188,9 @@ class ProgressHandler:
     def get_waitable(self) -> Waitable:
         """Gets the waitable for the progress."""
 
-    @abstractmethod
-    def is_waiting(self) -> bool:
-        """Checks if the progress is waiting."""
+    # @abstractmethod
+    # def is_waiting(self) -> bool:
+    #     """Checks if the progress is waiting."""
 
     def is_stopped(self) -> bool:
         """Checks if the progress is stopped."""
@@ -356,3 +356,10 @@ class ConcurrentProgressHandler(ProgressHandler):
 
     def get_waitable(self) -> ConcurrentWaitable:
         return self._waitable
+
+
+def create_handler(mode: ConcurrentMode) -> ProgressHandler:
+    if mode is ConcurrentMode.none:
+        return MockProgressHandler()
+    else:
+        return ConcurrentProgressHandler(mode)

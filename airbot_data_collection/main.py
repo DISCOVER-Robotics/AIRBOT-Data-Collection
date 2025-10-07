@@ -39,7 +39,8 @@ if __name__ == "__main__":
         fsm = DemonstrateFSM(
             DemonstrateFSMConfig(state_machine=config.fsm, interface=config)
         )
-        instancer = ComponentsInstancer(config.search_dirs)
+        ComponentsInstancer.search_dirs = config.search_dirs
+        instancer = ComponentsInstancer()
         managers: dict[str, DemonstrateManager] = instancer.instance(
             config.managers, True
         )
