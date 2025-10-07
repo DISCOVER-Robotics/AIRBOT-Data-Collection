@@ -212,6 +212,29 @@ class GroupsSendActionConfig(BaseModel):
     modes: List[SystemMode] = []
     to_follower: List[bool] = []
 
+    def model_post_init(self, context):
+        length = len(self.groups)
+        if len(self.action_values) == 1:
+            self.action_values = [self.action_values[0]] * length
+        assert length == len(self.action_values), (
+            "groups and action_values must have the same length"
+        )
+        if len(self.modes) == 0:
+            getLogger(self.__class__.__name__).warning(
+                "No modes found in the action, set to `RESETTING`"
+            )
+            self.modes = [SystemMode.RESETTING] * length
+        elif len(self.modes) == 1:
+            self.modes = [self.modes[0]] * length
+        assert length == len(self.modes), "groups and modes must have the same length"
+        if len(self.to_follower) == 1:
+            self.to_follower = [self.to_follower[0]] * length
+        elif not self.to_follower:
+            self.to_follower = [False] * length
+        assert length == len(self.to_follower), (
+            "groups and to_follower must have the same length"
+        )
+
 
 class GroupedComponentsSystemConfig(BaseModel):
     # model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -428,17 +451,9 @@ class GroupedComponentsSystem(System):
         for group_name, action_value, mode, to_follower in zip(
             action.groups, action.action_values, action.modes, action.to_follower
         ):
-            group_leader = self.group_map[group_name].leader
-            for leader in group_leader:
+            for leader in self.group_map[group_name].leader:
                 if leader.switch_mode(mode):
-                    if mode is SystemMode.RESETTING:
-                        leader.send_action(action_value)
-                    else:
-                        self.get_logger().warning(
-                            f"Action is ignored in {mode} mode for {group_name}. "
-                            "Please use resetting mode"
-                        )
-                        return False
+                    leader.send_action(action_value)
                 else:
                     self.get_logger().error(
                         f"Failed to switch leader mode for {group_name} to {mode}"
@@ -446,7 +461,10 @@ class GroupedComponentsSystem(System):
                     return False
         return True
 
-    def _send_flattened_action(self, action: Dict) -> bool:
+    def _send_flattened_dict_action(self, action: Dict) -> bool:
+        pass
+
+    def _send_flattened_array_action(self, action) -> bool:
         pass
 
     def send_action(self, action: Union[GroupsSendActionConfig, Dict]) -> bool:
@@ -458,10 +476,7 @@ class GroupedComponentsSystem(System):
             # TODO
             raise NotImplementedError("Sending action as dict is not implemented yet")
         else:
-            raise TypeError(
-                "Action must be GroupsSendActionConfig or dict"
-                f"got action: {action} of type {type(action)}"
-            )
+            action = action[:]
 
     def _start_following(self) -> bool:
         """Start to follow."""

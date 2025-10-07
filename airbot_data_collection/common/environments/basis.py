@@ -1,8 +1,9 @@
 import numpy as np
 from typing import Any
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from pydantic import BaseModel
 from logging import getLogger
+from airbot_data_collection.basis import ConfigurableBasis
 
 
 class EnvironmentOutput(BaseModel):
@@ -18,7 +19,7 @@ class EnvironmentOutput(BaseModel):
     info: dict = {}
 
 
-class EnvironmentBasis(ABC):
+class EnvironmentBasis(ConfigurableBasis):
     @abstractmethod
     def reset(self) -> None:
         """Reset the environment"""
@@ -48,13 +49,16 @@ class MockEnvironmentConfig(BaseModel):
 
 
 class MockEnvironment(EnvironmentBasis):
-    def __init__(self, config: MockEnvironmentConfig):
-        self.config = config
-        self._output_t = 0
+    config: MockEnvironmentConfig
+
+    def on_configure(self) -> bool:
+        self.reset()
+        return True
 
     def reset(self) -> None:
-        # self.get_logger().info("Environment reset")
+        self.get_logger().info("Environment resetting...")
         self._t = 0
+        self._output_t = 0
 
     def input(self, input: Any) -> None:
         # self.get_logger().info(f"Environment input: {input}")

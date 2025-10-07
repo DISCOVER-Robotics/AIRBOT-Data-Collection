@@ -1,4 +1,4 @@
-from airbot_data_collection.demonstrate.basis import Demonstrator
+from airbot_data_collection.demonstrate.basis import Demonstrator, ComponentsInstancer
 from pydantic import BaseModel
 from typing import List
 from airbot_data_collection.demonstrate.configs import (
@@ -21,6 +21,9 @@ class WrappedDemonstratorConfig(BaseModel):
     caller: ComponentConfig
     wrappers: ComponentsConfig
     environment: ComponentConfig
+    # the directories where the configuration files are stored
+    # if empty, the main config search_dirs will be used
+    search_dirs: set[str] = set()
 
 
 class WrappedDemonstrator(Demonstrator):
@@ -29,16 +32,19 @@ class WrappedDemonstrator(Demonstrator):
     config: WrappedDemonstratorConfig
 
     def on_configure(self):
-        self._caller: CallerBasis = self.instancer.instance(self.config.caller)
-        self._wrappers: List[WrapperBasis] = self.instancer.instance(
-            self.config.wrappers
-        )
-        self._env: EnvironmentBasis = self.instancer.instance(self.config.environment)
-        self._env.reset()
+        instancer = ComponentsInstancer(self.config.search_dirs)
+        self._caller: CallerBasis = instancer.instance(self.config.caller)
+        self._wrappers: List[WrapperBasis] = instancer.instance(self.config.wrappers)
+        self._env: EnvironmentBasis = instancer.instance(self.config.environment)
         if not isinstance(self._env, EnvironmentBasis):
             raise TypeError("The environment must inherit from EnvironmentBasis")
-        self._init_wrapped()
-        self._last_action = None
+        if self._env.configure():
+            self._env.reset()
+            self._init_wrapped()
+            self._last_action = None
+            return True
+        self.get_logger().error("Failed to configure the environment")
+        return False
 
     def _init_wrapped(self):
         env = self._env

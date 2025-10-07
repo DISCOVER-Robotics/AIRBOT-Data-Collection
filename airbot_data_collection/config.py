@@ -1,6 +1,5 @@
 from argdantic.sources import YamlFileLoader
 from pydantic import BaseModel, NonNegativeFloat
-
 from airbot_data_collection.arg_loader import from_file
 from airbot_data_collection.defaults.fsm import STATE_MACHINE_CONFIG
 from airbot_data_collection.demonstrate.configs import (
