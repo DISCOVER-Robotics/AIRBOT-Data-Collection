@@ -1,0 +1,22 @@
+defaults:
+  - /robots: airbot_mmk
+
+demonstrator:
+  name: grouped
+  param:
+    _target_: airbot_data_collection.demonstrate.demonstrators.grouped.GroupedDemonstrator
+    auto_control:
+      groups: []
+    components:
+      groups:
+        - /
+      names:
+        - mmk
+      instances:
+        - ${robots}
+      roles:
+        - o
+dataset:
+  directory: airbot_mmk
+update_rate: 20
+log_jitter: false

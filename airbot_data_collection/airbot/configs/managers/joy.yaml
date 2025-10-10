@@ -1,0 +1,5 @@
+managers:
+  names: [self_manager, joycontrol]
+  instances:
+    - _target_: airbot_data_collection.managers.basis.SelfManager
+    - _target_: airbot_data_collection.managers.joycontrol.JoyCallbackManager
