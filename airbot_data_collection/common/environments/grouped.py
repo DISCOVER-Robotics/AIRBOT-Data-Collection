@@ -7,12 +7,20 @@ from airbot_data_collection.common.systems.grouped import (
     GroupedComponentsSystem,
     GroupsSendActionConfig,
 )
+from pydantic import field_validator, ValidationInfo
 
 
 class GroupedEnvironmentConfig(GroupedComponentsSystemConfig):
     """Configuration for GroupedEnvironment"""
 
     reset_action: GroupsSendActionConfig = GroupsSendActionConfig()
+
+    @field_validator("reset_action")
+    def validate_reset_action(cls, v: GroupsSendActionConfig, info: ValidationInfo):
+        if v.action_values and not v.groups:
+            v.groups = list(dict.fromkeys(info.data["components"].groups))
+        v.model_post_init(None)
+        return v
 
 
 class GroupedEnvironment(EnvironmentBasis):
@@ -65,9 +73,9 @@ if __name__ == "__main__":
         reset_action=reset_action,
     )
     pprint(config.model_dump())
-    env: GroupedEnvironment = GroupedEnvironment(config)
-    assert env.configure()
-    env.reset()
-    print(env.output().observation.keys())
-    reset_action.modes = [SystemMode.SAMPLING] * len(groups)
-    env.input(reset_action)
+    # env: GroupedEnvironment = GroupedEnvironment(config)
+    # assert env.configure()
+    # env.reset()
+    # print(env.output().observation.keys())
+    # reset_action.modes = [SystemMode.SAMPLING] * len(groups)
+    # env.input(reset_action)

@@ -22,10 +22,9 @@ mcap = ["mcap-data-loader"]
 image = ["PyTurboJPEG", "av"]
 basic = [
     "pydantic-settings",
-    "argdantic",
     "tyro",
     "omegaconf >=2.3.0",
-    "hydra-core >=1.3.2",
+    "hydra-zen",
     "transitions",
     "bidict",
     "pynput >=1.8.1",
@@ -34,9 +33,8 @@ basic = [
 ]
 all = [
     "pydantic-settings",
-    "argdantic",
     "omegaconf >=2.3.0",
-    "hydra-core >=1.3.2",
+    "hydra-zen",
     "transitions",
     "bidict",
     "pynput >=1.8.1",
@@ -57,10 +55,9 @@ all = [
 # but pyav is included
 soft = [
     "pydantic-settings",
-    "argdantic",
     "tyro",
     "omegaconf >=2.3.0",
-    "hydra-core >=1.3.2",
+    "hydra-zen",
     "transitions",
     "bidict",
     "tqdm",

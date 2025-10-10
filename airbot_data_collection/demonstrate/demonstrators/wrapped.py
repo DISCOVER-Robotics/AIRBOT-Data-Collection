@@ -1,11 +1,7 @@
-from airbot_data_collection.demonstrate.basis import Demonstrator, ComponentsInstancer
-from pydantic import BaseModel
+from airbot_data_collection.demonstrate.basis import Demonstrator
+from pydantic import BaseModel, ConfigDict
 from typing import List
-from airbot_data_collection.demonstrate.configs import (
-    ComponentConfig,
-    ComponentsConfig,
-    DemonstrateAction,
-)
+from airbot_data_collection.demonstrate.configs import DemonstrateAction
 from airbot_data_collection.common.wrappers.basis import (
     EnvironmentBasis,
     ForwardingWrapper,
@@ -18,12 +14,11 @@ from airbot_data_collection.common.callers.basis import CallerBasis
 class WrappedDemonstratorConfig(BaseModel):
     """Configuration for WrappedDemonstrator"""
 
-    environment: ComponentConfig
-    caller: ComponentConfig
-    wrappers: ComponentsConfig
-    # the directories where the configuration files are stored
-    # if empty, the main config search_dirs will be used
-    search_dirs: set[str] = set()
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    environment: EnvironmentBasis
+    caller: CallerBasis
+    wrappers: List[WrapperBasis] = []
 
 
 class WrappedDemonstrator(Demonstrator):
@@ -32,17 +27,11 @@ class WrappedDemonstrator(Demonstrator):
     config: WrappedDemonstratorConfig
 
     def on_configure(self):
-        instancer = ComponentsInstancer(self.config.search_dirs)
-        self._caller: CallerBasis = instancer.instance(self.config.caller)
-        if self._caller.configure():
-            self._wrappers: List[WrapperBasis] = instancer.instance(
-                self.config.wrappers
-            )
-            self._env: EnvironmentBasis = instancer.instance(self.config.environment)
-            if not isinstance(self._env, EnvironmentBasis):
+        if self.config.caller.configure():
+            if not isinstance(self.config.environment, EnvironmentBasis):
                 raise TypeError("The environment must inherit from EnvironmentBasis")
-            if self._env.configure():
-                self._env.reset()
+            if self.config.environment.configure():
+                self.config.environment.reset()
                 if self._init_wrapped():
                     self._last_action = None
                     return True
@@ -52,9 +41,9 @@ class WrappedDemonstrator(Demonstrator):
         return False
 
     def _init_wrapped(self):
-        env = self._env
-        wrappers = self._wrappers
-        caller = self._caller
+        env = self.config.environment
+        wrappers = self.config.wrappers
+        caller = self.config.caller
         # wrap, warm up and reset all the wrappers once
         # using the initial observation from the environment
         init_input = env.output().observation
@@ -97,8 +86,8 @@ class WrappedDemonstrator(Demonstrator):
 
     def react(self, action):
         if action is DemonstrateAction.sample:
-            self._caller.reset()
-            for wrapper in self._wrappers:
+            self.config.caller.reset()
+            for wrapper in self.config.wrappers:
                 wrapper.reset()
         self._last_action = action
         return True
@@ -110,16 +99,45 @@ class WrappedDemonstrator(Demonstrator):
             WrapperBasis.clear_output_chain()
             return obs
         else:
-            env_output = self._env.output()
+            env_output = self.config.environment.output()
             return env_output.observation
 
+    def on_switch_mode(self, mode):
+        raise NotImplementedError("Mode switching is not implemented yet.")
+
+    def send_action(self, action):
+        raise NotImplementedError("Sending action is not implemented yet.")
+
     def shutdown(self):
-        for wrapper in reversed(self._wrappers):
+        for wrapper in reversed(self.config.wrappers):
             if not wrapper.shutdown():
                 self.get_logger().error(f"Failed to shutdown wrapper: {wrapper}")
                 return False
         return True
 
+    def get_info(self):
+        return {}
+
+    @property
+    def handler(self):
+        return None
+
 
 if __name__ == "__main__":
-    WrappedDemonstrator(WrappedDemonstratorConfig())
+    from airbot_data_collection.common.utils.utils import (
+        init_hydra_config,
+        hydra_instance_from_dict,
+    )
+    from omegaconf import OmegaConf
+    from airbot_data_collection.utils import init_logging
+    from airbot_data_collection.basis import SystemMode
+    from pprint import pprint
+
+    init_logging()
+
+    config_dict = init_hydra_config("defaults/config_infer.yaml")
+    config_dict = OmegaConf.to_container(
+        config_dict, resolve=True, throw_on_missing=True
+    )
+    print(config_dict.keys())
+    demon: WrappedDemonstrator = hydra_instance_from_dict(config_dict)

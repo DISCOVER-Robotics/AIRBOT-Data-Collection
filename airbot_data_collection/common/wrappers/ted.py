@@ -14,7 +14,7 @@ class TemporalEnsemblingWithDroppingConfig(BaseModel):
     drop_num: NonNegativeInt = 0
     # empty list means average, float means exp decay
     weights: Union[List[float], float] = []
-    max_timesteps: NonNegativeInt = 0
+    max_steps: NonNegativeInt = 0
 
 
 class TemporalEnsemblingWithDropping(WrapperBasis):
@@ -26,8 +26,8 @@ class TemporalEnsemblingWithDropping(WrapperBasis):
         # TODO: use a dynamic method to adjust the
         # buffer size instead of allocating a very
         # large memory
-        if self.config.max_timesteps == 0:
-            self.config.max_timesteps = 2048
+        if self.config.max_steps == 0:
+            self.config.max_steps = 2048
         if self.config.drop_num > 0:
             self.should_take_over_env = True
             mode = ConcurrentMode.thread
@@ -74,7 +74,7 @@ class TemporalEnsemblingWithDropping(WrapperBasis):
         if self.output_type == "Tensor":
             kwds = {"device": self.output_device}
         self._all_time_outputs = self.output_backend.zeros(
-            (self.config.max_timesteps, self.config.max_timesteps + self._horizon)
+            (self.config.max_steps, self.config.max_steps + self._horizon)
             + self._ele_shape,
             **kwds,
             dtype=self.output_dtype,

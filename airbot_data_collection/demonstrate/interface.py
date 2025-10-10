@@ -25,7 +25,7 @@ from airbot_data_collection.utils import (
     zip,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
-from airbot_data_collection.demonstrate.basis import ComponentsInstancer, Demonstrator
+from airbot_data_collection.demonstrate.basis import Demonstrator
 from collections import defaultdict
 from pathlib import Path
 from tqdm import tqdm
@@ -36,16 +36,14 @@ import shutil
 class DemonstrateInterface:
     def __init__(self, config: DemonstrateConfig):
         self._config = config
-        self._instancer = ComponentsInstancer(config.search_dirs)
         # init sampler, visualizers and demonstrator
-        if config.sampler is not None:
-            self._sampler: DataSampler = self._instancer.instance(config.sampler)
-        else:
-            self._sampler = MockDataSampler()
-        self._visualizers: dict[str, Visualizer] = self._instancer.instance(
-            config.visualizers, True
+        self._sampler = (
+            config.sampler.instance
+            if config.sampler.instance is not None
+            else MockDataSampler()
         )
-        self._demonstrator: Demonstrator = self._instancer.instance(config.demonstrator)
+        self._visualizers = config.visualizers.instance_dict
+        self._demonstrator = config.demonstrator.instance
         # init sample info
         start_round = self._config.sample_limit.start_round
         if start_round < 0:

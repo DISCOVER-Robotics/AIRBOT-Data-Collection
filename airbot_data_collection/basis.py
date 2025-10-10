@@ -17,8 +17,8 @@ from typing import (
 )
 from typing_extensions import Self
 from pydantic import BaseModel
-from airbot_data_collection.utils import StrEnum
 from collections import defaultdict
+from airbot_data_collection.utils import StrEnum
 
 
 class SystemMode(Enum):
@@ -66,6 +66,7 @@ class ConfigurableBasis(ABC):
                 raise ValueError(
                     "`config` must be annotated at the top level class if not provided as an arg."
                 )
+            # self.get_logger().info(f"{kwargs}")
             config = config_type(**kwargs)
             # check pydantic extra kwargs
             if isinstance(config, BaseModel):

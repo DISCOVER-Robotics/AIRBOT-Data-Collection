@@ -1,67 +1,77 @@
 from pathlib import Path
-from enum import auto
-from typing import Any, Dict, Optional, Literal, List, Union
-from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, computed_field
+from typing import Any, Dict, Literal, List, TypeVar, Generic
+from pydantic import (
+    BaseModel,
+    NonNegativeFloat,
+    NonNegativeInt,
+    ConfigDict,
+    computed_field,
+    model_validator,
+)
 from airbot_data_collection.basis import ConcurrentMode
-from airbot_data_collection.utils import StrEnum
-import json
+from airbot_data_collection.common.samplers.basis import DataSampler
+from airbot_data_collection.common.visualizers.basis import VisualizerBasis
+from airbot_data_collection.demonstrate.basis import Demonstrator, DemonstrateAction
 
 
-class ComponentConfig(BaseModel):
+# TODO: should use multiple type vars for different classes?
+T = TypeVar("T")
+
+
+class ComponentConfig(BaseModel, Generic[T]):
     """The config of one component to be used in the demonstration."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     # the name of the component
     name: str = ""
-    # the path or file name of the component hydra config file
-    # if empty, the param must be provided and has a _target_
-    # field to indicate the class to be used
-    path: str = ""
-    # the parameters to override the yaml file config
-    param: dict = {}
+    # the component instance
+    instance: T = None
+    # the concurrent mode of the component
     concurrent: ConcurrentMode = ConcurrentMode.none
+    # the update rate of the component (Hz)
     update_rate: NonNegativeFloat = 0
 
 
-class ComponentsConfig(BaseModel):
+class ComponentsConfig(BaseModel, Generic[T]):
     """The config of multiple components to be used in the demonstration."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     # names of the components, e.g. ("left_arm", "right_arm", "left_camera")
     # if empty, no component will be used
     names: List[str] = []
-    # paths to the robot hydra config yaml files
-    paths: List[str] = []
-    # params to override the robot config in the yaml file
-    params: List[Union[str, dict]] = []
+    instances: List[T] = []
     concurrents: List[ConcurrentMode] = []
     update_rates: List[NonNegativeFloat] = []
 
-    def model_post_init(self, context):
+    def model_post_init(self, context) -> None:
         name_length = len(self.names)
-        if len(self.paths) == 1:
-            self.paths *= name_length
-        if name_length != len(self.paths):
-            raise ValueError("names and paths must have the same length")
-        if not self.params:
-            self.params = [{}] * name_length
-        elif len(self.params) == 1:
-            self.params *= name_length
-        if name_length != len(self.params):
-            raise ValueError("names and params must have the same length")
-        self.params = [
-            json.loads(param) if isinstance(param, str) else param
-            for param in self.params
-        ]
+        if name_length != len(self.instances):
+            raise ValueError("names and instances must have the same length")
         if len(self.concurrents) == 1:
             self.concurrents *= name_length
         elif not self.concurrents:
             self.concurrents = [ConcurrentMode.none] * name_length
-
         if len(self.update_rates) == 1:
             self.update_rates *= name_length
         elif not self.update_rates:
             self.update_rates = [0.0] * name_length
         if name_length != len(self.update_rates):
             raise ValueError("names and update_rates must have the same length")
+
+    @model_validator(mode="after")
+    def check_unique_names(self):
+        names = self.names
+        if len(names) != len(set(names)):
+            raise ValueError(f"names must be unique, got {names}")
+        return self
+
+    @computed_field
+    @property
+    def instance_dict(self) -> Dict[str, T]:
+        """Returns a dictionary of component instances."""
+        return dict(zip(self.names, self.instances))
 
 
 class DatasetConfig(BaseModel):
@@ -76,28 +86,6 @@ class DatasetConfig(BaseModel):
     def absolute_directory(self) -> str:
         """Returns the absolute directory path."""
         return str((Path(self.root) / self.directory).absolute())
-
-
-class DemonstrateAction(StrEnum):
-    configure = auto()
-    activate = auto()
-    capture = auto()
-    sample = auto()
-    update = auto()
-    save = auto()
-    remove = auto()
-    abandon = auto()
-    deactivate = auto()
-    finish = auto()
-
-
-class DemonstrateState(StrEnum):
-    error = auto()
-    unconfigured = auto()
-    inactive = auto()
-    active = auto()
-    sampling = auto()
-    finalized = auto()
 
 
 class SampleLimit(BaseModel):
@@ -137,16 +125,17 @@ class DemonstrateConfig(BaseModel):
     # if None, no action values will be sent
     send_actions: Dict[DemonstrateAction, Any] = {}
     # the demonstrator to be used for the demonstration
-    demonstrator: ComponentConfig
+    demonstrator: ComponentConfig[Demonstrator]
     # the sampler to be used to collect and save the data
     # if None, a mock sampler will be used
-    sampler: Optional[ComponentConfig] = None
+    sampler: ComponentConfig[DataSampler]
     # the sampled data will be passed to the visualizers at each update
-    visualizers: ComponentsConfig = ComponentsConfig()
+    visualizers: ComponentsConfig[VisualizerBasis] = ComponentsConfig[VisualizerBasis]()
     # TODO: should use a dict to set the async mode for
     # other actions, such as remove, abandon, etc?
     concurrent_save: ConcurrentMode = ConcurrentMode.none
     concurrent_save_max_workers: NonNegativeInt = 1
+    # what to do with the data when the demonstration is removed
+    # "permanent": delete the data permanently
+    # "trash": move the data to the "trash" of the OS
     remove_mode: Literal["permanent", "trash"] = "permanent"
-    # the directories where the configuration files are stored
-    search_dirs: set[str] = {"."}

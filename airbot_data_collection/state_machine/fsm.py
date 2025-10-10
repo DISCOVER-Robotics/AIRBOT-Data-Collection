@@ -1,7 +1,7 @@
 from pydantic import BaseModel
-from airbot_data_collection.demonstrate.configs import (
+from airbot_data_collection.demonstrate.configs import DemonstrateConfig
+from airbot_data_collection.demonstrate.basis import (
     DemonstrateAction,
-    DemonstrateConfig,
     DemonstrateState,
 )
 from airbot_data_collection.demonstrate.interface import (

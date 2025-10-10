@@ -11,6 +11,7 @@ from transitions.extensions import LockedMachine
 from airbot_data_collection.utils import StrEnum
 
 State = Optional[Union[str, Enum, dict]]
+StateKey = Union[str, Enum]
 Action = Union[str, Enum]
 
 
@@ -49,13 +50,13 @@ SourceTransitions = Dict[Action, List[ToDestConfig]]
 
 
 class StateMachineConfig(BaseModel):
-    states: list[State] = []
+    states: List[State] = []
     initial: State = None
     # The action transitions will be added first, then the source transitions.
-    action_transitions: dict[Action, ActionTransitions] = {}
+    action_transitions: Dict[Action, ActionTransitions] = {}
     # The source transitions will be added after the action transitions.
     # Usually, this is used for the error source state.
-    source_transitions: dict[State, SourceTransitions] = {}
+    source_transitions: Dict[StateKey, SourceTransitions] = {}
     # when True, any calls to trigger methods
     # that are not valid for the present state (e.g., calling an
     # a_to_b() trigger when the current state is c) will be silently
@@ -101,11 +102,11 @@ class StateMachineBasis:
                 exclude={"action_transitions", "source_transitions", "log_level"}
             ),
         )
-        self._action_result: dict[str, bool] = {}
+        self._action_result: Dict[str, bool] = {}
         self._last_state = self.get_state()
         self._last_action = None
-        self._action_calls_raw: dict[Action, Callable] = {}
-        self._action_calls: dict[str, Callable] = {}
+        self._action_calls_raw: Dict[Action, Callable] = {}
+        self._action_calls: Dict[str, Callable] = {}
         self.add_action_transitions(config.action_transitions)
         self.add_source_transitions(config.source_transitions or {})
 
@@ -113,7 +114,7 @@ class StateMachineBasis:
         return getLogger("transitions").getChild(self.__class__.__name__)
 
     def add_action_transitions(
-        self, action_transitions: dict[Action, ActionTransitions]
+        self, action_transitions: Dict[Action, ActionTransitions]
     ):
         """Add all transitions of an action.
         The order of the ToDestConfig is important.
@@ -140,7 +141,7 @@ class StateMachineBasis:
                 )
 
     def add_source_transitions(
-        self, source_transitions: dict[State, SourceTransitions]
+        self, source_transitions: Dict[State, SourceTransitions]
     ):
         action_transitions = defaultdict(dict)
         for source, transitions in source_transitions.items():
@@ -287,12 +288,12 @@ class StateMachineBasis:
     #     self.get_logger().debug(f"{event_data}")
 
     @property
-    def action_calls(self) -> dict[Action, Callable]:
+    def action_calls(self) -> Dict[Action, Callable]:
         """Get the action calls."""
         return self._action_calls_raw
 
     @action_calls.setter
-    def action_calls(self, action_calls: dict[Action, Callable]):
+    def action_calls(self, action_calls: Dict[Action, Callable]):
         """Set the action calls."""
         self._action_calls_raw = action_calls
         for action, func in action_calls.items():

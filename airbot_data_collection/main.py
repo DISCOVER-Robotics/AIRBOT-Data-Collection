@@ -1,7 +1,8 @@
 import time
+import logging
+import importlib
 from logging import getLogger
 from airbot_data_collection.config import DataCollectionArgs
-from airbot_data_collection.demonstrate.interface import ComponentsInstancer
 from airbot_data_collection.managers.basis import DemonstrateManager
 from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSM,
@@ -9,29 +10,52 @@ from airbot_data_collection.state_machine.fsm import (
     DemonstrateState,
 )
 from airbot_data_collection.utils import init_logging
+from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
+from airbot_data_collection.configurers.basis import ConfigurerBasis
 from importlib.metadata import version
 from collections import deque, defaultdict
+from pprint import pformat
+from argparse import ArgumentParser
+from setproctitle import setproctitle
+from typing import Dict
+from pathlib import Path
 
 
 if __name__ == "__main__":
-    import logging
-    from pprint import pformat
-    from argdantic import ArgParser
+    pkg_name = "airbot-data-collection"
+
+    parser = ArgumentParser(pkg_name, add_help=False)
+    parser.add_argument(
+        "--configurer",
+        "-cfger",
+        default="hydra",
+        help="The configurer (config backend) name or package path",
+    )
+    parser.add_argument(
+        "--main-help", action="store_true", help="Show this help message"
+    )
+    args, _ = parser.parse_known_args()
+    if args.main_help:
+        help_lines = parser.format_help().splitlines()
+        help_lines[0] += " [CONFIGER_OPTIONS...]"
+        print("\n".join(help_lines))
+        exit(0)
 
     init_logging(logging.INFO)
-    pkg_name = "airbot-data-collection"
+
+    module = importlib.import_module(
+        f"airbot_data_collection.configurers.{args.configurer}_cfger"
+    )
+    configurer: ConfigurerBasis = module.Configurer(
+        DataCollectionArgs, Path(__file__).parent.absolute()
+    )
+    configurer.parse()
+
     logger = getLogger(pkg_name)
 
-    from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
-    from setproctitle import setproctitle
-
-    prepare_cv2_imshow(logger)
     setproctitle(pkg_name)
 
-    cli = ArgParser("Demonstrate and collect data")
-
-    @cli.command(singleton=True)
-    def main(config: DataCollectionArgs):
+    def main(config: DataCollectionArgs) -> None:
         """
         The main manager of data collection.
         """
@@ -39,15 +63,11 @@ if __name__ == "__main__":
         fsm = DemonstrateFSM(
             DemonstrateFSMConfig(state_machine=config.fsm, interface=config)
         )
-        ComponentsInstancer.search_dirs = config.search_dirs
-        instancer = ComponentsInstancer()
-        managers: dict[str, DemonstrateManager] = instancer.instance(
-            config.managers, True
-        )
+        managers: Dict[str, DemonstrateManager] = config.managers.instance_dict
         for name, manager in managers.items():
             manager.set_fsm(fsm)
             if not manager.configure():
-                raise RuntimeError(f"Failed to configure {name} manager.")
+                raise RuntimeError(f"Failed to configure manager: {name}.")
         interval = 1.0 / config.update_rate if config.update_rate > 0 else 0.0
         logger.info(f"Update rate: {config.update_rate} Hz")
         # start updating the managers
@@ -103,4 +123,6 @@ if __name__ == "__main__":
         logger.info("Summary:\n" + pformat(summary))
         logger.info("Done.")
 
-    cli()
+    prepare_cv2_imshow(logger)
+
+    main(configurer.configure())

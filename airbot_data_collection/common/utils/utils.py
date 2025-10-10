@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from omegaconf import DictConfig
 from typing import Optional
+from collections import defaultdict
 import os
 import os.path as osp
 import hydra
@@ -27,10 +28,10 @@ def format_big_number(num, precision=0):
     return num
 
 
-def _relative_path_between(path1: Path, path2: Path) -> Path:
+def relative_path_between(path1: Path, path2: Path) -> Path:
     """Returns path1 relative to path2."""
-    path1 = path1.absolute()
-    path2 = path2.absolute()
+    path1 = Path(path1).absolute()
+    path2 = Path(path2).absolute()
     try:
         return path1.relative_to(path2)
     except ValueError:  # most likely because path1 is not a subpath of path2
@@ -55,7 +56,7 @@ def init_hydra_config(
     # Hydra needs a path relative to this file.
     hydra.initialize(
         str(
-            _relative_path_between(
+            relative_path_between(
                 Path(config_path).absolute().parent, Path(__file__).absolute().parent
             )
         ),
@@ -71,7 +72,7 @@ def hydra_instance(cfg: DictConfig):
 
 def hydra_instance_from_config_path(config_path: str, params: dict = None):
     config = init_hydra_config(config_path)
-    if params is not None:
+    if params:
         config.update(params)
     return hydra_instance(config)
 
@@ -115,3 +116,21 @@ def set_utf8_locale() -> bool:
             sys.stderr.write(f"Warning: Could not set locale to '{lc}': {e}\n")
     sys.stderr.write("Failed to set UTF-8 locale\n")
     return False
+
+
+def defaultdict_to_dict(d: defaultdict):
+    if isinstance(d, defaultdict):
+        d = {k: defaultdict_to_dict(v) for k, v in d.items()}
+    elif isinstance(d, dict):
+        d = {k: defaultdict_to_dict(v) for k, v in d.items()}
+    elif isinstance(d, list):
+        d = [defaultdict_to_dict(x) for x in d]
+    return d
+
+
+def ensure_equal_length(ref: list, value: list, one_copy: bool = True):
+    if len(value) == 1 and one_copy:
+        value *= len(ref)
+    if len(ref) != len(value):
+        raise ValueError(f"Length mismatch: {len(ref)} vs {len(value)}")
+    return value
