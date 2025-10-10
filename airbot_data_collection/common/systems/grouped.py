@@ -24,7 +24,8 @@ from airbot_data_collection.demonstrate.configs import (
     ComponentsConfig,
     T,
 )
-from airbot_data_collection.utils import zip, bcolors, init_logging
+from airbot_data_collection.utils import zip, init_logging
+from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection.common.systems.wrappers import (
     ConcurrentWrapperConfig,
     SensorConcurrentWrapper,
@@ -371,20 +372,20 @@ class ComponentGroupManager:
         logger = self.get_logger()
         configure_here = False
         if not self.is_configured:
-            logger.info(bcolors.OKCYAN + "Configuring groups")
+            logger.info(Bcolors.cyan("Configuring groups"))
             if not self.configure_groups():
                 raise RuntimeError("Failed to configure groups")
             configure_here = True
-        logger.info(bcolors.OKGREEN + "Auto control loop started")
+        logger.info(Bcolors.green("Auto control loop started"))
         # TODO: add ready event feedback
         with waitable:
             while waitable.wait():
                 # logger.info("Running auto control loop")
                 self.auto_control_once(period)
         if configure_here:
-            self.get_logger().info(bcolors.OKCYAN + "Shutting down all components")
+            self.get_logger().info(Bcolors.cyan("Shutting down all components"))
             self.shutdown()
-        logger.info(bcolors.OKBLUE + "Auto control loop stopped")
+        logger.info(Bcolors.blue("Auto control loop stopped"))
 
     def control_group_role(
         self, group_name: str, role: ComponentRole, mode: SystemMode, action_value: Any
@@ -400,7 +401,7 @@ class ComponentGroupManager:
 
     def send_grouped_action(self, action: GroupsSendActionConfig) -> bool:
         """Control the leaders or followers after some demonstrate action"""
-        self.get_logger().info(bcolors.OKCYAN + f"Sending action: {action}")
+        self.get_logger().info(Bcolors.cyan(f"Sending action: {action}"))
         for group_name, action_value, mode, to_follower in zip(
             action.groups, action.action_values, action.modes, action.to_follower
         ):
@@ -485,11 +486,13 @@ class GroupedComponentsSystem(System):
 
     def _start_following(self) -> bool:
         """Start to follow."""
-        self.get_logger().info(bcolors.OKCYAN + "Starting to follow")
+        self.get_logger().info(Bcolors.cyan("Starting to follow"))
         # set the followers to resetting mode to move smoothly
         if self._cg_manager.set_role_mode(ComponentRole.f, SystemMode.RESETTING):
             # TODO: control until the joint positions are near the leader
-            self.get_logger().info("Auto controlling once to move followers")
+            self.get_logger().info(
+                Bcolors.cyan("Auto controlling once to move followers")
+            )
             self._cg_manager.auto_control_once()
             return self._cg_manager.set_role_mode(ComponentRole.f, SystemMode.SAMPLING)
         self.get_logger().error("Failed to start following")

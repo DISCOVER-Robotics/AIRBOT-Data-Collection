@@ -7,7 +7,7 @@ from multiprocessing.process import BaseProcess
 from pydantic import BaseModel, ConfigDict, Field
 from abc import abstractmethod, ABC
 from airbot_data_collection.basis import ConcurrentMode
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 from setproctitle import setproctitle
 import logging
 
@@ -308,7 +308,7 @@ class ConcurrentProgressHandler(ProgressHandler):
     def launch(
         self, group=None, target=None, name=None, args=(), kwargs={}, *, daemon=None
     ):
-        self.get_logger().info(bcolors.OKBLUE + f"Starting {name} in {self._mode} mode")
+        self.get_logger().info(Bcolors.blue(f"Starting {name} in {self._mode} mode"))
         self._concurrent = self._args.concurrent_cls()(
             group, target, name, args, kwargs, daemon=daemon
         )

@@ -44,7 +44,7 @@ class VRManager(DemonstrateManagerBasis):
     def show_instruction(self) -> None:
         """Shows the instruction for the VR control."""
         # self.get_logger().info(
-        #     # bcolors.OKCYAN + f"\n{pformat(self.config.instruction_button)}" + bcolors.ENDC
+        #     f"\n{pformat(self.config.instruction_button)}"
         # )
 
     def _handle_service(

@@ -16,7 +16,7 @@ from airbot_data_collection.utils import (
     zip,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
-from airbot_data_collection.utils import bcolors
+from mcap_data_loader.utils.basic import bcolors
 from collections import defaultdict
 import logging
 import yaml

@@ -20,11 +20,11 @@ from airbot_data_collection.demonstrate.configs import (
 )
 from airbot_data_collection.utils import (
     ProgressBar,
-    bcolors,
     get_items_by_ext,
     zip,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
+from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection.demonstrate.basis import Demonstrator
 from collections import defaultdict
 from pathlib import Path
@@ -153,7 +153,7 @@ class DemonstrateInterface:
         # set the mode for leaders to passive
         elif self._demonstrator.react(DemonstrateAction.sample):
             self.get_logger().info(
-                bcolors.OKBLUE + f"Start sampling round: {self._sample_info.round}"
+                Bcolors.green(f"Start sampling round: {self._sample_info.round}")
             )
             self._save_path = self._sampler.compose_path(
                 self._config.dataset.absolute_directory, self._sample_info.round
@@ -228,7 +228,7 @@ class DemonstrateInterface:
 
     def _show_save_info(self, path: str, flag: bool) -> bool:
         if flag:
-            self.get_logger().info(bcolors.OKGREEN + f"Saved to {path}")
+            self.get_logger().info(Bcolors.green(f"Saved to {path}"))
         else:
             self.get_logger().error(f"Failed to save to {path}")
         return flag
@@ -271,7 +271,7 @@ class DemonstrateInterface:
                 future = self._save_futures.pop()
                 if not future.done():
                     self.get_logger().info(
-                        bcolors.OKBLUE + "Waiting for the last async saving"
+                        Bcolors.blue("Waiting for the last async saving")
                     )
                     future.result()
             # try to remove the data
@@ -280,7 +280,7 @@ class DemonstrateInterface:
             # the order is important
             self._sample_info.round -= 1
             self._clear()
-            self.get_logger().info(bcolors.OKGREEN + f"Removed {path}")
+            self.get_logger().info(Bcolors.green(f"Removed {path}"))
         else:
             self.get_logger().warning("Not ever saved yet")
         return True
@@ -328,7 +328,7 @@ class DemonstrateInterface:
         self._remove_path(self._save_path, False)
         self._clear()
         self.get_logger().info(
-            bcolors.OKGREEN + f"Abandoned the current round: {self._sample_info.round}"
+            Bcolors.green(f"Abandoned the current round: {self._sample_info.round}")
         )
         return self._post_action(DemonstrateAction.abandon)
 
@@ -348,7 +348,7 @@ class DemonstrateInterface:
 
     def log_round(self):
         self.get_logger().info(
-            bcolors.OKCYAN + f"Current sample round: {self._sample_info.round}"
+            Bcolors.cyan(f"Current sample round: {self._sample_info.round}")
         )
 
     @property

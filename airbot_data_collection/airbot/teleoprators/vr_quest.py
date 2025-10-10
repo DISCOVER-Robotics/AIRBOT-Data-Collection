@@ -6,7 +6,7 @@ from airbot_data_collection.common.devices.vr.quest import (
     VRControllerEvent,
     EventValueMode,
 )
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 from pprint import pformat
 from functools import partial
 from abc import ABC, abstractmethod
@@ -134,13 +134,14 @@ class VRQuestController(InputController):
         }
         event_type = self._vr._get_event_type()
         self.get_logger().info(
-            bcolors.OKBLUE
-            + "\n"
-            + pformat(
-                {
-                    event_type(event).name: instructions[field]
-                    for field, event in self._event_config.model_dump().items()
-                }
+            Bcolors.blue(
+                "\n"
+                + pformat(
+                    {
+                        event_type(event).name: instructions[field]
+                        for field, event in self._event_config.model_dump().items()
+                    }
+                )
             )
         )
 

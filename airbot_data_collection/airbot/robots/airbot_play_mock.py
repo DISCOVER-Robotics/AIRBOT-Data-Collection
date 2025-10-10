@@ -62,7 +62,9 @@ class AIRBOTPlay(AIRBOTPlayReal):
     interface: AIRBOTArmMock
 
     def send_action(self, action):
-        pass
+        if not isinstance(action, dict):
+            if len(action) not in (6, 7):
+                raise ValueError(f"Action dimension {len(action)} is not supported.")
 
     def on_switch_mode(self, mode):
         return True

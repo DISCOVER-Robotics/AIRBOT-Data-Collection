@@ -10,7 +10,14 @@ authors = [{ name = "OpenGHz", email = "your.email@example.com" }]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
-dependencies = ["pydantic", "numpy", "more-itertools", "typing-extensions", "setproctitle"]
+dependencies = [
+    "pydantic",
+    "numpy",
+    "more-itertools",
+    "typing-extensions",
+    "setproctitle",
+    "termcolor",
+]
 
 [project.optional-dependencies]
 cv2 = ["opencv-python"]

@@ -16,6 +16,7 @@ from airbot_data_collection.basis import (
 )
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.common.utils.coordinate import CoordinateTools
+from functools import cache
 import numpy as np
 
 
@@ -63,6 +64,17 @@ class AIRBOTPlayConfig(SystemConfig):
 
     @computed_field
     @cached_property
+    def mit_action(self) -> bool:
+        return self.action[0].interfaces == {
+            InterfaceType.JOINT_POSITION,
+            InterfaceType.JOINT_VELOCITY,
+            InterfaceType.JOINT_EFFORT,
+            InterfaceType.JOINT_KP,
+            InterfaceType.JOINT_KD,
+        }
+
+    @computed_field
+    @cached_property
     def pose_observation(self) -> bool:
         return InterfaceType.POSE in self.observation[0].interfaces
 
@@ -87,6 +99,7 @@ class AIRBOTPlay(System):
             "arm": {
                 RobotMode.SERVO_JOINT_POS: self.interface.servo_joint_pos,
                 RobotMode.SERVO_CART_POSE: self._servo_pose,
+                RobotMode.MIT_INTEGRATED: self._mit_control,
                 RobotMode.PLANNING_POS: (
                     self.interface.move_to_joint_pos
                     if not self.config.pose_action
@@ -124,9 +137,50 @@ class AIRBOTPlay(System):
             return True
         return False
 
+    def _flatten_dict_data(self, data: dict) -> Dict:
+        flat_data = {}
+        # {"arm/joint_state": {"t": 123, "data": {"position": [...], "velocity": [...], ...}}, ...}
+        # --> {"arm/joint_state/position": [...], "arm/joint_state/velocity": [...], ...}
+        for key, value in data.items():
+            if isinstance(value, dict):
+                d = value["data"]
+                if isinstance(d, dict):
+                    # TODO: deprecate the nested field array?
+                    for field, v in d.items():
+                        flat_data[f"{key}/{field}"] = v
+                        flat_data[f"{key}/{field}/t"] = value["t"]
+                else:
+                    flat_data[key] = d
+                    flat_data[f"{key}/t"] = value["t"]
+            else:
+                flat_data[key] = value
+        return flat_data
+
+    @cache
+    def _match_action_keys(self, action_keys: Tuple[str]) -> List[str]:
+        matched_keys = []
+        if self.config.pose_action:
+            key_words = ["pose/position", "pose/orientation"]
+        else:
+            key_words = ["position"]
+            if self.config.mit_action:
+                key_words += ["velocity", "effort", "kp", "kd"]
+            key_words = [
+                f"{comp}/joint_state/{field}"
+                for field in key_words
+                for comp in self.config.components
+            ]
+        for key_word in key_words:
+            for key in action_keys:
+                if key.endswith(key_word):
+                    matched_keys.append(key)
+                    break
+        return matched_keys
+
     def send_action(self, action: Union[List[float], Dict[str, Any]]) -> None:
         mode = self.interface.get_control_mode()
         if isinstance(action, dict):
+            act_keys = self._match_action_keys(tuple(action.keys()))
             act = False
             for key, value in action.items():
                 split = key.removeprefix("/").split("/", 2)
@@ -157,6 +211,9 @@ class AIRBOTPlay(System):
         else:
             if self.config.pose_action:
                 arm_end_index = 7
+            elif self.config.mit_action:
+                arm_end_index = 5  # nested action
+                # arm_end_index = 6 * 5  # flattened action
             else:
                 arm_end_index = 6
             self._comp_act["arm"][mode](action[:arm_end_index])
@@ -171,6 +228,8 @@ class AIRBOTPlay(System):
         elif mode is SystemMode.SAMPLING:
             if self.config.pose_action:
                 m = RobotMode.SERVO_CART_POSE
+            elif self.config.mit_action:
+                m = RobotMode.MIT_INTEGRATED
             else:
                 m = RobotMode.SERVO_JOINT_POS
         return self.interface.switch_mode(m)
@@ -234,6 +293,9 @@ class AIRBOTPlay(System):
 
     def _servo_pose(self, target: Union[List[float], List[list[float]]]):
         return self.interface.servo_cart_pose(self._process_pose(target))
+
+    def _mit_control(self, target: List[float]):
+        return self.interface.mit_joint_integrated_control(*target)
 
     def capture_observation(
         self, timeout: Optional[float] = None

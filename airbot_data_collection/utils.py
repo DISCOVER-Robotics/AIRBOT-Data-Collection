@@ -7,7 +7,7 @@ import time
 import numpy as np
 import subprocess
 from typing import Optional
-from mcap_data_loader.utils.basic import bcolors, get_items_by_ext, zip, StrEnum
+from mcap_data_loader.utils.basic import get_items_by_ext, zip, StrEnum
 
 
 def get_stamp_ms() -> int:

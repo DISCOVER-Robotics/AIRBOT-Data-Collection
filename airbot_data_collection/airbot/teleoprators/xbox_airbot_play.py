@@ -2,7 +2,7 @@ from discoverse.examples.force_control_data_collect_using_joy.robot_joy_controll
     RobotJoyController,
 )
 from airbot_data_collection.basis import System
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 from pydantic import BaseModel
 from threading import Thread
 from time import time_ns, sleep
@@ -26,7 +26,7 @@ class XBoxAIRBOTPlay(System):
             "": "Return to initial pose",
         }
         self.get_logger().info(
-            bcolors.OKBLUE + "Operating Instructions:\n" + pformat(info)
+            Bcolors.blue("Operating Instructions:\n" + pformat(info))
         )
         while not self.interface.got_init_force:
             self.get_logger().info("Waiting for initial force reading...")

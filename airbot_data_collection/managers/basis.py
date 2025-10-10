@@ -7,7 +7,7 @@ from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSM,
     State,
 )
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 from pprint import pformat
 
 
@@ -72,9 +72,7 @@ class DemonstrateManagerBasis(ConfigurableBasis):
         This function provides a user-friendly guide to inform the user about the available
         key press actions for controlling the system.
         """
-        self.get_logger().info(
-            bcolors.OKCYAN + f" \n{pformat(self.config.instruction)}"
-        )
+        self.get_logger().info(Bcolors.cyan(f" \n{pformat(self.config.instruction)}"))
 
 
 class SelfManagerConfig(BaseModel):

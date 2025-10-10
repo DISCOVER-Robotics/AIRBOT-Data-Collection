@@ -13,7 +13,7 @@ from sensor_msgs.msg import Joy
 
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 
 
 logging.basicConfig(level=logging.INFO)
@@ -136,7 +136,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
     def show_instruction(self) -> None:
         """显示用户操作说明"""
         self.get_logger().info(
-            bcolors.OKCYAN + f"\n{pformat(self.config.instruction_button)}"
+            Bcolors.cyan(f"\n{pformat(self.config.instruction_button)}")
         )
 
     def print_round(self):
@@ -162,9 +162,7 @@ class JoyCallbackManager(DemonstrateManagerBasis):
         """
         执行状态机中的动作，如采样、保存等。
         """
-        self.get_logger().info(
-            f"{bcolors.OKGREEN}Triggering action: {action.name}{bcolors.ENDC}"
-        )
+        self.get_logger().info(Bcolors.green(f"Triggering action: {action.name}"))
         self.fsm.act(action)
         self.print_round()
 

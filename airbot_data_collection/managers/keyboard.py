@@ -1,7 +1,6 @@
 from enum import Enum
 from pprint import pformat
 from bidict import bidict
-from pydantic import BaseModel
 from pynput import keyboard
 from airbot_data_collection.basis import SystemMode
 from airbot_data_collection.managers.basis import (
@@ -9,7 +8,7 @@ from airbot_data_collection.managers.basis import (
     ManagerConfigBasis,
 )
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 from typing import Dict
 
 
@@ -74,8 +73,9 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         if key == "f2":
             self._locked = not self._locked
             self.get_logger().info(
-                bcolors.OKGREEN
-                + f"Keyboard control is now {'locked' if self._locked else 'unlocked'}."
+                Bcolors.green(
+                    f"Keyboard control is now {'locked' if self._locked else 'unlocked'}."
+                )
             )
             return
         elif self._locked:
@@ -88,7 +88,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
             for key, value in self.fsm.last_capture.items():
                 if "image" not in key and "depth" not in key:
                     data[key] = value
-            self.get_logger().info(bcolors.OKBLUE + f"\n{pformat(data)}")
+            self.get_logger().info(Bcolors.blue(f"\n{pformat(data)}"))
         elif key == "i":
             self.show_instruction()
         elif key == "b":

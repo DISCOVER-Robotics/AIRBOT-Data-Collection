@@ -13,7 +13,7 @@ from logging import getLogger
 from mcap_data_loader.utils.av_coder import AvCoder
 from mcap_data_loader.utils.mcap_utils import McapFlatBuffersWriter, FlatBuffersSchemas
 from airbot_data_collection.common.samplers.basis import DataSampler
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection import __version__ as collector_version
 from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
@@ -248,8 +248,7 @@ class AIRBOTMcapDataSampler(DataSampler):
                 password=self.config.upload.password,
             )
             self.get_logger().info(
-                bcolors.OKCYAN
-                + f"Will upload to task id: {self.config.task_info.task_id}"
+                Bcolors.cyan(f"Will upload to task id: {self.config.task_info.task_id}")
             )
 
     def _upload_to_cloud(self, file_path: str) -> bool:
@@ -266,7 +265,7 @@ class AIRBOTMcapDataSampler(DataSampler):
             file_path=file_path,
         )
 
-        self.get_logger().info(bcolors.OKGREEN + f"{message}")
+        self.get_logger().info(Bcolors.green(f"Uploaded to cloud: {message}"))
         return True
 
     @cache
