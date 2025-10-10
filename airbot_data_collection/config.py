@@ -1,5 +1,4 @@
 from pydantic import BaseModel, NonNegativeFloat
-from airbot_data_collection.defaults.fsm import STATE_MACHINE_CONFIG
 from airbot_data_collection.demonstrate.configs import (
     ComponentsConfig,
     DemonstrateConfig,
@@ -36,7 +35,7 @@ class DataCollectionArgs(DemonstrateConfig):
     # 0 means as fast as possible
     update_rate: NonNegativeFloat = 0
     # the finite state machine config
-    fsm: StateMachineConfig = STATE_MACHINE_CONFIG
+    fsm: StateMachineConfig
     # managers to control the demonstrate actions
     managers: ComponentsConfig
     # log metrics

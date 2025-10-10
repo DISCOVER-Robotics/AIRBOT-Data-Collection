@@ -47,3 +47,6 @@ managers:
   instances:
     - _target_: airbot_data_collection.managers.basis.SelfManager
     - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+
+fsm:
+  _target_: airbot_data_collection.airbot.configs.fsm.get_fsm_config

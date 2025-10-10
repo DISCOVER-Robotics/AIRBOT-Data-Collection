@@ -1,7 +1,10 @@
 from airbot_data_collection.state_machine.basis import ToDestConfig
-from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.state_machine.fsm import DemonstrateState as State
-from airbot_data_collection.state_machine.fsm import StateMachineConfig
+from airbot_data_collection.state_machine.fsm import (
+    DemonstrateAction as Action,
+    DemonstrateState as State,
+    StateMachineConfig,
+)
+
 
 STATE_MACHINE_CONFIG = StateMachineConfig(
     states=State,
@@ -60,3 +63,11 @@ STATE_MACHINE_CONFIG = StateMachineConfig(
         },
     },
 )
+
+
+def get_fsm_config(**kwargs) -> StateMachineConfig:
+    if kwargs:
+        return StateMachineConfig.model_validate(
+            STATE_MACHINE_CONFIG.model_copy(update=kwargs)
+        )
+    return STATE_MACHINE_CONFIG
