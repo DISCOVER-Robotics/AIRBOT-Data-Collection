@@ -278,7 +278,7 @@ class GroupsSendActionConfig(BaseModel):
 
 
 class GroupedComponentsSystemConfig(BaseModel):
-    components: ComponentGroupsConfig
+    components: ComponentGroupsConfig[Component]
     auto_control: AutoControlConfig = Field(default_factory=AutoControlConfig)
     # the post capture config for each group leader
     post_capture: Dict[str, PostCaptureConfig] = {}

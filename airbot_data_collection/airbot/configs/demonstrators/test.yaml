@@ -1,5 +1,6 @@
 defaults:
   - post_capture@demonstrator.instance: "4"
+  - /robots: airbot_play_mock
 
 robot_cls: airbot_data_collection.airbot.robots.airbot_play_mock.AIRBOTPlay
 
@@ -25,14 +26,10 @@ demonstrator:
         - follow
         - env_camera
       instances:
-        - _target_: ${robot_cls}
-          port: 50050
-        - _target_: ${robot_cls}
-          port: 50051
-        - _target_: ${robot_cls}
-          port: 50052
-        - _target_: ${robot_cls}
-          port: 50053
+        - "${merge_cfg:${robots}, {port: 50050}}"
+        - "${merge_cfg:${robots}, {port: 50051}}"
+        - "${merge_cfg:${robots}, {port: 50052}}"
+        - "${merge_cfg:${robots}, {port: 50053}}"
         - _target_: airbot_data_collection.airbot.sensors.cameras.v4l2.V4L2Camera
       roles:
         - l
