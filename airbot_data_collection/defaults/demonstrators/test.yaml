@@ -1,0 +1,45 @@
+defaults:
+  - post_capture@demonstrator.instance: "4"
+
+robot_cls: airbot_data_collection.airbot.robots.airbot_play_mock.AIRBOTPlay
+
+demonstrator:
+  name: grouped
+  instance:
+    _target_: airbot_data_collection.demonstrate.demonstrators.grouped.GroupedDemonstrator
+    auto_control:
+      # groups: []
+      rates: [100]
+      modes: [process]
+    components:
+      groups:
+        - left
+        - left
+        - right
+        - right
+        - /
+      names:
+        - lead
+        - follow
+        - lead
+        - follow
+        - env_camera
+      instances:
+        - _target_: ${robot_cls}
+          port: 50050
+        - _target_: ${robot_cls}
+          port: 50051
+        - _target_: ${robot_cls}
+          port: 50052
+        - _target_: ${robot_cls}
+          port: 50053
+        - _target_: airbot_data_collection.airbot.sensors.cameras.v4l2.V4L2Camera
+      roles:
+        - l
+        - f
+        - l
+        - f
+        - o
+
+dataset:
+  directory: test

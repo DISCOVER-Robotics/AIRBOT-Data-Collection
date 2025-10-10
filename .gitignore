@@ -9,7 +9,6 @@ build/
 *.txt
 *.log
 test.py
-config_setup.yaml
 airbot_logs/
 # hydra outputs
 outputs/

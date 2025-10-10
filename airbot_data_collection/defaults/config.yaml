@@ -1,26 +1,3 @@
-sampler:
-  name: airbot_mcap_sampler
-  path: ""
-  param:
-    _target_: airbot_data_collection.airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
-    task_info:
-      task_id: 139
-
-visualizers:
-  names: [opencv]
-  paths: [""]
-  params:
-    - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTOpenCVVisualizer
-      width: 640
-      height: 480
-
-managers:
-  names:
-    - self_manager
-    - keyboard
-  params:
-    - _target_: airbot_data_collection.managers.basis.SelfManager
-    - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
-  paths:
-    - ""
-    - ""
+defaults:
+  - basis
+  - demonstrators@_global_: test

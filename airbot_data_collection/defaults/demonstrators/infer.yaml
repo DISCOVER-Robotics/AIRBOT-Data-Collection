@@ -1,0 +1,29 @@
+defaults:
+  - setup@_setup
+
+# ignore the leader roles of
+# the data collection demonstrator
+# and then it can be used for inference
+_setup:
+  demonstrator:
+    instance:
+      components:
+        ignore_roles: [l]
+
+demonstrator:
+  param:
+    _target_: airbot_data_collection.demonstrate.demonstrators.wrapped.WrappedDemonstrator
+    environment:
+      _target_: airbot_data_collection.common.environments.grouped.GroupedEnvironment
+      components: ${_setup.demonstrator.instance.components}
+    caller:
+      _target_: airbot_data_collection.common.callers.policy.PolicyEvaluationCaller
+    wrappers:
+      - _target_: airbot_data_collection.common.wrappers.ted.TemporalEnsemblingWithDropping
+        drop_num: 0
+        weights: []
+        max_steps: 0
+
+dataset:
+  root: ./data_infer
+  directory: infer
