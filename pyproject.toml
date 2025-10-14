@@ -74,3 +74,9 @@ plt = ["ipykernel", "holoviews"]
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["airbot_data_collection*"]
+
+[project.scripts]
+# Primary CLI: matches project name and is easy to discover/tab-complete
+airbot-data-collection = "airbot_data_collection.main:main"
+# Short alias for convenience
+airdc = "airbot_data_collection.main:main"
