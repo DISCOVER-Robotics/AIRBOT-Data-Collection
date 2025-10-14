@@ -17,10 +17,9 @@ from pprint import pformat
 from argparse import ArgumentParser
 from setproctitle import setproctitle
 from typing import Dict
-from pathlib import Path
 
 
-if __name__ == "__main__":
+def main():
     parser = ArgumentParser(PACKAGE_NAME, add_help=False)
     parser.add_argument(
         "--configurer",
@@ -48,7 +47,7 @@ if __name__ == "__main__":
 
     setproctitle(PACKAGE_NAME)
 
-    def main(config: DataCollectionArgs) -> None:
+    def main_loop(config: DataCollectionArgs) -> None:
         """
         The main manager of data collection.
         """
@@ -118,4 +117,12 @@ if __name__ == "__main__":
 
     prepare_cv2_imshow(logger)
 
-    main(configurer.configure())
+    main_loop(configurer.configure())
+
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
