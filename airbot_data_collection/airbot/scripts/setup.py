@@ -14,26 +14,28 @@ from airbot_data_collection.utils import (
     execute_shell_script,
     get_can_interfaces,
     zip,
+    BaseModelWithFieldAliases,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
+from airbot_data_collection.basis import PACKAGE_NAME
 from mcap_data_loader.utils.basic import bcolors
 from collections import defaultdict
+from pprint import pformat
+from pydantic import Field
+from pydantic_settings import CliApp
+from typing import List
+from importlib.metadata import version
+from pathlib import Path
 import logging
 import yaml
 import cv2
-import os
-from pprint import pformat
 import subprocess
 import time
-import tyro
-from pydantic import BaseModel
-from typing import List, Annotated
-from importlib.metadata import version
 
 
-init_logging(logging.INFO)
-logger = logging.getLogger("data_collection_setup")
-logger.info(f"Version: {version('airbot-data-collection')}")
+init_logging()
+logger = logging.getLogger(f"{PACKAGE_NAME}-setup")
+logger.info(f"Version: {version(PACKAGE_NAME)}")
 
 try:
     from airbot_data_collection.common.devices.cameras.intelrealsense import (
@@ -71,17 +73,22 @@ def check_can_interfaces(expected_interfaces: list[str]) -> bool:
         return False
 
 
-class SetupConfig(BaseModel):
-    """Configuration for the setup script of data collection."""
+class SetupConfig(BaseModelWithFieldAliases):
+    """Configuration for the setup script of airbot data collection."""
 
-    # Ignore cameras by their bus_info or serial_number.
-    ignore_cameras: Annotated[List[str], tyro.conf.arg(aliases=["-ic"])] = []
-    # List of CAN interfaces to use.
-    # If not provided, all available CAN interfaces will be used.
-    can_interfaces: Annotated[List[str], tyro.conf.arg(aliases=["-can"])] = []
+    ignore_cameras: List[str] = Field(
+        [],
+        validation_alias="ic",
+        description="Ignore cameras by their bus_info or serial_number",
+    )
+    can_interfaces: List[str] = Field(
+        [],
+        validation_alias="can",
+        description="List of CAN interfaces to use. If not provided, all available CAN interfaces will be used.",
+    )
 
 
-args = tyro.cli(SetupConfig)
+args = CliApp.run(SetupConfig)
 
 logger.info("Getting system information...")
 hw_uuid = SystemInfo.get_product(True).get("uuid", "unknown")
@@ -89,8 +96,8 @@ logger.info(f"Hardware uuid: {hw_uuid}")
 
 """Process Configs"""
 
-cur_dir = os.path.abspath(os.path.dirname(__file__))
-station_config_path = f"{cur_dir}/station_config.yaml"
+cur_dir = Path(__file__).parent.resolve()
+station_config_path = cur_dir / "station_config.yaml"
 station_config = yaml.safe_load(open(station_config_path))
 NAME_CHOICES = station_config["choices"]
 BUS_NAME_MAPPINGS = station_config["bus_name_mapping"]
@@ -227,10 +234,13 @@ for i, index in enumerate(list(used_camera_indices)):
                 camera_params[bus] = {
                     "fps": 30,
                 }
+                target = "airbot_data_collection.airbot.sensors.cameras.intelrealsense.IntelRealSenseCamera"
             else:
                 bus = camera.device.info.bus_info
                 file_name = camera.device.filename
-            camera_params[bus] = camera_config
+                target = "airbot_data_collection.airbot.sensors.cameras.v4l2.V4L2Camera"
+            camera_config["_target_"] = target
+            camera_params[bus].update(camera_config)
             logger.info(f"Camera {index} bus/serial info: {bus}")
             prefix = bus_name_mapping.get(bus, "None")
             if prefix == "None":
@@ -346,10 +356,16 @@ while True:
         elif can_group_num == 2:
             groups = ["left"] * 2 + ["right"] * 2 + ["/"] * len(cfged_camera_types)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"Not supported can group number {can_group_num}")
+
         components = {
-            "paths": ["airbot_play"] * len(can_itfs) + cfged_camera_types,
-            "params": [{"port": 50050 + i} for i in range(len(can_itfs))]
+            "instances": [
+                {
+                    "_target_": "airbot_data_collection.airbot.robots.airbot_play.AIRBOTPlay",
+                    "port": 50050 + i,
+                }
+                for i in range(len(can_itfs))
+            ]
             + [
                 {"camera_index": bus} | camera_params.get(bus, {})
                 for bus in cfged_bus_serials
@@ -360,22 +376,20 @@ while True:
         }
         logger.info(f"Components: {pformat(components)}")
 
-        defaults_dir = f"{cur_dir}/../defaults"
-        input_file_path = f"{defaults_dir}/config_full.yaml"
+        defaults_dir = cur_dir.parent / "configs/demonstrators"
+        input_file_path = f"{defaults_dir}/airbot_play.yaml"
         with open(input_file_path) as f:
             config: dict = yaml.safe_load(f)
             param_dict: dict = config["demonstrator"]["param"]
             param_dict["components"] = components
+            config["defaults"].append(
+                {"post_capture@demonstrator.instance": str(can_num)}
+            )
         post_capture_path = f"{defaults_dir}/post_capture/{can_num}.yaml"
         with open(post_capture_path) as f:
             param_dict.update(yaml.safe_load(f))
-        file_path = input_file_path.replace("full", "setup")
-        with open(file_path, "w") as f:
-            yaml.dump(
-                config,
-                f,
-                default_flow_style=False,
-            )
+        with open(defaults_dir / "setup.yaml", "w") as f:
+            yaml.dump(config, f, default_flow_style=False)
         break
 cv2.destroyAllWindows()
 

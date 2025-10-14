@@ -29,7 +29,6 @@ mcap = ["mcap-data-loader"]
 image = ["PyTurboJPEG", "av"]
 basic = [
     "pydantic-settings",
-    "tyro",
     "omegaconf >=2.3.0",
     "hydra-zen",
     "transitions",
@@ -54,7 +53,6 @@ all = [
     "PyTurboJPEG",
     "pyudev",
     "mcap-data-loader",
-    "tyro",
     "send2trash",
 ]
 # no hardware support, such as
@@ -62,7 +60,6 @@ all = [
 # but pyav is included
 soft = [
     "pydantic-settings",
-    "tyro",
     "omegaconf >=2.3.0",
     "hydra-zen",
     "transitions",

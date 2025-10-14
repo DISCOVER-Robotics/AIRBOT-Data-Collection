@@ -1,5 +1,4 @@
 import time
-import logging
 import importlib
 from logging import getLogger
 from airbot_data_collection.config import DataCollectionArgs
@@ -9,7 +8,7 @@ from airbot_data_collection.state_machine.fsm import (
     DemonstrateFSMConfig,
     DemonstrateState,
 )
-from airbot_data_collection.utils import init_logging
+from airbot_data_collection.basis import PACKAGE_NAME
 from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
 from airbot_data_collection.configurers.basis import ConfigurerBasis
 from importlib.metadata import version
@@ -22,9 +21,7 @@ from pathlib import Path
 
 
 if __name__ == "__main__":
-    pkg_name = "airbot-data-collection"
-
-    parser = ArgumentParser(pkg_name, add_help=False)
+    parser = ArgumentParser(PACKAGE_NAME, add_help=False)
     parser.add_argument(
         "--configurer",
         "-cfger",
@@ -41,8 +38,6 @@ if __name__ == "__main__":
         print("\n".join(help_lines))
         exit(0)
 
-    init_logging(logging.INFO)
-
     module = importlib.import_module(
         f"airbot_data_collection.configurers.{args.configurer}_cfger"
     )
@@ -51,9 +46,9 @@ if __name__ == "__main__":
     )
     configurer.parse()
 
-    logger = getLogger(pkg_name)
+    logger = getLogger(PACKAGE_NAME)
 
-    setproctitle(pkg_name)
+    setproctitle(PACKAGE_NAME)
 
     def main(config: DataCollectionArgs) -> None:
         """

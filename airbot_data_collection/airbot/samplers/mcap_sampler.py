@@ -11,11 +11,11 @@ from pathlib import Path
 from functools import cache
 from logging import getLogger
 from mcap_data_loader.utils.av_coder import AvCoder
-from mcap_data_loader.utils.mcap_utils import McapFlatBuffersWriter, FlatBuffersSchemas
+from mcap_data_loader.utils.mcap_utils import McapTool, MediaType
+from mcap_data_loader.serialization.flb import McapFlatBuffersWriter, FlatBuffersSchemas
 from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection import __version__ as collector_version
-from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 
 try:
@@ -107,7 +107,8 @@ class AIRBOTMcapDataSampler(DataSampler):
 
     def compose_path(self, directory, round) -> str:
         path = str(Path(directory) / f"{round}.mcap")
-        self._mf_writer.set_writer(Writer(path))
+        self._mf_writer.unset_writer()
+        self._mf_writer.set_writer(Writer(path), True)
         for coder in self._coders.values():
             coder.reset()
         return path
@@ -129,6 +130,7 @@ class AIRBOTMcapDataSampler(DataSampler):
     def save(self, path: str, data: dict) -> str:
         """Save the data to a MCAP file."""
         writer = self._mf_writer.get_writer()
+        mcap_tool = McapTool(writer)
         info = self._info.copy()
         # add metadata
         self.add_config_metadata(writer, self.config)
@@ -142,25 +144,18 @@ class AIRBOTMcapDataSampler(DataSampler):
                     k: json.dumps(v) if not isinstance(v, str) else v
                     for k, v in flattened_value.items()
                 }
-                writer.add_metadata(name=key, data=string_dict)
+                writer.add_metadata(key, string_dict)
 
         # add attachments
-        """
-            text/plain: pure text
-            text/html：HTML
-            application/json：JSON
-            image/png：PNG image
-            video/mp4：MP4 video
-        """
         writer.add_attachment(
             time_ns(),
             time_ns(),
             name="component_info",
             data=json.dumps(info).encode("utf-8"),
-            media_type="application/json",
+            media_type=MediaType.APPLICATION_JSON,
         )
         log_stamps = data.pop("log_stamps")
-        self.add_log_stamps_attachment(writer, log_stamps)
+        mcap_tool.add_log_stamps_attachment(log_stamps)
         # register channels and add messages
         for key, values in data.items():
             if not self._add_messages(key, values, log_stamps):
@@ -173,7 +168,9 @@ class AIRBOTMcapDataSampler(DataSampler):
                 #         self._add_video_attachment, writer, key, coder
                 #     )
                 # )
-                self.add_video_attachment(writer, key, coder.end())
+                writer.add_attachment(
+                    time_ns(), time_ns(), key, MediaType.VIDEO_MP4, coder.end()
+                )
 
             # [_ for _ in as_completed(futures)]
             # wait(futures, 10.0)
@@ -300,26 +297,6 @@ class AIRBOTMcapDataSampler(DataSampler):
         return "joint_state" in key or "pose" in key or "wrench" in key
 
     @classmethod
-    def add_video_attachment(cls, writer: Writer, key: str, data: bytes):
-        writer.add_attachment(
-            time_ns(),
-            time_ns(),
-            key,
-            "video/mp4",
-            data,
-        )
-
-    @classmethod
-    def add_log_stamps_attachment(cls, writer: Writer, log_stamps: List[int]):
-        writer.add_attachment(
-            time_ns(),
-            time_ns(),
-            "log_stamps",
-            "application/json",
-            json.dumps(log_stamps).encode("utf-8"),
-        )
-
-    @classmethod
     def add_config_metadata(cls, writer: Writer, config: AIRBOTMcapDataSamplerConfig):
         config_dict = config.model_dump()
         config_dict.pop("initial_builder_size")
@@ -327,10 +304,7 @@ class AIRBOTMcapDataSampler(DataSampler):
             # Convert all values in dict to strings for MCAP metadata
             # MCAP add_metadata expects dict with string values
             if isinstance(value, dict):
-                string_dict = {
-                    k: json.dumps(v) if not isinstance(v, str) else v
-                    for k, v in value.items()
-                }
+                string_dict = {k: json.dumps(v) for k, v in value.items()}
             else:
                 string_dict = {"value": json.dumps(value)}
             writer.add_metadata(name=key, data=string_dict)

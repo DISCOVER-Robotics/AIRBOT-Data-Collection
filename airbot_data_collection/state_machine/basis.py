@@ -72,7 +72,6 @@ class StateMachineConfig(BaseModel):
     # A callable called on for each triggered event after transitions have been processed.
     # This is also called when a transition raises an exception.
     finalize_event: SMCallable = None
-    log_level: LogLevel = LogLevel.warning
     # # A callable called on for before possible transitions will be processed.
     # # It receives the very same args as normal callbacks.
     # prepare_event: Callable = None
@@ -89,7 +88,6 @@ class StateMachineConfig(BaseModel):
 
 class StateMachineBasis:
     def __init__(self, config: StateMachineConfig):
-        getLogger("transitions").setLevel(LogLevel.get(config.log_level))
         self.machine = LockedMachine(
             self,
             before_state_change=self.before_state_change,

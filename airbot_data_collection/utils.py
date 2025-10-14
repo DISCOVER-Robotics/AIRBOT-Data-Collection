@@ -7,7 +7,24 @@ import time
 import numpy as np
 import subprocess
 from typing import Optional
+from pydantic import BaseModel, AliasChoices
 from mcap_data_loader.utils.basic import get_items_by_ext, zip, StrEnum
+
+
+class BaseModelWithFieldAliases(BaseModel):
+    def __init_subclass__(cls, **kwargs):
+        for name, field in cls.model_fields.items():
+            kebab = name.replace("_", "-")
+            alias = field.validation_alias
+            if isinstance(alias, AliasChoices):
+                choices = list(alias.choices)
+            elif alias:
+                choices = [alias]
+            else:
+                choices = []
+            if kebab not in choices:
+                field.validation_alias = AliasChoices(*choices, kebab)
+        super().__init_subclass__(**kwargs)
 
 
 def get_stamp_ms() -> int:
@@ -55,22 +72,22 @@ def find_matching_files(
     return result
 
 
-class CustomFormatter(logging.Formatter):
+class ColorfulFormatter(logging.Formatter):
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
-    format = (
+    format_str = (
         "[%(levelname)s] %(asctime)s %(name)s: %(message)s (%(filename)s:%(lineno)d)"
     )
 
     FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset,
+        logging.DEBUG: grey + format_str + reset,
+        logging.INFO: grey + format_str + reset,
+        logging.WARNING: yellow + format_str + reset,
+        logging.ERROR: red + format_str + reset,
+        logging.CRITICAL: bold_red + format_str + reset,
     }
 
     def format(self, record):
@@ -83,7 +100,7 @@ def init_logging(level=logging.INFO):
     logging.basicConfig(level=level)
     ch = logging.StreamHandler()
     # ch.setLevel(level)
-    ch.setFormatter(CustomFormatter())
+    ch.setFormatter(ColorfulFormatter())
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.root.addHandler(ch)

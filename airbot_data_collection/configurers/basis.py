@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Type, TypeVar, Generic, final
+from typing import Type, TypeVar, Generic, final, Union
 from pathlib import Path
 import logging
 
@@ -10,9 +10,9 @@ T = TypeVar("T")
 class ConfigurerBasis(ABC, Generic[T]):
     """The basis class for configurers (config backends)."""
 
-    def __init__(self, config_class: Type[T], main_dir: Path) -> None:
+    def __init__(self, config_class: Type[T], main_dir: Union[str, Path] = "") -> None:
         self.config_class = config_class
-        self._main_dir = main_dir
+        self._main_dir = main_dir or Path.cwd()
 
     @abstractmethod
     def parse(self) -> None:

@@ -1,0 +1,22 @@
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  colorful:
+    (): airbot_data_collection.utils.ColorfulFormatter
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: colorful
+    stream: ext://sys.stdout
+
+root:
+  level: INFO
+  handlers: [console]
+
+loggers:
+  airbot-data-collection:
+    level: INFO
+  transitions:
+    level: WARNING

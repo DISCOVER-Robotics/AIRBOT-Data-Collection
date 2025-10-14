@@ -1,14 +1,12 @@
 from hydra_zen import instantiate, store
-from hydra.core import hydra_config
-from hydra.utils import get_original_cwd
-from hydra import main as hydra_main
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 from airbot_data_collection.configurers.basis import ConfigurerBasis, T
 from airbot_data_collection.common.utils.utils import relative_path_between
+from hydra.core import hydra_config
+import hydra
 import argparse
 import sys
-import os
 
 
 class Configurer(ConfigurerBasis[T]):
@@ -17,32 +15,47 @@ class Configurer(ConfigurerBasis[T]):
     def parse(self) -> None:
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("--config-path", "--path", default=None)
-        parser.add_argument("--base-dir", default=os.getcwd())
-        parser.add_argument("--show-resolved", "-sr", action="store_true")
+        parser.add_argument(
+            "--base-dir",
+            default=str(Path.cwd()),
+            help="The base directory for config path."
+            "__main__ for main file directory. Default to the current working directory.",
+        )
+        parser.add_argument(
+            "--cfger-help", action="store_true", help="Show this help message"
+        )
+        parser.add_argument(
+            "--show-resolved",
+            "-sr",
+            action="store_true",
+            help="Show the resolved config and exit",
+        )
         args, unknown = parser.parse_known_args()
         self._show_resolved = args.show_resolved
         sys.argv = sys.argv[:1] + unknown
         config_name = "class_config"
         store(self.config_class, name=config_name)
         store.add_to_hydra_store()
-        base_dir = self._main_dir if args.base_dir == "__main__" else args.base_dir
-        ori_config_path = Path(args.config_path)
-        if ori_config_path.suffix == ".yaml":
-            config_dir = ori_config_path.parent
-            config_name = ori_config_path.stem
-        else:
-            config_dir = ori_config_path
-        config_path = relative_path_between(
-            Path(base_dir).absolute() / config_dir,
-            Path(__file__).absolute().parent,
-        )
-        self.get_logger().info(f"Config path: {config_path.absolute()}")
-        self.get_logger().info(f"Base dir: {base_dir}")
-        return hydra_main(
-            str(config_path),
-            config_name,
-            None,
-        )(self.__set_dict_config)()
+        config_path = args.config_path
+        if config_path is not None:
+            base_dir = self._main_dir if args.base_dir == "__main__" else args.base_dir
+            ori_config_path = Path(args.config_path)
+            if ori_config_path.suffix == ".yaml":
+                config_dir = ori_config_path.parent
+                config_name = ori_config_path.stem
+            else:
+                config_dir = ori_config_path
+            config_path = relative_path_between(
+                Path(base_dir).absolute() / config_dir,
+                Path(__file__).absolute().parent,
+            )
+            self.get_logger().info(f"Config path: {config_path.absolute()}")
+            self.get_logger().info(f"Base dir: {base_dir}")
+            config_path = str(config_path)
+        self._dict_config = None
+        hydra.main(config_path, config_name, None)(self.__set_dict_config)()
+        if self._dict_config is None:
+            exit(0)
 
     @classmethod
     def merge_dicts(cls, base: dict, overrides: dict):
@@ -52,7 +65,9 @@ class Configurer(ConfigurerBasis[T]):
 
     def __set_dict_config(self, dict_config: DictConfig) -> None:
         self._dict_config = dict_config
-        self.get_logger().info(f"Original working directory : {get_original_cwd()}")
+        self.get_logger().info(
+            f"Original working directory : {hydra.utils.get_original_cwd()}"
+        )
         self.get_logger().info(
             f"Output directory  : {hydra_config.HydraConfig.get().runtime.output_dir}"
         )
@@ -68,3 +83,16 @@ class Configurer(ConfigurerBasis[T]):
 
 
 OmegaConf.register_new_resolver("merge_cfg", Configurer.merge_dicts)
+
+
+if __name__ == "__main__":
+    from pydantic import BaseModel
+
+    class DataCollectionArgs(BaseModel):
+        option: str = "foo"
+
+    configurer = Configurer(
+        DataCollectionArgs,
+    )
+    configurer.parse()
+    assert configurer.configure()

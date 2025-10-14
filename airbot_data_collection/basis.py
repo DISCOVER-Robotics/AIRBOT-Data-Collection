@@ -21,6 +21,9 @@ from collections import defaultdict
 from airbot_data_collection.utils import StrEnum
 
 
+PACKAGE_NAME = "airbot-data-collection"
+
+
 class SystemMode(Enum):
     PASSIVE = auto()  # gravity compensation
     RESETTING = auto()  # mode for resetting
