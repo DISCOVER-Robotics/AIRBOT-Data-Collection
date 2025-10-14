@@ -41,9 +41,7 @@ if __name__ == "__main__":
     module = importlib.import_module(
         f"airbot_data_collection.configurers.{args.configurer}_cfger"
     )
-    configurer: ConfigurerBasis = module.Configurer(
-        DataCollectionArgs, Path(__file__).parent.absolute()
-    )
+    configurer: ConfigurerBasis = module.Configurer(DataCollectionArgs)
     configurer.parse()
 
     logger = getLogger(PACKAGE_NAME)
