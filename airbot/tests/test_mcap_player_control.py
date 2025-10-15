@@ -1,7 +1,7 @@
 if __name__ == "__main__":
     import argparse
     from airbot_data_collection.tests.test_mcap_player import McapSinglePosePlayer
-    from airbot_data_collection.airbot.robots.airbot_play import (
+    from airbot.robots.airbot_play import (
         AIRBOTPlay,
         AIRBOTPlayConfig,
         ActionConfig,
@@ -24,14 +24,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    test = McapSinglePosePlayer(
-        args.file_path,
-        topics=[
-            "/follow/arm/pose/position",
-            "/follow/arm/pose/orientation",
-            "/follow/eef/joint_state/position",
-        ],
-    )
+    test = McapSinglePosePlayer(args.file_path)
     airbot_play = AIRBOTPlay(
         AIRBOTPlayConfig(
             port=50051, action=[ActionConfig(interfaces={InterfaceType.POSE})]
@@ -39,20 +32,17 @@ if __name__ == "__main__":
     )
     assert airbot_play.configure()
 
-    # test.set_pose_bias(
-    #     position=np.array([0.0, 0.0, 0.0]),
-    #     orientation=quaternion_from_euler(0.0, 0.0, 0.0),
-    # )
+    test.set_pose_bias(
+        position=np.array([0.0, 0.0, 0.0]),
+        orientation=quaternion_from_euler(0.0, 0.0, 0.0),
+    )
     # test.set_eef_threshold(0.03, 0.0, 0.072)
     for i in range(1):
         test.seek(0)
         input(f"Press Enter to move to starting pose for iteration {i}...")
         assert airbot_play.switch_mode(SystemMode.RESETTING)
-        init_action = test.update()
-        print(init_action)
-        airbot_play.send_action(init_action)
+        airbot_play.send_action(test.update())
         input(f"Press Enter to start iteration {i}...")
-        print(airbot_play.capture_observation())
         assert airbot_play.switch_mode(SystemMode.SAMPLING)
         period = 1 / 20.0
         while True:

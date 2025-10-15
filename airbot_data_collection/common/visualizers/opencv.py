@@ -12,12 +12,16 @@ from airbot_data_collection.common.visualizers.basis import (
 )
 from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
 from airbot_data_collection.utils import init_logging
+from airbot_data_collection.basis import DictDataType
 from multiprocessing.context import SpawnProcess
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing import get_context, current_process
 from multiprocessing.synchronize import Event
 from setproctitle import setproctitle
-from typing import Dict, Callable, Optional
+from typing import Dict, Callable, Optional, Union
+
+
+ImageType = Union[np.ndarray, bytes]
 
 
 def prepare_cv2_imshow(logger: logging.Logger):
@@ -117,8 +121,8 @@ class OpenCVVisualizer(VisualizerBasis):
         cv2.destroyAllWindows()
         cls.get_logger().info("Update loop stopped")
 
-    def update(
-        self, data: Dict[str, np.ndarray], info: SampleInfo, warm_up: bool = False
+    def on_update(
+        self, data: DictDataType[ImageType], info: SampleInfo, warm_up: bool = False
     ) -> bool:
         """Show the data on the OpenCV window."""
         if warm_up or not self._is_concurrent:
@@ -152,9 +156,10 @@ class OpenCVVisualizer(VisualizerBasis):
             return cv2.waitKey(wait_key)
 
     def _get_images(
-        self, data: Dict[str, np.ndarray], info: SampleInfo, func: Callable
+        self, data: DictDataType[ImageType], info: SampleInfo, func: Callable
     ) -> Dict[str, np.ndarray]:
-        for key, value in data.items():
+        for key, value_dict in data.items():
+            value = value_dict["data"]
             if isinstance(value, bytes):
                 value = decode_image(value, self.config.pixel_format)
             # TODO: why the value is None?

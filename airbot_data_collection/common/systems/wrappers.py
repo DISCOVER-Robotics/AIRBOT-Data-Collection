@@ -1,7 +1,6 @@
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing import get_context, current_process
 from multiprocessing.connection import Connection
-from multiprocessing.sharedctypes import Synchronized
 from pydantic import BaseModel, ConfigDict
 from typing import Union, Dict, Type, Optional
 from airbot_data_collection.basis import Sensor, System
@@ -51,12 +50,11 @@ class SensorConcurrentWrapper(Sensor):
                 if parent.poll(5.0):
                     self._info, obs = parent.recv()
                     self._obs: Dict[
-                        str, Dict[str, Union[ShareableNumpy, Synchronized]]
+                        str, Dict[str, Union[ShareableNumpy, ShareableValue]]
                     ] = {}
                     obs: dict
                     for key, value in obs.items():
                         self._obs[key] = {
-                            # "t": spawn_ctx.Value("Q", value["t"], lock=True),
                             "t": ShareableValue.from_value(
                                 value["t"], uint64, smm=self._smm
                             ),
@@ -150,7 +148,7 @@ def concurrent_wrapper(
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.airbot.sensors.cameras.mock import (
+    from airbot_data_collection.common.devices.cameras.mock import (
         MockCamera,
         MockCameraConfig,
     )

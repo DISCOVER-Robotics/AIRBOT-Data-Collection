@@ -1,12 +1,13 @@
 import math
 import traceback
-from typing import Union, Dict, Optional
 import numpy as np
+from time import time_ns
+from typing import Union, Optional
 from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBDConfig,
     find_video_capture_devices,
 )
-from airbot_data_collection.basis import Sensor
+from airbot_data_collection.basis import Sensor, DictDataType
 from pyrealsense2 import config as RSConfig  # noqa: N812
 from pyrealsense2 import format as RSFormat  # noqa: N812
 from pyrealsense2 import pipeline as RSPipeline  # noqa: N812
@@ -173,7 +174,7 @@ class IntelRealSenseCamera(Sensor):
 
     def capture_observation(
         self, timeout: Optional[float] = None
-    ) -> Dict[str, np.ndarray]:
+    ) -> DictDataType[np.ndarray]:
         """Capture an observation from the camera.
         Returns:
             A dictionary containing the captured images.
@@ -184,6 +185,7 @@ class IntelRealSenseCamera(Sensor):
         if self.config.align_depth:
             frame = self.align.process(frame)
         color_frame = frame.get_color_frame()
+        stamp = time_ns()
         if not color_frame:
             raise OSError(
                 f"Can't capture color image from IntelRealSenseCamera({self.camera_index})."
@@ -193,10 +195,11 @@ class IntelRealSenseCamera(Sensor):
         if self.config.color_mode == "bgr":
             color_image = color_image[..., ::-1]  # Convert RGB to BGR
 
-        outputs = {"color/image_raw": color_image}
+        outputs = {"color/image_raw": {"t": stamp, "data": color_image}}
 
         if self.config.enable_depth:
             depth_frame = frame.get_depth_frame()
+            stamp = time_ns()
             if not depth_frame:
                 raise OSError(
                     f"Can't capture depth image from IntelRealSenseCamera({self.config.camera_index})."
@@ -206,7 +209,7 @@ class IntelRealSenseCamera(Sensor):
                 key = "aligned_depth_to_color/image_raw"
             else:
                 key = "depth/image_rect_raw"
-            outputs[key] = depth_map
+            outputs[key] = {"t": stamp, "data": depth_map}
         return outputs
 
     def get_info(self):

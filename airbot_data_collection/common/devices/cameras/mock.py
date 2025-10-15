@@ -1,7 +1,8 @@
 from airbot_data_collection.common.devices.cameras.utils import CameraRGBDConfig
-from airbot_data_collection.basis import Sensor
-import numpy as np
+from airbot_data_collection.basis import Sensor, DictDataType
 from typing import Optional
+from time import time_ns
+import numpy as np
 
 
 class MockCameraConfig(CameraRGBDConfig):
@@ -25,18 +26,20 @@ class MockCamera(Sensor):
         self._update_random_image()
         return True
 
-    def capture_observation(self, timeout: Optional[float] = None):
+    def capture_observation(
+        self, timeout: Optional[float] = None
+    ) -> DictDataType[np.ndarray]:
         if self.config.random:
             self._update_random_image()
         observation = {}
         if self.config.enable_color:
-            observation["color/image_raw"] = self.color_image
+            observation["color/image_raw"] = {"t": time_ns(), "data": self.color_image}
         if self.config.enable_depth:
             if self.config.align_depth:
                 key = "aligned_depth_to_color/image_raw"
             else:
                 key = "depth/image_rect_raw"
-            observation[key] = self.depth_image
+            observation[key] = {"t": time_ns(), "data": self.depth_image}
         return observation
 
     def get_info(self):

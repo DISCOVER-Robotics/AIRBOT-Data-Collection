@@ -100,7 +100,7 @@ def find_video_capture_devices(
 def find_camera_indices(
     raise_when_empty: bool = False,
     max_index_search_range: int = 10,
-    filt_mode: str = "none",
+    filter_mode: str = "none",
     sorting: bool = True,
 ) -> list[int]:
     """Finds the available camera (video capture devices) indices on the system.
@@ -124,8 +124,8 @@ def find_camera_indices(
 
     camera_ids = possible_camera_ids
 
-    if filt_mode in {"even", "odd"}:
-        remainder = 4 - len(filt_mode)
+    if filter_mode in {"even", "odd"}:
+        remainder = 4 - len(filter_mode)
         camera_ids = [
             camera_id for camera_id in camera_ids if camera_id % 2 == remainder
         ]

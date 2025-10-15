@@ -2,7 +2,7 @@ import airbot_hardware_py
 from typing import List, Optional
 from enum import Enum
 from airbot_data_collection.common.utils.interpolate import Interpolate
-from airbot_data_collection.utils import bcolors
+from airbot_data_collection.common.utils.terminal import Bcolors
 import numpy as np
 import time
 from logging import getLogger
@@ -38,8 +38,9 @@ class AIRBOTArm:
         self._motors = []
         self._executors = []
         self.get_logger().info(
-            bcolors.OKBLUE
-            + f"Connecting to AIRBOT arm at {url}{port} with frequency {frequency}Hz."
+            Bcolors.blue(
+                f"Connecting to AIRBOT arm at {url}{port} with frequency {frequency}Hz."
+            )
         )
         for index, motor_type in enumerate(motor_types):
             executor = airbot_hardware_py.create_asio_executor(1)
@@ -60,8 +61,9 @@ class AIRBOTArm:
         self._connected = True
         for index, motor in enumerate(self._motors):
             self.get_logger().info(
-                bcolors.OKBLUE
-                + f"Connecting to motor {index + 1} of type {self._motor_types[index]}."
+                Bcolors.blue(
+                    f"Connecting to motor {index + 1} of type {self._motor_types[index]}."
+                )
             )
             if not motor.enable():
                 return False
@@ -76,7 +78,7 @@ class AIRBOTArm:
         self._target_eef_cmd = self.get_eef_pos()
         self._motor_thread = Thread(target=self._control_loop, daemon=True)
         self._motor_thread.start()
-        self.get_logger().info(bcolors.OKGREEN + "Connected to AIRBOT arm.")
+        self.get_logger().info(Bcolors.GREEN + "Connected to AIRBOT arm.")
         return True
 
     def _set_control_mode(self, motor, mode: str) -> bool:

@@ -67,7 +67,6 @@ class ComponentsConfig(BaseModel, Generic[T]):
             raise ValueError(f"names must be unique, got {names}")
         return self
 
-    @computed_field
     @property
     def instance_dict(self) -> Dict[str, T]:
         """Returns a dictionary of component instances."""

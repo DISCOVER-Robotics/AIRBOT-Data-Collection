@@ -1,7 +1,7 @@
 if __name__ == "__main__":
     import argparse
     from airbot_data_collection.tests.test_mcap_player import McapSinglePosePlayer
-    from airbot_data_collection.airbot.robots.airbot_play import (
+    from airbot.robots.airbot_play import (
         AIRBOTPlay,
         AIRBOTPlayConfig,
         ActionConfig,
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # )
     from airbot_data_collection.tests.test_json_player import JsonPlayer
     import cv2
-    # from airbot_data_collection.airbot.robots.airbot_play_mock import AIRBOTPlay
+    # from airbot.robots.airbot_play_mock import AIRBOTPlay
 
     test = JsonPlayer(args.file_path, args.topics)
     airbot_play = AIRBOTPlay(

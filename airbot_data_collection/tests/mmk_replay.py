@@ -2,7 +2,7 @@ from dataclasses import dataclass, replace, field
 from typing import Optional, Dict, List
 from pathlib import Path
 from mcap.reader import make_reader
-from airbot_data_collection.airbot.schemas.airbot_fbs.FloatArray import FloatArray
+from airbot.schemas.airbot_fbs.FloatArray import FloatArray
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from mmk2_types.types import (
     RobotComponents,

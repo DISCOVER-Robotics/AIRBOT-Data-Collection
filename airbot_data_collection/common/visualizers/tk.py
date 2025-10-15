@@ -1,12 +1,25 @@
+import numpy as np
 from tkinter import Canvas, Tk, Toplevel
 from typing import Union
-import numpy as np
 from PIL import Image, ImageTk
 from airbot_data_collection.common.visualizers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
     VisualizerBasis,
 )
+from airbot_data_collection.basis import DictDataType
+
+
+def get_dpi() -> float:
+    root = Tk()
+    dpi = root.winfo_fpixels("1i")  # 水平方向的DPI
+    root.destroy()
+    return dpi
+
+
+def resolution_to_inches(width: int, height: int) -> tuple[float, float]:
+    dpi = get_dpi()
+    return width / dpi, height / dpi
 
 
 class TkinterVisualizer(VisualizerBasis):
@@ -23,8 +36,9 @@ class TkinterVisualizer(VisualizerBasis):
         self.windows: dict[str, dict[str, Union[Canvas, Toplevel]]] = {}
         return True
 
-    def update(self, data: dict[str, np.ndarray], info: SampleInfo):
-        for title, img in data.items():
+    def on_update(self, data: DictDataType[np.ndarray], info: SampleInfo):
+        for title, data_dict in data.items():
+            img = data_dict["data"]
             image_pil = Image.fromarray(img.astype(np.uint8), mode="RGB")
             img_width, img_height = image_pil.size
             if title not in self.windows:

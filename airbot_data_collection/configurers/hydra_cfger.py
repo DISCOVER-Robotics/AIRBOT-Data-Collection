@@ -25,6 +25,13 @@ class Configurer(ConfigurerBasis[T]):
             "--cfger-help", action="store_true", help="Show this help message"
         )
         parser.add_argument(
+            "--add-cwd-mode",
+            type=str,
+            default="append",
+            choices=["prepend", "append", "none"],
+            help="Whether to add the current working directory to sys.path, and where to add it",
+        )
+        parser.add_argument(
             "--show-resolved",
             "-sr",
             action="store_true",
@@ -45,15 +52,25 @@ class Configurer(ConfigurerBasis[T]):
                 config_name = ori_config_path.stem
             else:
                 config_dir = ori_config_path
+            if not config_dir.is_absolute():
+                config_dir = Path(base_dir).absolute() / config_dir
+            if not config_dir.exists():
+                raise FileNotFoundError(f"{config_dir} not found")
             config_path = relative_path_between(
-                Path(base_dir).absolute() / config_dir,
+                config_dir,
                 Path(__file__).absolute().parent,
             )
-            self.get_logger().info(f"Config path: {config_path.absolute()}")
-            self.get_logger().info(f"Base dir: {base_dir}")
+            print(f"Base dir: {base_dir}")
             config_path = str(config_path)
         self._dict_config = None
+        add_cwd_mode = args.add_cwd_mode
+        cwd = str(Path.cwd().absolute())
+        if add_cwd_mode == "prepend":
+            sys.path.insert(0, cwd)
+        elif add_cwd_mode == "append":
+            sys.path.append(cwd)
         hydra.main(config_path, config_name, None)(self.__set_dict_config)()
+        sys.path.pop()
         if self._dict_config is None:
             exit(0)
 

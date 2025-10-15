@@ -1,5 +1,4 @@
-# _target_: airbot_data_collection.airbot.sensors.cameras.realsense.RealSense
-_target_: airbot_data_collection.airbot.sensors.cameras.realsense.RealSenseConcurrent
+_target_: airbot_data_collection.common.devices.cameras.intelrealsense.RealSenseConcurrent
 camera_index: null
 fps: 30
 width: 640

@@ -1,5 +1,5 @@
 from typing import List, Union, Dict, Tuple, Any, Iterable, Optional
-from pydantic import PositiveInt, Field, computed_field
+from pydantic import PositiveInt, Field
 from time import time_ns, perf_counter
 from collections import defaultdict
 from functools import partial, cached_property
@@ -26,7 +26,7 @@ try:
 
     AVAILABLE_BACKEND.add("grpc")
 except ImportError:
-    from airbot_data_collection.airbot.robots.airbot_play_thin import (
+    from airbot.robots.airbot_play_thin import (
         AIRBOTArm,
         RobotMode,
         SpeedProfile,
@@ -57,12 +57,10 @@ class AIRBOTPlayConfig(SystemConfig):
             f"available backends: {AVAILABLE_BACKEND}"
         )
 
-    @computed_field
     @cached_property
     def pose_action(self) -> bool:
         return InterfaceType.POSE in self.action[0].interfaces
 
-    @computed_field
     @cached_property
     def mit_action(self) -> bool:
         return self.action[0].interfaces == {
@@ -73,17 +71,14 @@ class AIRBOTPlayConfig(SystemConfig):
             InterfaceType.JOINT_KD,
         }
 
-    @computed_field
     @cached_property
     def pose_observation(self) -> bool:
         return InterfaceType.POSE in self.observation[0].interfaces
 
-    @computed_field
     @cached_property
     def relative_action(self) -> bool:
         return self.action[0].reference_mode != ReferenceMode.ABSOLUTE
 
-    @computed_field
     @cached_property
     def relative_observation(self) -> bool:
         return self.observation[0].reference_mode != ReferenceMode.ABSOLUTE

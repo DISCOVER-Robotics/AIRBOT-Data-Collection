@@ -1,10 +1,18 @@
 from abc import abstractmethod
-from typing import Any, Optional, Protocol, Union, runtime_checkable, final
+from typing import Optional, Protocol, Union, runtime_checkable, final
 from pydantic import BaseModel, NonNegativeInt, PositiveInt
-from airbot_data_collection.basis import ConfigurableBasis, ConcurrentMode
+from airbot_data_collection.basis import ConfigurableBasis, ConcurrentMode, DictDataType
+from airbot_data_collection.common.utils.dict_utils import (
+    DictKeyFilter,
+    DictKeyFilterConfig,
+)
 
 
-class GUIVisualizerConfig(BaseModel):
+class VisualizerConfig(BaseModel):
+    key_filtering: DictKeyFilterConfig = DictKeyFilterConfig()
+
+
+class GUIVisualizerConfig(VisualizerConfig):
     """Configuration for GUI visualizer."""
 
     single_window: bool = False
@@ -54,7 +62,7 @@ class GUIVisualizerConfig(BaseModel):
     rate: NonNegativeInt = 0  # update rate in Hz, 0 means no limit
 
 
-class WebVisualizerConfig(BaseModel):
+class WebVisualizerConfig(VisualizerConfig):
     """Configuration for web visualizer."""
 
     host: str = "127.0.0.0"
@@ -73,11 +81,23 @@ class SampleInfo(BaseModel):
 
 
 class VisualizerBasis(ConfigurableBasis):
-    """Visualizer for visualizing the data."""
+    """VisualizerBasis for visualizing the data."""
+
+    config: VisualizerConfig
+
+    def __init__(self, config: Optional[VisualizerConfig] = None, **kwargs):
+        super().__init__(config, **kwargs)
+        self._filter = DictKeyFilter(self.config.key_filtering)
+
+    @final
+    def update(
+        self, data: DictDataType, info: Optional[SampleInfo], warm_up: bool = False
+    ) -> None:
+        return self.on_update(self._filter(data), info, warm_up)
 
     @abstractmethod
-    def update(
-        self, data: Any, info: Optional[SampleInfo], warm_up: bool = False
+    def on_update(
+        self, data: DictDataType, info: Optional[SampleInfo], warm_up: bool = False
     ) -> None:
         """Update the visualizer with the new data."""
 
@@ -91,5 +111,7 @@ class Visualizer(Protocol):
     """Visualizer for visualizing the data."""
 
     def configure(self) -> bool: ...
-    def update(self, data: Any, info: SampleInfo, warm_up: bool = False) -> None: ...
+    def update(
+        self, data: DictDataType, info: SampleInfo, warm_up: bool = False
+    ) -> None: ...
     def shutdown(self) -> None: ...

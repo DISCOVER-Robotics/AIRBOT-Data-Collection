@@ -1,11 +1,11 @@
 import asyncio
-from threading import Event
-from typing import Union, Optional
 import numpy as np
+from threading import Event
+from time import time_ns
+from typing import Union, Optional
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
-
-from airbot_data_collection.basis import Sensor
+from airbot_data_collection.basis import Sensor, DictDataType
 from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBConfig,
     find_camera_indices,
@@ -14,7 +14,8 @@ from airbot_data_collection.common.devices.cameras.utils import (
     CameraControl,
 )
 from airbot_data_collection.common.visualizers.basis import VisualizerBasis
-from airbot_data_collection.utils import ImageCoder, run_event_loop
+from airbot_data_collection.common.utils.progress import run_event_loop
+from airbot_data_collection.common.utils.codec import ImageCoder
 
 
 class V4L2CameraConfig(CameraRGBConfig):
@@ -73,13 +74,15 @@ class V4L2Camera(Sensor):
 
     def capture_observation(
         self, timeout: Optional[float] = None
-    ) -> Union[bytes, np.ndarray]:
+    ) -> DictDataType[Union[bytes, np.ndarray]]:
         if not self._event.wait(timeout):
             raise TimeoutError("Timeout waiting for camera frame.")
         self._event.clear()
         frame_bytes = bytes(self.frame)
+        key = "color/image_raw"
+        obs = {key: {"t": self.stamp}}
         if not self.config.decode:
-            return frame_bytes
+            obs[key]["data"] = frame_bytes
         else:
             if self.config.pixel_format is PixelFormat.MJPEG:
                 image = self._jpeg.decode(frame_bytes)
@@ -95,7 +98,8 @@ class V4L2Camera(Sensor):
                 )
             if self.config.color_mode == "rgb":
                 image = image[:, :, ::-1]
-            return image
+            obs[key]["data"] = image
+        return obs
 
     def shutdown(self) -> bool:
         # TODO: why manually closing raises error?
@@ -149,6 +153,7 @@ class V4L2Camera(Sensor):
     async def _read_frame(self):
         with self._capture as stream:
             async for frame in stream:
+                self.stamp = time_ns()
                 self.frame = frame
                 self._event.set()
                 # if self._shutdown:

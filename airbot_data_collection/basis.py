@@ -11,26 +11,44 @@ from typing import (
     Tuple,
     Optional,
     Set,
-    final,
     DefaultDict,
     Type,
+    Generic,
+    TypeVar,
+    final,
 )
-from typing_extensions import Self
+from typing_extensions import Self, TypedDict
 from pydantic import BaseModel
 from collections import defaultdict
 from airbot_data_collection.utils import StrEnum
 
 
 PACKAGE_NAME = "airbot-data-collection"
+T = TypeVar("T")
+
+
+class DictDataValue(TypedDict, Generic[T]):
+    t: float
+    data: T
+
+
+DictDataType = Dict[str, DictDataValue[T]]
 
 
 class SystemMode(Enum):
-    PASSIVE = auto()  # gravity compensation
+    PASSIVE = auto()  # e.g., gravity compensation
     RESETTING = auto()  # mode for resetting
     SAMPLING = auto()  # mode for sampling
 
 
 RangeConifg = Dict[Union[str, int], Tuple[float, float]]
+
+
+class KeyFilterConfig(BaseModel):
+    """The dict key filter config."""
+
+    include: List[str] = []  # include keys
+    exclude: List[str] = []  # exclude keys
 
 
 class PostCaptureConfig(BaseModel):
@@ -146,7 +164,7 @@ class Sensor(ConfigurableBasis):
     @abstractmethod
     def capture_observation(
         self, timeout: Optional[float] = None
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[DictDataType]:
         """Capture observation from the sensor
         Args:
             timeout: Maximum time to wait for the observation to be ready. If None, wait indefinitely.
@@ -158,7 +176,7 @@ class Sensor(ConfigurableBasis):
         """
         raise NotImplementedError
 
-    def result(self, timeout: Optional[float] = None) -> Dict[str, Any]:
+    def result(self, timeout: Optional[float] = None) -> DictDataType:
         """Wait and get the result of the last capture_observation call
         Args:
             timeout: Maximum time to wait for the result. If None, wait indefinitely.

@@ -8,7 +8,7 @@ concurrent_save: none
 sampler:
   name: airbot_mcap_sampler
   instance:
-    _target_: airbot_data_collection.airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
+    _target_: airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
     task_info:
       operator: Anonymous
       station: ptk-001
@@ -27,7 +27,7 @@ sampler:
           description: pick the wooden blocks from the bowl with the gripper
           description_zh: 用夹爪从碗中拾取木制积木
     upload:
-      enabled: false
+      enable: false
       endpoint: 192.168.215.80
       username: admin
       password: "123456"
@@ -36,9 +36,14 @@ visualizers:
   names:
     - opencv
   instances:
-    - _target_: airbot_data_collection.airbot.visualizers.opencv.AIRBOTOpenCVVisualizer
+    - _target_: airbot_data_collection.common.visualizers.opencv.OpenCVVisualizer
       rate: 30
       concurrent_mode: process
+      key_filtering:
+        include_endswith:
+          - color/image_raw
+          - depth/image_rect_raw
+          - aligned_depth_to_color/image_raw
 
 managers:
   names:
@@ -49,4 +54,4 @@ managers:
     - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
 
 fsm:
-  _target_: airbot_data_collection.airbot.configs.fsm.get_fsm_config
+  _target_: airbot.configs.fsm.get_fsm_config

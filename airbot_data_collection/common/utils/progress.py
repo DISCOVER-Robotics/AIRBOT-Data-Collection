@@ -1,6 +1,6 @@
-from typing import Union, final, Callable, Literal, Type
+from typing import Union, Callable, Literal, Type, Optional, final
 from typing_extensions import Self
-from threading import Thread, Event, Lock
+from threading import Thread, Event, Lock, current_thread, main_thread
 from multiprocessing import get_context, synchronize, current_process
 from multiprocessing.context import SpawnProcess
 from multiprocessing.process import BaseProcess
@@ -10,6 +10,7 @@ from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.utils.terminal import Bcolors
 from setproctitle import setproctitle
 import logging
+import asyncio
 
 
 SpawnEvent = get_context("spawn").Event
@@ -363,3 +364,42 @@ def create_handler(mode: ConcurrentMode) -> ProgressHandler:
         return MockProgressHandler()
     else:
         return ConcurrentProgressHandler(mode)
+
+
+def run_event_loop() -> asyncio.AbstractEventLoop:
+    if current_thread() != main_thread():
+        raise RuntimeError("Event loop must be run in the main thread")
+    event_loop = asyncio.get_event_loop()
+    if not event_loop.is_running():
+        event_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(event_loop)
+        Thread(target=event_loop.run_forever, daemon=True).start()
+    return event_loop
+
+
+class ProgressBar:
+    def __init__(self, total: int, desc: str):
+        self.total = total
+        self.desc = desc
+        from tqdm import tqdm
+        # from tqdm.asyncio import tqdm
+
+        self.progress_bar = tqdm(
+            total=total or self.total, desc=desc or self.desc, unit="step"
+        )
+        self.progress_bar.clear()
+
+    def update(self, index: int):
+        self.progress_bar.n = index
+        self.progress_bar.set_postfix(
+            {"Percentage": f"{index / self.total * 100:.1f}%"}
+        )
+        self.progress_bar.refresh()
+
+    def reset(self, total: int = 0, desc: Optional[str] = None):
+        self.progress_bar.reset(total=total or self.total)
+        self.progress_bar.desc = desc
+        self.progress_bar.clear()
+
+    def close(self):
+        self.progress_bar.close()

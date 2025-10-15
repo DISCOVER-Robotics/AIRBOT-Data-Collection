@@ -1,17 +1,15 @@
 import asyncio
-from collections import defaultdict
-from typing import Dict
-
 import fastapi
 import fastapi.responses
+from collections import defaultdict
 from uvicorn import Config, Server
-
 from airbot_data_collection.common.visualizers.basis import (
     SampleInfo,
     VisualizerBasis,
     WebVisualizerConfig,
 )
-from airbot_data_collection.utils import run_event_loop
+from airbot_data_collection.common.utils.progress import run_event_loop
+from airbot_data_collection.basis import DictDataType
 
 
 class FastAPIVisualizer(VisualizerBasis):
@@ -119,9 +117,10 @@ class FastAPIVisualizer(VisualizerBasis):
         """
         return html
 
-    def update(self, data: dict[str, bytes], info: SampleInfo):
+    def on_update(self, data: DictDataType[bytes], info: SampleInfo):
         self.info = info
-        for key, img_bytes in data.items():
+        for key, value_dict in data.items():
+            img_bytes = value_dict["data"]
             # can not use / in the key
             key = key.replace("/", ".").removeprefix(".")
             # may be should use a check_data method and

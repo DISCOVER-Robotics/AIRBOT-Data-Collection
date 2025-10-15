@@ -1,12 +1,7 @@
-import asyncio
 import logging
 import math
 import os
-import threading
-import time
-import numpy as np
 import subprocess
-from typing import Optional
 from pydantic import BaseModel, AliasChoices
 from mcap_data_loader.utils.basic import get_items_by_ext, zip, StrEnum
 
@@ -25,51 +20,6 @@ class BaseModelWithFieldAliases(BaseModel):
             if kebab not in choices:
                 field.validation_alias = AliasChoices(*choices, kebab)
         super().__init_subclass__(**kwargs)
-
-
-def get_stamp_ms() -> int:
-    return int(time.time() * 1e3)
-
-
-def find_matching_files(
-    search_dirs: tuple[str, ...],
-    filenames: tuple[str, ...],
-    end_with: tuple[str, ...] = (".yaml", ".yml"),
-    strict: bool = False,
-    ignore_path: bool = False,
-    ignore_empty: bool = True,
-) -> list[Optional[str]]:
-    result: list[Optional[str]] = []
-    search_dirs = [os.path.abspath(dir) for dir in search_dirs]
-    for name in filenames:
-        if ignore_empty and not name:
-            result.append(name)
-            continue
-        elif ignore_path and "/" in name:
-            assert os.path.exists(name), f"File {os.path.abspath(name)} does not exist."
-            result.append(name)
-            continue
-        target_base = os.path.splitext(name)[0]
-        found_path = None
-        for search_dir in search_dirs:
-            for root, _, files in os.walk(search_dir):
-                for file in files:
-                    if file.endswith(end_with):
-                        file_base = os.path.splitext(file)[0]
-                        if file_base == target_base:
-                            found_path = os.path.abspath(os.path.join(root, file))
-                            break
-                if found_path:
-                    break
-            if found_path:
-                break
-        else:
-            if strict:
-                raise FileNotFoundError(
-                    f"File {name} not found in searching directories: {search_dirs}"
-                )
-        result.append(found_path)  # None if not found
-    return result
 
 
 class ColorfulFormatter(logging.Formatter):
@@ -104,18 +54,6 @@ def init_logging(level=logging.INFO):
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
     logging.root.addHandler(ch)
-
-
-def run_event_loop() -> asyncio.AbstractEventLoop:
-    assert threading.current_thread() == threading.main_thread(), (
-        "Event loop must be run in the main thread"
-    )
-    event_loop = asyncio.get_event_loop()
-    if not event_loop.is_running():
-        event_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(event_loop)
-        threading.Thread(target=event_loop.run_forever, daemon=True).start()
-    return event_loop
 
 
 def optimal_grid(
@@ -153,117 +91,6 @@ def optimal_grid(
             optimal_rows, optimal_cols = r, c
 
     return optimal_rows, optimal_cols
-
-
-def get_dpi() -> float:
-    import tkinter
-
-    root = tkinter.Tk()
-    dpi = root.winfo_fpixels("1i")  # 水平方向的DPI
-    root.destroy()
-    return dpi
-
-
-def resolution_to_inches(width: int, height: int) -> tuple[float, float]:
-    dpi = get_dpi()
-    return width / dpi, height / dpi
-
-
-class ProgressBar:
-    def __init__(self, total: int, desc: str):
-        self.total = total
-        self.desc = desc
-        from tqdm import tqdm
-        # from tqdm.asyncio import tqdm
-
-        self.progress_bar = tqdm(
-            total=total or self.total, desc=desc or self.desc, unit="step"
-        )
-        self.progress_bar.clear()
-
-    def update(self, index: int):
-        self.progress_bar.n = index
-        self.progress_bar.set_postfix(
-            {"Percentage": f"{index / self.total * 100:.1f}%"}
-        )
-        self.progress_bar.refresh()
-
-    def reset(self, total: int = 0, desc: Optional[str] = None):
-        self.progress_bar.reset(total=total or self.total)
-        self.progress_bar.desc = desc
-        self.progress_bar.clear()
-
-    def close(self):
-        self.progress_bar.close()
-
-
-class ImageCoder:
-    @staticmethod
-    def rgb2yuv(rgb: np.ndarray) -> np.ndarray:
-        # The coefficients were taken from OpenCV https://github.com/opencv/opencv
-        # I'm not sure if the values should be clipped, in my (limited) testing it looks alright
-        #   but don't hesitate to add rgb.clip(0, 1, rgb) & yuv.clip(0, 1, yuv)
-        #
-        # Input for these functions is a numpy array with shape (height, width, 3)
-        # Change '+= 0.5' to '+= 127.5' & '-= 0.5' to '-= 127.5' for values in range [0, 255]
-
-        m = np.array(
-            [
-                [0.29900, -0.147108, 0.614777],
-                [0.58700, -0.288804, -0.514799],
-                [0.11400, 0.435912, -0.099978],
-            ]
-        )
-        yuv = np.dot(rgb, m)
-        yuv[:, :, 1:] += 127.5
-        return yuv
-
-    @staticmethod
-    def yuv2rgb(yuv: np.ndarray) -> np.ndarray:
-        # The coefficients were taken from OpenCV https://github.com/opencv/opencv
-        # I'm not sure if the values should be clipped, in my (limited) testing it looks alright
-        #   but don't hesitate to add rgb.clip(0, 1, rgb) & yuv.clip(0, 1, yuv)
-        #
-        # Input for these functions is a numpy array with shape (height, width, 3)
-        # Change '+= 0.5' to '+= 127.5' & '-= 0.5' to '-= 127.5' for values in range [0, 255]
-
-        m = np.array(
-            [
-                [1.000, 1.000, 1.000],
-                [0.000, -0.394, 2.032],
-                [1.140, -0.581, 0.000],
-            ]
-        )
-        yuv[:, :, 1:] -= 127.5
-        rgb = np.dot(yuv, m)
-        return rgb
-
-    @staticmethod
-    def yuyv2bgr(data: bytes, width: int, height: int) -> np.ndarray:
-        """Convert YUYV image bytes data to BGR array using numpy.
-        Args:
-            data: bytes of YUYV image
-            height: image height
-            width: image width
-        Returns:
-            numpy image array in bgr
-        """
-        yuyv = np.frombuffer(data, np.uint8).reshape((height, width, 2))
-        y = yuyv[:, :, 0].astype(np.float32)
-        u = np.zeros((height, width), dtype=np.float32)
-        v = np.zeros((height, width), dtype=np.float32)
-        u[:, 0::2] = yuyv[:, 0::2, 1]
-        u[:, 1::2] = u[:, 0::2]
-        v[:, 1::2] = yuyv[:, 1::2, 1]
-        v[:, 0::2] = v[:, 1::2]
-        r = y + 1.403 * (v - 128)
-        g = y - 0.344 * (u - 128) - 0.714 * (v - 128)
-        b = y + 1.770 * (u - 128)
-        bgr = np.zeros((height, width, 3), dtype=np.uint8)
-        bgr[:, :, 0] = np.clip(b, 0, 255).astype(np.uint8)  # B
-        bgr[:, :, 1] = np.clip(g, 0, 255).astype(np.uint8)  # G
-        bgr[:, :, 2] = np.clip(r, 0, 255).astype(np.uint8)  # R
-        return bgr
 
 
 def execute_shell_script(

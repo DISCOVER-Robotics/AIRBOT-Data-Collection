@@ -1,16 +1,15 @@
-from typing import Dict
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.image import AxesImage
-
 from airbot_data_collection.common.visualizers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
     VisualizerBasis,
 )
-from airbot_data_collection.utils import get_dpi, optimal_grid, resolution_to_inches
+from airbot_data_collection.utils import optimal_grid
+from airbot_data_collection.common.visualizers.tk import get_dpi, resolution_to_inches
+from airbot_data_collection.basis import DictDataType
 
 
 class PltVisualizer(VisualizerBasis):
@@ -21,14 +20,14 @@ class PltVisualizer(VisualizerBasis):
         self._displays: dict[str, AxesImage] = {}
         return True
 
-    def update(self, data: dict[str, np.ndarray], info: SampleInfo) -> bool:
+    def on_update(self, data: DictDataType[np.ndarray], info: SampleInfo) -> bool:
         if not self._displays:
             img_num = len(data)
             if self.config.max_num > 0:
                 row, col = self.config.max_num, np.ceil(img_num / self.config.max_num)
             else:
                 # TODO: should use all image ratios？
-                img_shape = list(data.values())[0].shape
+                img_shape = list(data.values())[0]["data"].shape
                 img_ratio = img_shape[1] / img_shape[0]
                 row, col = optimal_grid(
                     img_num,

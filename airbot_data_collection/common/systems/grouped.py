@@ -1,7 +1,6 @@
 from pydantic import (
     BaseModel,
     NonNegativeFloat,
-    computed_field,
     model_validator,
     Field,
 )
@@ -39,9 +38,6 @@ from logging import getLogger
 from collections import defaultdict, Counter
 from functools import cached_property
 import time
-# import sys
-
-# sys.setrecursionlimit(200)
 
 
 Component = Union[System, Sensor]
@@ -137,13 +133,11 @@ class ComponentGroupsConfig(ComponentsConfig[T]):
             )
         return self
 
-    @computed_field
     @property
     def instance_dict(self) -> Dict[str, T]:
         """Returns a dictionary of component instances."""
         return dict(zip(self.unique_keys, self.instances))
 
-    @computed_field
     @cached_property
     def unique_keys(self) -> List[str]:
         """Get the unique keys composed by group names and component names"""
@@ -152,7 +146,6 @@ class ComponentGroupsConfig(ComponentsConfig[T]):
             f"{group_name}/{name}" for group_name, name in zip(self.groups, self.names)
         ]
 
-    @computed_field
     @cached_property
     def unique_groups(self) -> List[str]:
         groups = []
@@ -161,7 +154,6 @@ class ComponentGroupsConfig(ComponentsConfig[T]):
                 groups.append(group)
         return groups
 
-    @computed_field
     @cached_property
     def grouped_config(
         self,
@@ -178,7 +170,6 @@ class ComponentGroupsConfig(ComponentsConfig[T]):
             grouped_configs[group_name][self.roles[index]].append(config)
         return defaultdict_to_dict(grouped_configs)
 
-    @computed_field
     @cached_property
     def grouped_instance(self) -> Dict[str, Dict[ComponentRole, List[T]]]:
         """Get the grouped component instances."""
@@ -189,7 +180,6 @@ class ComponentGroupsConfig(ComponentsConfig[T]):
             )
         return defaultdict_to_dict(grouped_instances)
 
-    @computed_field
     @cached_property
     def grouped_name(self) -> Dict[str, Dict[ComponentRole, List[str]]]:
         """Get the grouped component names."""

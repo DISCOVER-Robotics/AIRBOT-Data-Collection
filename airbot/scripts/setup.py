@@ -234,11 +234,11 @@ for i, index in enumerate(list(used_camera_indices)):
                 camera_params[bus] = {
                     "fps": 30,
                 }
-                target = "airbot_data_collection.airbot.sensors.cameras.intelrealsense.IntelRealSenseCamera"
+                target = "airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera"
             else:
                 bus = camera.device.info.bus_info
                 file_name = camera.device.filename
-                target = "airbot_data_collection.airbot.sensors.cameras.v4l2.V4L2Camera"
+                target = "airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera"
             camera_config["_target_"] = target
             camera_params[bus].update(camera_config)
             logger.info(f"Camera {index} bus/serial info: {bus}")
@@ -361,7 +361,7 @@ while True:
         components = {
             "instances": [
                 {
-                    "_target_": "airbot_data_collection.airbot.robots.airbot_play.AIRBOTPlay",
+                    "_target_": "airbot.robots.airbot_play.AIRBOTPlay",
                     "port": 50050 + i,
                 }
                 for i in range(len(can_itfs))
