@@ -499,7 +499,7 @@ def main():
         if success:
             print("\n🎉 任务完成!")
             print(f"输出文件: {merger.output_file}")
-            print(f"分辨率: 1280x720 (720P)")
+            print("分辨率: 1280x720 (720P)")
             print(f"时长: {merger.max_duration:.2f} 秒")
         else:
             print("\n❌ 任务失败，请检查错误信息")

@@ -283,12 +283,14 @@ class GroupedComponentsSystemConfig(BaseModel):
                     "clear auto_control.groups."
                 )
                 self.auto_control.groups = []
-        self.auto_control.rates = ensure_equal_length(
-            self.auto_control.groups, self.auto_control.rates
-        )
-        self.auto_control.modes = ensure_equal_length(
-            self.auto_control.groups, self.auto_control.modes
-        )
+        auto_groups = self.auto_control.groups
+        if auto_groups:
+            self.auto_control.rates = ensure_equal_length(
+                auto_groups, self.auto_control.rates
+            )
+            self.auto_control.modes = ensure_equal_length(
+                auto_groups, self.auto_control.modes
+            )
 
 
 class ComponentGroupManager:

@@ -82,4 +82,4 @@ if __name__ == "__main__":
     #                 mask_path = os.path.join(mask_path, mask_file)
     #                 num_colors = extract_merged_mask(mask_path, color_groups)
 
-    print(f"done!")
+    print("done!")

@@ -1,6 +1,7 @@
 update_rate: 20
 dataset:
   directory: basis
+  file_extension: .mcap
 sample_limit:
   size: 1000
   start_round: -1

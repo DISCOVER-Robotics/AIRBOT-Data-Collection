@@ -47,6 +47,11 @@ class ComponentsConfig(BaseModel, Generic[T]):
 
     def model_post_init(self, context) -> None:
         name_length = len(self.names)
+        if name_length == 0:
+            self.instances.clear()
+            self.concurrents.clear()
+            self.update_rates.clear()
+            return
         if name_length != len(self.instances):
             raise ValueError("names and instances must have the same length")
         if len(self.concurrents) == 1:

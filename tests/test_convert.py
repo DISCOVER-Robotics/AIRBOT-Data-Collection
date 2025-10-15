@@ -1,4 +1,5 @@
 from typing import Dict
+from pprint import pprint
 
 act_obs = {
     "time": [0.0],
@@ -37,7 +38,6 @@ for key, value in topic_mapping.items():
         topic_names.update(value.keys())
 
 print(f"All topic names: {topic_names}")
-from pprint import pprint
 
 pprint(topic_mapping)
 
