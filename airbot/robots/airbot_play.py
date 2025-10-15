@@ -45,7 +45,7 @@ class AIRBOTPlayConfig(SystemConfig):
     action: List[ActionConfig] = []
     observation: List[ObservationConfig] = [
         ObservationConfig(
-            interfaces=InterfaceType.joint_states() + [InterfaceType.POSE]
+            interfaces=InterfaceType.joint_states() | {InterfaceType.POSE}
         )
     ]
 
