@@ -43,7 +43,11 @@ class AIRBOTPlayConfig(SystemConfig):
     backend: str = "grpc"  # grpc or thin
     components: List[str] = Field(["arm", "eef"], min_length=1)
     action: List[ActionConfig] = []
-    observation: List[ObservationConfig] = []
+    observation: List[ObservationConfig] = [
+        ObservationConfig(
+            interfaces=InterfaceType.joint_states() + [InterfaceType.POSE]
+        )
+    ]
 
     def model_post_init(self, context):
         if not self.action:

@@ -1,5 +1,1 @@
 _target_: airbot.robots.airbot_play_mock.AIRBOTPlay
-
-url: localhost
-port: 50050
-speed_profile: FAST  # DEFAULT, SLOW, FAST
