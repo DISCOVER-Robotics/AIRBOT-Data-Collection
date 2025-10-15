@@ -3,10 +3,11 @@ from airbot_data_collection.common.systems.mcap_player import (
     McapPlayerConfig,
     McapDatasetConfig,
 )
-from airbot_data_collection.airbot.robots.airbot_mmk import AIRBOTMMK, AIRBOTMMKConfig
+from airbot.robots.airbot_mmk import AIRBOTMMK, AIRBOTMMKConfig
 from airbot_data_collection.basis import SystemMode
 from typing import Optional, List
 from mmk2_types.types import RobotComponents
+import numpy as np
 
 
 class MMKMcapDataReplay:
@@ -46,7 +47,15 @@ class MMKMcapDataReplay:
 
     def update(self) -> bool:
         if obs := self._mcap_player.capture_observation():
+            act_pos = obs["/mmk/action/left_arm/joint_state/position"]
+            print(f"{act_pos=}")
             self._robot.send_action(obs)
+            input("Press Enter to continue...")
+            cur_pos = self._robot.capture_observation()[
+                "observation/left_arm/joint_state"
+            ]["data"]["position"]
+            print(f"{cur_pos=}")
+            print(f"delta_pos={(act_pos - np.array(cur_pos)).tolist()}")
             return True
         else:
             return False
@@ -60,6 +69,7 @@ if __name__ == "__main__":
     import argparse
     import time
     from logging import getLogger
+    from itertools import count
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file_path", type=str)
@@ -79,12 +89,13 @@ if __name__ == "__main__":
     input()
     logger.info("Starting replay...")
     try:
-        while True:
+        for step in count():
+            logger.info(f"step: {step}")
             start = time.perf_counter()
             if mmk_replay.update():
                 sleep_time = period - (time.perf_counter() - start)
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
+                # if sleep_time > 0:
+                #     time.sleep(sleep_time)
             else:
                 logger.info("Replay finished.")
                 break
