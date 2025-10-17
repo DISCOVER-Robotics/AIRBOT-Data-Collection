@@ -51,6 +51,10 @@ class Configurer(ConfigurerBasis[T]):
                 config_path = path
                 print(f"Found config file at {config_path}")
                 break
+            else:
+                raise FileNotFoundError(
+                    "The `config.yaml` file cannot be found automatically. Please ensure that the configuration file is placed in the working directory or at most one of its next-level subdirectories, or manually specify its path."
+                )
         if config_path:
             base_dir = self._main_dir if args.base_dir == "__main__" else args.base_dir
             ori_config_path = Path(config_path)
