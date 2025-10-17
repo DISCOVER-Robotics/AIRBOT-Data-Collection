@@ -10,14 +10,13 @@ demonstrator:
       names:
         - camera
       instances:
-        -
+        - _target_: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
           camera_index: null
           height: 480
           width: 640
           enable_depth: true
           align_depth: true
       roles:
-        # - f
         - o
 dataset:
   directory: realsense
