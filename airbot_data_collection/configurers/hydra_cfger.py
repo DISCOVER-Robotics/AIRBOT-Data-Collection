@@ -77,7 +77,7 @@ class Configurer(ConfigurerBasis[T]):
     @classmethod
     def merge_dicts(cls, base: dict, overrides: dict):
         merged = OmegaConf.merge(base, overrides)
-        cls.get_logger().info(f"Merged config:\n{OmegaConf.to_yaml(merged)}")
+        # cls.get_logger().info(f"Merged config:\n{OmegaConf.to_yaml(merged)}")
         return merged
 
     def __set_dict_config(self, dict_config: DictConfig) -> None:
