@@ -1,3 +1,5 @@
+# @package _global_
+
 defaults:
   - post_capture@demonstrator.instance: "4"
   - /robots: airbot_play_mock

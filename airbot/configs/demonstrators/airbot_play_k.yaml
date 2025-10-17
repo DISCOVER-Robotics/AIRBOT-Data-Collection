@@ -1,5 +1,8 @@
 # @package _global_
 
+defaults:
+  - /robots: airbot_play
+
 demonstrator:
   name: grouped
   instance:
@@ -9,16 +12,19 @@ demonstrator:
     components:
       groups:
         - /
+        - /
+        - /
       names:
-        - camera
+        - ""
+        - follow_camera
+        - env_camera
       instances:
+        - "${merge_cfg:${robots}, {port: 50051}}"
         - _target_: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
-          camera_index: null
-          height: 480
-          width: 640
-          enable_depth: true
-          align_depth: true
+        - _target_: airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera
       roles:
+        - l
         - o
+
 dataset:
-  directory: realsense
+  directory: airbot_play

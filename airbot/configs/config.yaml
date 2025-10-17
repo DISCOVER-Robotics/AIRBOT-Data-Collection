@@ -1,4 +1,4 @@
 defaults:
   - basis
-  - demonstrators@_global_: setup
+  - demonstrators: setup
   - override hydra/job_logging: custom
