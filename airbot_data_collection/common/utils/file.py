@@ -1,43 +1,38 @@
-import os
 from typing import Optional
+from collections.abc import Generator
+from pathlib import Path
 
 
-def find_matching_files(
-    search_dirs: tuple[str, ...],
-    filenames: tuple[str, ...],
-    end_with: tuple[str, ...] = (".yaml", ".yml"),
-    strict: bool = False,
-    ignore_path: bool = False,
-    ignore_empty: bool = True,
-) -> list[Optional[str]]:
-    result: list[Optional[str]] = []
-    search_dirs = [os.path.abspath(dir) for dir in search_dirs]
-    for name in filenames:
-        if ignore_empty and not name:
-            result.append(name)
-            continue
-        elif ignore_path and "/" in name:
-            assert os.path.exists(name), f"File {os.path.abspath(name)} does not exist."
-            result.append(name)
-            continue
-        target_base = os.path.splitext(name)[0]
-        found_path = None
-        for search_dir in search_dirs:
-            for root, _, files in os.walk(search_dir):
-                for file in files:
-                    if file.endswith(end_with):
-                        file_base = os.path.splitext(file)[0]
-                        if file_base == target_base:
-                            found_path = os.path.abspath(os.path.join(root, file))
-                            break
-                if found_path:
-                    break
-            if found_path:
-                break
-        else:
-            if strict:
-                raise FileNotFoundError(
-                    f"File {name} not found in searching directories: {search_dirs}"
-                )
-        result.append(found_path)  # None if not found
-    return result
+def find_file_paths(
+    root: Path, name: str, max_depth: Optional[int] = None
+) -> Generator[Path]:
+    """
+    Performs a depth-first search under the given directory to find files with the specified name,
+    with an optional maximum search depth.
+
+    Args:
+        root (Path): The root directory to start the search from.
+        name (str): The filename to search for.
+        max_depth (Optional[int]): The maximum depth to traverse into subdirectories.
+                                   If None, there is no depth limit.
+
+    Yields:
+        Generator[Path]: Paths to all files matching the given name.
+    """
+    root = Path(root).resolve()
+    if not root.is_dir():
+        raise ValueError(f"The specified path is not a directory: {root}")
+
+    def _walk_with_depth(current_path: Path, current_depth: int):
+        if max_depth is not None and current_depth > max_depth:
+            return
+        try:
+            for item in current_path.iterdir():
+                if item.is_dir():
+                    yield from _walk_with_depth(item, current_depth + 1)
+                elif item.is_file() and item.name == name:
+                    yield item
+        except PermissionError as e:
+            print(e)
+
+    yield from _walk_with_depth(root, 0)

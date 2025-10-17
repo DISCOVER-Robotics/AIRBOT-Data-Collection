@@ -3,6 +3,7 @@ from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 from airbot_data_collection.configurers.basis import ConfigurerBasis, T
 from airbot_data_collection.common.utils.utils import relative_path_between
+from airbot_data_collection.common.utils.file import find_file_paths
 from hydra.core import hydra_config
 import hydra
 import argparse
@@ -13,11 +14,12 @@ class Configurer(ConfigurerBasis[T]):
     """The configurer using Hydra as the backend."""
 
     def parse(self) -> None:
+        cwd = Path.cwd()
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("--config-path", "--path", default=None)
         parser.add_argument(
             "--base-dir",
-            default=str(Path.cwd()),
+            default=str(cwd),
             help="The base directory for config path."
             "__main__ for main file directory. Default to the current working directory.",
         )
@@ -44,9 +46,14 @@ class Configurer(ConfigurerBasis[T]):
         store(self.config_class, name=config_name)
         store.add_to_hydra_store()
         config_path = args.config_path
-        if config_path is not None:
+        if config_path is None:
+            for path in find_file_paths(cwd, "config.yaml", 2):
+                config_path = path
+                print(f"Found config file at {config_path}")
+                break
+        if config_path:
             base_dir = self._main_dir if args.base_dir == "__main__" else args.base_dir
-            ori_config_path = Path(args.config_path)
+            ori_config_path = Path(config_path)
             if ori_config_path.suffix == ".yaml":
                 config_dir = ori_config_path.parent
                 config_name = ori_config_path.stem
@@ -69,7 +76,7 @@ class Configurer(ConfigurerBasis[T]):
             sys.path.insert(0, cwd)
         elif add_cwd_mode == "append":
             sys.path.append(cwd)
-        hydra.main(config_path, config_name, None)(self.__set_dict_config)()
+        hydra.main(config_path or None, config_name, None)(self.__set_dict_config)()
         sys.path.pop()
         if self._dict_config is None:
             exit(0)
