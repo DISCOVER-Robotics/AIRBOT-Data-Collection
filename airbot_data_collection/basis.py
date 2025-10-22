@@ -217,6 +217,10 @@ class Sensor(ConfigurableBasis):
 
 
 class System(Sensor):
+    def __init__(self, config: ConfigType = None, **kwargs):
+        super().__init__(config, **kwargs)
+        self._current_mode = None
+
     @abstractmethod
     def send_action(self, action: Any) -> Any: ...
 
