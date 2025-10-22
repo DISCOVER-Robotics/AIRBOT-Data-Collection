@@ -36,7 +36,8 @@ class ComponentConfig(BaseModel, Generic[T]):
 class ComponentsConfig(BaseModel, Generic[T]):
     """The config of multiple components to be used in the demonstration."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+    # TODO: set extra="forbid" after pydantic fix relevant bugs
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # names of the components, e.g. ("left_arm", "right_arm", "left_camera")
     # if empty, no component will be used
@@ -79,7 +80,7 @@ class ComponentsConfig(BaseModel, Generic[T]):
 
 
 class DatasetConfig(BaseModel):
-    root: str = "./data"  # root directory of all data
+    root: Path = Path("./data")  # root directory of all data
     # relative directory to the root directory where the data files are stored
     directory: str = ""
     # used to automatically get the start sample round
@@ -87,9 +88,9 @@ class DatasetConfig(BaseModel):
 
     @computed_field
     @property
-    def absolute_directory(self) -> str:
+    def absolute_directory(self) -> Path:
         """Returns the absolute directory path."""
-        return str((Path(self.root) / self.directory).absolute())
+        return (self.root / self.directory).absolute()
 
 
 class SampleLimit(BaseModel):

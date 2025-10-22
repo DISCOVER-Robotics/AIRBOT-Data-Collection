@@ -1,22 +1,22 @@
-import os
 from abc import abstractmethod
 from typing import Any, Dict, Optional
 from airbot_data_collection.basis import ConfigurableBasis
+from pathlib import Path
 
 
 class DataSampler(ConfigurableBasis):
     """Data sampler for sampling kinds of data.TODO: add a close method?"""
 
     @abstractmethod
-    def compose_path(self, directory: str, round: int) -> str:
+    def compose_path(self, directory: Path, round: int) -> Path:
         """Compose the path to the data file. It will be called
         at starting sampling and removing. Before returning, file
         handler can be created to save data in `update` during sampling.
         Args:
-            directory (str): The directory where the data will be saved.
+            directory (Path): The directory where the data will be saved.
             round (int): The round number of the data.
         Returns:
-            str: The path to the data file.
+            Path: The path to the data file.
         """
 
     def clear(self) -> None:
@@ -35,7 +35,7 @@ class DataSampler(ConfigurableBasis):
         """
         return data
 
-    def remove(self, path: str) -> Optional[bool]:
+    def remove(self, path: Path) -> Optional[bool]:
         """Remove the data from the given or last saved path.
         If the return value is None, the demonstrate
         interface will try to remove the path."""
@@ -47,10 +47,10 @@ class DataSampler(ConfigurableBasis):
         self._info = info
 
     @abstractmethod
-    def save(self, path: str, data: Any) -> bool:
+    def save(self, path: Path, data: Any) -> bool:
         """Save the data to the given path.
         Args:
-            path (str): The path to the data file.
+            path (Path): The path to the data file.
             data (Any): The data to be saved. If used in
             demonstration, the data are those stored in the
             data buffer of the demonstration interface.
@@ -65,11 +65,11 @@ class MockDataSampler(DataSampler):
     def update(self, data) -> None:
         return None
 
-    def save(self, path: str) -> bool:
+    def save(self, path: Path, data: Any) -> bool:
         return True
 
-    def remove(self, path: str) -> bool:
+    def remove(self, path: Path) -> bool:
         return True
 
-    def compose_path(self, directory: str, round: int) -> str:
-        return os.path.join(directory, f"mock_{round}.data")
+    def compose_path(self, directory: Path, round: int) -> Path:
+        return directory / f"mock_{round}.data"

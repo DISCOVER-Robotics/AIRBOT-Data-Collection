@@ -1,14 +1,19 @@
 import numpy as np
-from typing import Any
+from typing import Any, Generic, TypeVar
 from abc import abstractmethod
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from logging import getLogger
 from airbot_data_collection.basis import ConfigurableBasis
 
 
-class EnvironmentOutput(BaseModel):
+T = TypeVar("T")
+
+
+class EnvironmentOutput(BaseModel, Generic[T]):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     # The current observation from the environment
-    observation: Any
+    observation: T
     # The reward obtained from the last action
     reward: float = 0.0
     # Whether the agent reaches the terminal state (as defined under the MDP of the task) which can be positive or negative. If true, the user needs to call reset().
@@ -19,7 +24,7 @@ class EnvironmentOutput(BaseModel):
     info: dict = {}
 
 
-class EnvironmentBasis(ConfigurableBasis):
+class EnvironmentBasis(ConfigurableBasis, Generic[T]):
     @abstractmethod
     def reset(self) -> None:
         """Reset the environment"""
@@ -29,7 +34,7 @@ class EnvironmentBasis(ConfigurableBasis):
         """Take an action in the environment"""
 
     @abstractmethod
-    def output(self) -> EnvironmentOutput:
+    def output(self) -> EnvironmentOutput[T]:
         """Get the current output from the environment.
         This method should not change the state of the environment.
         """
@@ -64,7 +69,7 @@ class MockEnvironment(EnvironmentBasis):
         # self.get_logger().info(f"Environment input: {input}")
         self._t += 1
 
-    def output(self) -> EnvironmentOutput:
+    def output(self) -> EnvironmentOutput[np.ndarray]:
         # self._output_t += 1
         # if self._t != self._output_t:
         #     raise RuntimeError(

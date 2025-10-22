@@ -189,6 +189,10 @@ class ComponentGroupsConfig(ComponentsConfig[T]):
         return defaultdict_to_dict(grouped_names)
 
 
+class SystemSensorComponentGroupsConfig(ComponentGroupsConfig[Component]):
+    """Configuration for multiple systems and sensors in groups."""
+
+
 class AutoControlConfig(BaseModel):
     # the group names where the leader states
     # are used to control the follower states
@@ -268,7 +272,9 @@ class GroupsSendActionConfig(BaseModel):
 
 
 class GroupedComponentsSystemConfig(BaseModel):
-    components: ComponentGroupsConfig[Component]
+    # NOTE: need to use a predefined class here to avoid
+    # pickling issues with dynamically created generic types
+    components: SystemSensorComponentGroupsConfig
     auto_control: AutoControlConfig = Field(default_factory=AutoControlConfig)
     # the post capture config for each group leader
     post_capture: Dict[str, PostCaptureConfig] = {}

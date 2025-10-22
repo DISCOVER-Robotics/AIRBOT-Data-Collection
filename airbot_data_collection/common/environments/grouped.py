@@ -38,7 +38,7 @@ class GroupedEnvironment(EnvironmentBasis):
     def input(self, input: GroupsSendActionConfig):
         return self.interface.send_action(input)
 
-    def output(self):
+    def output(self) -> EnvironmentOutput[dict]:
         return EnvironmentOutput(observation=self.interface.capture_observation())
 
     def shutdown(self):

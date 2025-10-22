@@ -83,10 +83,10 @@ class McapDataSampler(DataSampler):
         self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
         return True
 
-    def compose_path(self, directory, round) -> str:
-        path = str(Path(directory) / f"{round}.mcap")
+    def compose_path(self, directory: Path, round: int) -> Path:
+        path = directory / f"{round}.mcap"
         self._mf_writer.unset_writer()
-        self._mf_writer.set_writer(Writer(path), True)
+        self._mf_writer.set_writer(Writer(str(path)), True)
         for coder in self._coders.values():
             coder.reset()
         return path
@@ -105,7 +105,7 @@ class McapDataSampler(DataSampler):
                     data.pop(key)
         return data
 
-    def save(self, path: str, data: dict) -> str:
+    def save(self, path: Path, data: dict) -> str:
         """Save the data to a MCAP file."""
         writer = self._mf_writer.get_writer()
         mcap_tool = McapTool(writer)

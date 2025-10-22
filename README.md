@@ -7,6 +7,9 @@ pip install airbot_py-5.1.6-py3-none-any.whl -i https://mirrors.huaweicloud.com/
 bash install.sh
 # for some airbot scripts
 export PYTHONPATH="$(pwd):$PYTHONPATH"
+# for mcap cli
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install mcap
 ```
 
 # Development

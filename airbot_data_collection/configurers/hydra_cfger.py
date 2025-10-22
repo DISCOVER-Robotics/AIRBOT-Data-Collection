@@ -76,12 +76,14 @@ class Configurer(ConfigurerBasis[T]):
         self._dict_config = None
         add_cwd_mode = args.add_cwd_mode
         cwd = str(Path.cwd().absolute())
+        # syspath = sys.path.copy()
         if add_cwd_mode == "prepend":
             sys.path.insert(0, cwd)
         elif add_cwd_mode == "append":
             sys.path.append(cwd)
         hydra.main(config_path or None, config_name, None)(self.__set_dict_config)()
-        sys.path.pop()
+        # NOTE: restoring sys.path may cause issues if using multiprocessing with spawn method
+        # sys.path = syspath
         if self._dict_config is None:
             exit(0)
 
