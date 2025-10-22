@@ -3,7 +3,7 @@ from airbot_data_collection.common.systems.mcap_player import (
     McapPlayerConfig,
     McapDatasetConfig,
 )
-from airbot.robots.airbot_play import AIRBOTPlay, AIRBOTPlayConfig
+from airbot_ie.robots.airbot_play import AIRBOTPlay, AIRBOTPlayConfig
 from airbot_data_collection.basis import SystemMode
 from typing import Optional, List
 

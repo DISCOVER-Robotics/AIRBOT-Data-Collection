@@ -1,7 +1,7 @@
 if __name__ == "__main__":
     import argparse
     from airbot_data_collection.tests.test_mcap_player import McapSinglePosePlayer
-    from airbot.robots.airbot_play import (
+    from airbot_ie.robots.airbot_play import (
         AIRBOTPlay,
         AIRBOTPlayConfig,
         ActionConfig,

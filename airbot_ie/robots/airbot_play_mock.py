@@ -1,4 +1,4 @@
-from airbot.robots.airbot_play import (
+from airbot_ie.robots.airbot_play import (
     AIRBOTPlay as AIRBOTPlayReal,
     AIRBOTPlayConfig,
 )

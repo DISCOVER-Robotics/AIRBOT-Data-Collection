@@ -26,7 +26,7 @@ try:
 
     AVAILABLE_BACKEND.add("grpc")
 except ImportError:
-    from airbot.robots.airbot_play_thin import (
+    from airbot_ie.robots.airbot_play_thin import (
         AIRBOTArm,
         RobotMode,
         SpeedProfile,

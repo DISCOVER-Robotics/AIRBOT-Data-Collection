@@ -2,7 +2,7 @@ from mcap_data_loader.utils.mcap_utils import (
     McapFlatBuffersWriter,
     FlatBuffersSchemas,
 )
-from airbot.samplers.mcap_sampler import (
+from airbot_ie.samplers.mcap_sampler import (
     AIRBOTMcapDataSampler,
     AIRBOTMcapDataSamplerConfig,
     TaskInfo,

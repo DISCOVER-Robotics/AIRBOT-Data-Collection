@@ -361,7 +361,7 @@ while True:
         components = {
             "instances": [
                 {
-                    "_target_": "airbot.robots.airbot_play.AIRBOTPlay",
+                    "_target_": "airbot_ie.robots.airbot_play.AIRBOTPlay",
                     "port": 50050 + i,
                 }
                 for i in range(len(can_itfs))

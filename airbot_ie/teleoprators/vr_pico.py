@@ -1,4 +1,4 @@
-from airbot.teleoprators.vr_quest import (
+from airbot_ie.teleoprators.vr_quest import (
     VRQuestController,
     TeleopConfig,
     EventConfig,
@@ -26,7 +26,7 @@ class VRPicoController(VRQuestController):
 
 
 if __name__ == "__main__":
-    from airbot.teleoprators.vr_quest import main
+    from airbot_ie.teleoprators.vr_quest import main
 
     main(
         VRPicoController(

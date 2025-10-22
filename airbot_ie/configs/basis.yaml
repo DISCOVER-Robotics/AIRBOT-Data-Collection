@@ -9,7 +9,7 @@ concurrent_save: none
 sampler:
   name: airbot_mcap_sampler
   instance:
-    _target_: airbot.samplers.mcap_sampler.AIRBOTMcapDataSampler
+    _target_: airbot_ie.samplers.mcap_sampler.AIRBOTMcapDataSampler
     task_info:
       operator: Anonymous
       station: ptk-001
@@ -55,4 +55,4 @@ managers:
     - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
 
 fsm:
-  _target_: airbot.configs.fsm.get_fsm_config
+  _target_: airbot_ie.configs.fsm.get_fsm_config
