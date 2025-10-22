@@ -389,7 +389,7 @@ class ComponentGroupManager:
         self, group_name: str, role: ComponentRole, mode: SystemMode, action_value: Any
     ) -> List[Component]:
         for instance in self.components.grouped_instance[group_name][role]:
-            if instance.switch_mode(mode):
+            if instance.current_mode is mode or instance.switch_mode(mode):
                 instance.send_action(action_value)
             else:
                 self.get_logger().error(
