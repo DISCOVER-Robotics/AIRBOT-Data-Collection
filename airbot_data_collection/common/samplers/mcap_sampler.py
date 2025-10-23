@@ -70,16 +70,9 @@ class McapDataSampler(DataSampler):
     def on_configure(self):
         """Configure the mcap data sampler."""
         self._mf_writer = McapFlatBuffersWriter(self.config.initial_builder_size)
-        self._init_upload()
         self._coders = defaultdict(
             partial(AvCoder, time_base=self.config.video_time_base)
         )
-        # self._save_executor = ThreadPoolExecutor(
-        #     max_workers=4, thread_name_prefix="mcap_h264_coder"
-        # )
-        # self._update_executor = ThreadPoolExecutor(
-        #     max_workers=1, thread_name_prefix="mcap_updater"
-        # )
         self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
         return True
 
@@ -94,15 +87,17 @@ class McapDataSampler(DataSampler):
     def update(self, data: dict):
         """Update the data with the latest frames."""
         # print(f"Updating data: {data.keys()}...")
+        flag = None
         for key in tuple(data.keys()):
-            if self._is_save_h264(key):
-                frame = data.pop(key)
+            if flag := self._is_save_h264(key):
+                frame = data[key]
                 self._coders[key].encode_frame(
                     frame["data"], frame["t"] // self._frame_stamp_factor
                 )
             else:
-                if self._add_messages(key, [data[key]], [data["log_stamps"]]):
-                    data.pop(key)
+                flag = self._add_messages(key, [data[key]], [data["log_stamps"]])
+            if flag:
+                data.pop(key)
         return data
 
     def save(self, path: Path, data: dict) -> str:
@@ -118,13 +113,8 @@ class McapDataSampler(DataSampler):
             for key, value in system_info.items():
                 flattened_value = flatten(value, "path")
                 # Convert all values to strings
-                string_dict = {
-                    k: json.dumps(v) if not isinstance(v, str) else v
-                    for k, v in flattened_value.items()
-                }
+                string_dict = {k: json.dumps(v) for k, v in flattened_value.items()}
                 writer.add_metadata(key, string_dict)
-
-        # add attachments
         writer.add_attachment(
             time_ns(),
             time_ns(),
@@ -134,79 +124,43 @@ class McapDataSampler(DataSampler):
         )
         log_stamps = data.pop("log_stamps")
         mcap_tool.add_log_stamps_attachment(log_stamps)
-        # register channels and add messages
         for key, values in data.items():
             if not self._add_messages(key, values, log_stamps):
                 self.get_logger().warning(f"Unknown data type for key: {key}")
         if self._coders:
-            futures = []
             for key, coder in self._coders.items():
-                # futures.append(
-                #     self._executor.submit(
-                #         self._add_video_attachment, writer, key, coder
-                #     )
-                # )
                 writer.add_attachment(
                     time_ns(), time_ns(), key, MediaType.VIDEO_MP4, coder.end()
                 )
-
-            # [_ for _ in as_completed(futures)]
-            # wait(futures, 10.0)
-
         writer.finish()
         return path
 
     def _add_messages(
         self, key: str, values: List[dict], log_stamps: List[float]
-    ) -> str:
+    ) -> FlatBuffersSchemas:
         # self.get_logger().info(f"Adding messages for key: {key}")
         schema_type = self._key_to_schema_type(key)
-        if schema_type is FlatBuffersSchemas.NONE:
-            return ""
-        color_save_type = self.config.save_type.color
-        topics = key
-        topic_iter = [key]
-        if schema_type is FlatBuffersSchemas.COMPRESSED_IMAGE:
-            data_type = "compressed_image"
-            kwargs = {
-                "format": color_save_type,
-                "frame_id": "airbot",
-            }
-        elif schema_type is FlatBuffersSchemas.RAW_IMAGE:
-            data_type = "raw_image"
-            kwargs = {"encoding": "", "frame_id": "airbot"}
-        elif schema_type is FlatBuffersSchemas.FLOAT_ARRAY:
-            if self._is_field_arr(key):
-                data_type = "field_array"
-                # FIXME: handle when data is not a dict
-                fields = values[0]["data"].keys()
-                topics = {}
-                for field in fields:
-                    topics[field] = f"{key}/{field}"
-                topic_iter = topics.values()
-                kwargs = {"fields": fields}
+        if schema_type is not FlatBuffersSchemas.NONE:
+            color_save_type = self.config.save_type.color
+            if schema_type is FlatBuffersSchemas.COMPRESSED_IMAGE:
+                kwargs = {"format": color_save_type, "frame_id": "airbot"}
+            elif schema_type is FlatBuffersSchemas.RAW_IMAGE:
+                kwargs = {"encoding": "", "frame_id": "airbot"}
             else:
-                data_type = "array"
-        else:
-            data_type = ""
-        for topic in topic_iter:
-            self._mf_writer.register_channel(topic, schema_type, False)
-        if data_type:
-            assert len(log_stamps) == len(values), (
-                f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
-            )
+                kwargs = {}
+            if not len(log_stamps) == len(values):
+                raise ValueError(
+                    f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
+                )
             _ = [
                 self._mf_writer.add_message(
-                    data_type,
-                    topics,
-                    data=value["data"],
-                    publish_time=value["t"],
-                    log_time=log_stamps[i],
-                    **kwargs,
+                    schema_type, key, value["data"], value["t"], log_stamps[i], **kwargs
                 )
                 for i, value in enumerate(values)
             ]
-        return data_type
+        # else:
+        #     self.get_logger().warning(f"Unknown data type for key: {key}")
+        return schema_type
 
     @cache
     def _is_save_h264(self, key: str) -> bool:
@@ -228,16 +182,9 @@ class McapDataSampler(DataSampler):
                 return FlatBuffersSchemas.RAW_IMAGE
             else:
                 raise NotImplementedError
-        # TODO: use flatten array
-        save_field_arr = "joint_state" in key or "pose" in key or "wrench" in key
-        save_arr = "action" in key
-        if save_field_arr or save_arr:
+        if "action" in key or "joint_state" in key or "pose" in key or "wrench" in key:
             return FlatBuffersSchemas.FLOAT_ARRAY
         return FlatBuffersSchemas.NONE
-
-    @cache
-    def _is_field_arr(self, key: str) -> bool:
-        return "joint_state" in key or "pose" in key or "wrench" in key
 
     @classmethod
     def add_config_metadata(cls, writer: Writer, config: McapDataSamplerConfig):

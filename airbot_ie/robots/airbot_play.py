@@ -238,7 +238,7 @@ class AIRBOTPlay(System):
             f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
         )
         self._js_fields = {"position", "velocity", "effort"}
-        self._pose_fields = {"position", "orientation"}
+        self._pose_fields = ("position", "orientation")
         self._post_capture = defaultdict(dict)
         self._default_limit: Dict[str, Dict[str, Dict[int, Tuple]]] = {
             "E2B": {"eef/joint_state/position": {0: (0, 0.0471)}},
@@ -306,23 +306,16 @@ class AIRBOTPlay(System):
             pose = self.interface.get_end_pose()
             if self.config.relative_observation:
                 pose = self.rela_obs_ctrl.to_relative(*pose)
-            obs["arm/pose"] = {
-                "t": time_ns(),
-                "data": {
-                    "position": pose[0],
-                    "orientation": pose[1],
-                },
-            }
+            for key, value in zip(self._pose_fields, pose):
+                obs[f"arm/pose/{key}"] = {"t": time_ns(), "data": value}
             self._metrics["durations"]["capture/pose"] = perf_counter() - start
         start = perf_counter()
         for component in self.config.components:
-            obs[f"{component}/joint_state"] = {
-                "t": time_ns(),
-                "data": {
-                    field: self._get_joint_state(component, field)
-                    for field in self._js_fields
-                },
-            }
+            for field in self._js_fields:
+                obs[f"{component}/joint_state/{field}"] = {
+                    "t": time_ns(),
+                    "data": self._get_joint_state(component, field),
+                }
         self._metrics["durations"]["capture/joint_state"] = perf_counter() - start
         return obs
 
