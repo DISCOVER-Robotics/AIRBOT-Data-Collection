@@ -1,5 +1,5 @@
 from airbot_data_collection.common.devices.cameras.utils import CameraRGBDConfig
-from airbot_data_collection.basis import Sensor, DictDataType
+from airbot_data_collection.basis import Sensor, DictDataStamped
 from typing import Optional
 from time import time_ns
 import numpy as np
@@ -28,7 +28,7 @@ class MockCamera(Sensor):
 
     def capture_observation(
         self, timeout: Optional[float] = None
-    ) -> DictDataType[np.ndarray]:
+    ) -> DictDataStamped[np.ndarray]:
         if self.config.random:
             self._update_random_image()
         observation = {}

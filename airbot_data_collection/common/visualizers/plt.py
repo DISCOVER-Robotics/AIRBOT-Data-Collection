@@ -9,7 +9,7 @@ from airbot_data_collection.common.visualizers.basis import (
 )
 from airbot_data_collection.utils import optimal_grid
 from airbot_data_collection.common.visualizers.tk import get_dpi, resolution_to_inches
-from airbot_data_collection.basis import DictDataType
+from airbot_data_collection.basis import DictDataStamped
 
 
 class PltVisualizer(VisualizerBasis):
@@ -20,7 +20,7 @@ class PltVisualizer(VisualizerBasis):
         self._displays: dict[str, AxesImage] = {}
         return True
 
-    def on_update(self, data: DictDataType[np.ndarray], info: SampleInfo) -> bool:
+    def on_update(self, data: DictDataStamped[np.ndarray], info: SampleInfo) -> bool:
         if not self._displays:
             img_num = len(data)
             if self.config.max_num > 0:

@@ -7,7 +7,7 @@ from airbot_data_collection.common.visualizers.basis import (
     SampleInfo,
     VisualizerBasis,
 )
-from airbot_data_collection.basis import DictDataType
+from airbot_data_collection.basis import DictDataStamped
 
 
 def get_dpi() -> float:
@@ -36,7 +36,7 @@ class TkinterVisualizer(VisualizerBasis):
         self.windows: dict[str, dict[str, Union[Canvas, Toplevel]]] = {}
         return True
 
-    def on_update(self, data: DictDataType[np.ndarray], info: SampleInfo):
+    def on_update(self, data: DictDataStamped[np.ndarray], info: SampleInfo):
         for title, data_dict in data.items():
             img = data_dict["data"]
             image_pil = Image.fromarray(img.astype(np.uint8), mode="RGB")

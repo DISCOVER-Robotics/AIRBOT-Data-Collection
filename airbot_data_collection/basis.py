@@ -13,26 +13,16 @@ from typing import (
     Set,
     DefaultDict,
     Type,
-    Generic,
-    TypeVar,
     final,
 )
-from typing_extensions import Self, TypedDict
+from typing_extensions import Self
 from pydantic import BaseModel
 from collections import defaultdict
 from airbot_data_collection.utils import StrEnum
+from mcap_data_loader.utils.basic import DataStamped, DictDataStamped
 
 
 PACKAGE_NAME = "airbot-data-collection"
-T = TypeVar("T")
-
-
-class DictDataValue(TypedDict, Generic[T]):
-    t: float
-    data: T
-
-
-DictDataType = Dict[str, DictDataValue[T]]
 
 
 class SystemMode(Enum):
@@ -164,7 +154,7 @@ class Sensor(ConfigurableBasis):
     @abstractmethod
     def capture_observation(
         self, timeout: Optional[float] = None
-    ) -> Optional[DictDataType]:
+    ) -> Optional[DictDataStamped]:
         """Capture observation from the sensor
         Args:
             timeout: Maximum time to wait for the observation to be ready. If None, wait indefinitely.
@@ -176,7 +166,7 @@ class Sensor(ConfigurableBasis):
         """
         raise NotImplementedError
 
-    def result(self, timeout: Optional[float] = None) -> DictDataType:
+    def result(self, timeout: Optional[float] = None) -> DictDataStamped:
         """Wait and get the result of the last capture_observation call
         Args:
             timeout: Maximum time to wait for the result. If None, wait indefinitely.

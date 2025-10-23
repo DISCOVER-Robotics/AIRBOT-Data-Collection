@@ -1,7 +1,11 @@
 from abc import abstractmethod
 from typing import Optional, Protocol, Union, runtime_checkable, final
 from pydantic import BaseModel, NonNegativeInt, PositiveInt
-from airbot_data_collection.basis import ConfigurableBasis, ConcurrentMode, DictDataType
+from airbot_data_collection.basis import (
+    ConfigurableBasis,
+    ConcurrentMode,
+    DictDataStamped,
+)
 from airbot_data_collection.common.utils.dict_utils import (
     DictKeyFilter,
     DictKeyFilterConfig,
@@ -91,13 +95,13 @@ class VisualizerBasis(ConfigurableBasis):
 
     @final
     def update(
-        self, data: DictDataType, info: Optional[SampleInfo], warm_up: bool = False
+        self, data: DictDataStamped, info: Optional[SampleInfo], warm_up: bool = False
     ) -> None:
         return self.on_update(self._filter(data), info, warm_up)
 
     @abstractmethod
     def on_update(
-        self, data: DictDataType, info: Optional[SampleInfo], warm_up: bool = False
+        self, data: DictDataStamped, info: Optional[SampleInfo], warm_up: bool = False
     ) -> None:
         """Update the visualizer with the new data."""
 
@@ -112,6 +116,6 @@ class Visualizer(Protocol):
 
     def configure(self) -> bool: ...
     def update(
-        self, data: DictDataType, info: SampleInfo, warm_up: bool = False
+        self, data: DictDataStamped, info: SampleInfo, warm_up: bool = False
     ) -> None: ...
     def shutdown(self) -> None: ...

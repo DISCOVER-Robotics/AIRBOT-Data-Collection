@@ -7,7 +7,7 @@ from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBDConfig,
     find_video_capture_devices,
 )
-from airbot_data_collection.basis import Sensor, DictDataType
+from airbot_data_collection.basis import Sensor, DictDataStamped
 from pyrealsense2 import config as RSConfig  # noqa: N812
 from pyrealsense2 import format as RSFormat  # noqa: N812
 from pyrealsense2 import pipeline as RSPipeline  # noqa: N812
@@ -174,7 +174,7 @@ class IntelRealSenseCamera(Sensor):
 
     def capture_observation(
         self, timeout: Optional[float] = None
-    ) -> DictDataType[np.ndarray]:
+    ) -> DictDataStamped[np.ndarray]:
         """Capture an observation from the camera.
         Returns:
             A dictionary containing the captured images.

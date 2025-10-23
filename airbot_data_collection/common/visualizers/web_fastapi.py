@@ -9,7 +9,7 @@ from airbot_data_collection.common.visualizers.basis import (
     WebVisualizerConfig,
 )
 from airbot_data_collection.common.utils.progress import run_event_loop
-from airbot_data_collection.basis import DictDataType
+from airbot_data_collection.basis import DictDataStamped
 
 
 class FastAPIVisualizer(VisualizerBasis):
@@ -117,7 +117,7 @@ class FastAPIVisualizer(VisualizerBasis):
         """
         return html
 
-    def on_update(self, data: DictDataType[bytes], info: SampleInfo):
+    def on_update(self, data: DictDataStamped[bytes], info: SampleInfo):
         self.info = info
         for key, value_dict in data.items():
             img_bytes = value_dict["data"]

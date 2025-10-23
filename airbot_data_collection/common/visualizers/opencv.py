@@ -12,7 +12,7 @@ from airbot_data_collection.common.visualizers.basis import (
 )
 from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
 from airbot_data_collection.utils import init_logging
-from airbot_data_collection.basis import DictDataType
+from airbot_data_collection.basis import DictDataStamped
 from multiprocessing.context import SpawnProcess
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing import get_context, current_process
@@ -122,7 +122,7 @@ class OpenCVVisualizer(VisualizerBasis):
         cls.get_logger().info("Update loop stopped")
 
     def on_update(
-        self, data: DictDataType[ImageType], info: SampleInfo, warm_up: bool = False
+        self, data: DictDataStamped[ImageType], info: SampleInfo, warm_up: bool = False
     ) -> bool:
         """Show the data on the OpenCV window."""
         if warm_up or not self._is_concurrent:
@@ -156,7 +156,7 @@ class OpenCVVisualizer(VisualizerBasis):
             return cv2.waitKey(wait_key)
 
     def _get_images(
-        self, data: DictDataType[ImageType], info: SampleInfo, func: Callable
+        self, data: DictDataStamped[ImageType], info: SampleInfo, func: Callable
     ) -> Dict[str, np.ndarray]:
         for key, value_dict in data.items():
             value = value_dict["data"]

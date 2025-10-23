@@ -5,7 +5,7 @@ from time import time_ns
 from typing import Union, Optional
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
-from airbot_data_collection.basis import Sensor, DictDataType
+from airbot_data_collection.basis import Sensor, DictDataStamped
 from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBConfig,
     find_camera_indices,
@@ -74,7 +74,7 @@ class V4L2Camera(Sensor):
 
     def capture_observation(
         self, timeout: Optional[float] = None
-    ) -> DictDataType[Union[bytes, np.ndarray]]:
+    ) -> DictDataStamped[Union[bytes, np.ndarray]]:
         if not self._event.wait(timeout):
             raise TimeoutError("Timeout waiting for camera frame.")
         self._event.clear()
