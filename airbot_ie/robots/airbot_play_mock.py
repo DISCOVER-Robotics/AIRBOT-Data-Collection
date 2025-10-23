@@ -1,6 +1,8 @@
 from airbot_ie.robots.airbot_play import (
     AIRBOTPlay as AIRBOTPlayReal,
     AIRBOTPlayConfig,
+    RobotMode,
+    SpeedProfile,
 )
 from numpy import random
 
@@ -35,21 +37,54 @@ class AIRBOTArmMock:
         return True
 
     def set_speed_profile(self, speed_profile):
-        pass
+        return isinstance(speed_profile, SpeedProfile)
 
     def servo_joint_pos(self, joint_pos, speed_profile=None):
-        pass
+        assert isinstance(joint_pos, list)
+        assert len(joint_pos) == 6
 
     def servo_eef_pos(self, eef_pos, speed_profile=None):
-        pass
+        assert len(eef_pos) == 1
+        assert isinstance(eef_pos, list)
+
+    def move_eef_pos(self, eef_pos, speed_profile=None):
+        self.servo_eef_pos(eef_pos, speed_profile)
 
     def move_to_joint_pos(self, joint_pos, speed_profile=None):
-        pass
+        self.servo_joint_pos(joint_pos, speed_profile)
+
+    def move_to_cart_pose(self, position, orientation, speed_profile=None):
+        assert isinstance(position, list)
+        assert isinstance(orientation, list)
+        assert len(position) == 3
+        assert len(orientation) == 4
+        assert speed_profile is None
+
+    def mit_joint_integrated_control(self, joint_pos, joint_vel, joint_eff, kp, kd):
+        assert isinstance(joint_pos, list)
+        assert isinstance(joint_vel, list)
+        assert isinstance(joint_eff, list)
+        assert isinstance(kp, list)
+        assert isinstance(kd, list)
+        assert len(joint_pos) == 6
+        assert len(joint_vel) == 6
+        assert len(joint_eff) == 6
+        assert len(kp) == 6
+        assert len(kd) == 6
+
+    def servo_cart_pose(self, position, orientation, speed_profile=None):
+        self.move_to_cart_pose(position, orientation, speed_profile)
 
     def get_product_info(self):
         return {"product_type": "replay", "eef_types": ["PE2"]}
 
     def set_params(self, params: dict):
+        return isinstance(params, dict)
+
+    def switch_mode(self, mode):
+        return isinstance(mode, RobotMode)
+
+    def disconnect(self):
         return True
 
 
@@ -61,21 +96,37 @@ class AIRBOTPlay(AIRBOTPlayReal):
     config: AIRBOTPlayConfig
     interface: AIRBOTArmMock
 
-    def send_action(self, action):
-        if not isinstance(action, dict):
-            if len(action) not in (6, 7):
-                raise ValueError(f"Action dimension {len(action)} is not supported.")
-
-    def on_switch_mode(self, mode):
-        return True
-
-    def shutdown(self):
-        return True
-
 
 if __name__ == "__main__":
+    import numpy as np
+
     # Test the mock class
-    robot = AIRBOTPlay()
+    robot = AIRBOTPlay(AIRBOTPlayConfig())
     assert robot.configure()
-    assert robot.capture_observation()
-    # robot.send_action
+    # print(robot.capture_observation())
+    robot.send_action([0.0] * 7)
+    robot.send_action([0.0] * 6)
+    robot.send_action(
+        {
+            "arm/joint_state/position": {"data": np.array([0.0] * 6)},
+            "eef/joint_state/position": {"data": np.array([0.02355])},
+        }
+    )
+    robot.send_action(
+        {
+            "arm/joint_state/position": {"data": np.array([0.0] * 6)},
+            # "eef/joint_state/position": {"data": np.array([0.02355])},
+        }
+    )
+    robot.action_post_process = robot.action_to_list
+    robot.send_action(
+        {
+            "arm/joint_state/position": np.array([0.0] * 6),
+        }
+    )
+    robot.action_post_process = robot.action_forward
+    robot.send_action(
+        {
+            "arm/joint_state/position": [0.0] * 6,
+        }
+    )

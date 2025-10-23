@@ -13,13 +13,15 @@ from typing import (
     Set,
     DefaultDict,
     Type,
+    Literal,
     final,
 )
 from typing_extensions import Self
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, ValidationInfo, ConfigDict
 from collections import defaultdict
 from airbot_data_collection.utils import StrEnum
 from mcap_data_loader.utils.basic import DataStamped, DictDataStamped
+from functools import cached_property
 
 
 PACKAGE_NAME = "airbot-data-collection"
@@ -216,6 +218,9 @@ class System(Sensor):
 
     @final
     def switch_mode(self, mode: SystemMode) -> bool:
+        # NOTE: should we allow switching to the same mode?
+        if self._current_mode == mode:
+            return True
         if self.on_switch_mode(mode):
             self._current_mode = mode
             return True
@@ -277,16 +282,17 @@ class ReferenceMode(StrEnum):
 class CommonConfig(BaseModel):
     """Common configuration for both observation and action."""
 
-    # interfaces to be used for the robot action or observation
-    interfaces: Set[InterfaceType] = set()
     reference_mode: ReferenceMode = ReferenceMode.ABSOLUTE
 
 
 class ActionConfig(CommonConfig):
     """Configuration for the control system of the robot."""
 
-    interfaces: Set[InterfaceType] = {InterfaceType.JOINT_POSITION}
-    pose_reference_frame: str = "base_link"
+    flatten: bool = False
+
+    @property
+    def interfaces(self) -> Set[InterfaceType]:
+        return {}
 
 
 class ObservationConfig(CommonConfig):
@@ -304,6 +310,41 @@ class ObservationConfig(CommonConfig):
 class SystemConfig(BaseModel):
     """Configuration for the robot system."""
 
+    model_config = ConfigDict(validate_default=True)
+
+    components: List[str] = []
     action: List[ActionConfig] = []
     observation: List[ObservationConfig] = []
-    components: List[str] = []
+
+    @field_validator("action", "observation", mode="after")
+    def extend_list(cls, v, info: ValidationInfo) -> List[Any]:
+        """Ensure the field is always a list."""
+        if len(v) == 1:
+            v *= len(info.data["components"])
+        return v
+
+    @cached_property
+    def as_dict(
+        self,
+    ) -> Dict[
+        str,
+        Dict[Literal["action", "observation"], Union[ActionConfig, ObservationConfig]],
+    ]:
+        """Get the config as a nested dict."""
+        cfg_dict = {}
+        for comp, act_cfg, obs_cfg in zip(
+            self.components, self.action, self.observation
+        ):
+            cfg_dict[comp] = {
+                "action": act_cfg,
+                "observation": obs_cfg,
+            }
+        return cfg_dict
+
+    @cached_property
+    def action_types(self) -> Dict[str, Type[ActionConfig]]:
+        """Get the action config types for each component."""
+        action_types = {}
+        for comp, act_cfg in zip(self.components, self.action):
+            action_types[comp] = type(act_cfg)
+        return action_types

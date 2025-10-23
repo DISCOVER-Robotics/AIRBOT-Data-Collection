@@ -1,4 +1,4 @@
-from typing import List, Union, Dict, Tuple, Any, Iterable, Optional
+from typing import List, Union, Dict, Tuple, Any, Iterable, Optional, Literal
 from pydantic import PositiveInt, Field
 from time import time_ns, perf_counter
 from collections import defaultdict
@@ -16,6 +16,16 @@ from airbot_data_collection.basis import (
 )
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.common.utils.coordinate import CoordinateTools
+from airbot_data_collection.common.configs.control import (
+    JointControlBasis,
+    JointPositionServo,
+    JointPositionPlan,
+    JointMIT,
+    PoseControlBasis,
+    PoseServo,
+    PosePlan,
+)
+from mcap_data_loader.utils.basic import DictDataStamped, DataStamped
 from functools import cache
 import numpy as np
 
@@ -35,14 +45,17 @@ except ImportError:
     AVAILABLE_BACKEND.add("thin")
 
 
+ComponentType = Literal["arm", "eef"]
+
+
 class AIRBOTPlayConfig(SystemConfig):
     url: str = "localhost"
     port: PositiveInt = 50050
     speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.FAST
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
-    components: List[str] = Field(["arm", "eef"], min_length=1)
-    action: List[ActionConfig] = []
+    components: List[ComponentType] = Field(["arm", "eef"], min_length=1)
+    action: List[ActionConfig] = [JointPositionServo()]
     observation: List[ObservationConfig] = [
         ObservationConfig(
             interfaces=InterfaceType.joint_states() | {InterfaceType.POSE}
@@ -50,30 +63,12 @@ class AIRBOTPlayConfig(SystemConfig):
     ]
 
     def model_post_init(self, context):
-        if not self.action:
-            self.action = [ActionConfig(), ActionConfig()]
-        if not self.observation:
-            self.observation = [ObservationConfig(), ObservationConfig()]
         if isinstance(self.speed_profile, str):
             self.speed_profile = SpeedProfile[self.speed_profile]
         assert self.backend in AVAILABLE_BACKEND, (
             f"Backend is not available: {self.backend}, "
             f"available backends: {AVAILABLE_BACKEND}"
         )
-
-    @cached_property
-    def pose_action(self) -> bool:
-        return InterfaceType.POSE in self.action[0].interfaces
-
-    @cached_property
-    def mit_action(self) -> bool:
-        return self.action[0].interfaces == {
-            InterfaceType.JOINT_POSITION,
-            InterfaceType.JOINT_VELOCITY,
-            InterfaceType.JOINT_EFFORT,
-            InterfaceType.JOINT_KP,
-            InterfaceType.JOINT_KD,
-        }
 
     @cached_property
     def pose_observation(self) -> bool:
@@ -94,19 +89,39 @@ class AIRBOTPlay(System):
 
     def on_configure(self) -> bool:
         self._init_args()
-        self._comp_act = {
-            "arm": {
-                RobotMode.SERVO_JOINT_POS: self.interface.servo_joint_pos,
-                RobotMode.SERVO_CART_POSE: self._servo_pose,
-                RobotMode.MIT_INTEGRATED: self._mit_control,
-                RobotMode.PLANNING_POS: (
-                    self.interface.move_to_joint_pos
-                    if not self.config.pose_action
-                    else self._move_pose
-                ),
-            },
-            "eef": self.interface.servo_eef_pos,
+        self._type2mode = {
+            JointPositionServo: RobotMode.SERVO_JOINT_POS,
+            JointMIT: RobotMode.MIT_INTEGRATED,
+            PoseServo: RobotMode.SERVO_CART_POSE,
+            PosePlan: RobotMode.PLANNING_POS,
         }
+        self._type2func = {
+            "arm": {
+                JointPositionServo: self.interface.servo_joint_pos,
+                JointPositionPlan: self.interface.move_to_joint_pos,
+                JointMIT: self.interface.mit_joint_integrated_control,
+                PoseServo: self.interface.servo_cart_pose,
+                PosePlan: self.interface.move_to_cart_pose,
+            },
+            "eef": {
+                JointPositionServo: self.interface.servo_eef_pos,
+                JointPositionPlan: self.interface.move_eef_pos,
+            },
+        }
+        self._type2slice = {
+            "arm": {
+                JointPositionServo: slice(0, 6),
+                JointPositionPlan: slice(0, 6),
+                JointMIT: 0,
+                PoseServo: 0,
+                PosePlan: 0,
+            },
+            "eef": {
+                JointPositionServo: slice(0, 1),
+                JointPositionPlan: slice(0, 1),
+            },
+        }
+        self.action_post_process = self.action_data_to_list
         if self.interface.connect():
             # self.interface.set_speed_profile(self.config.speed_profile)
             self.interface.set_params(
@@ -136,88 +151,70 @@ class AIRBOTPlay(System):
             return True
         return False
 
-    def _flatten_dict_data(self, data: dict) -> Dict:
-        flat_data = {}
-        # {"arm/joint_state": {"t": 123, "data": {"position": [...], "velocity": [...], ...}}, ...}
-        # --> {"arm/joint_state/position": [...], "arm/joint_state/velocity": [...], ...}
-        for key, value in data.items():
-            if isinstance(value, dict):
-                d = value["data"]
-                if isinstance(d, dict):
-                    # TODO: deprecate the nested field array?
-                    for field, v in d.items():
-                        flat_data[f"{key}/{field}"] = v
-                        flat_data[f"{key}/{field}/t"] = value["t"]
-                else:
-                    flat_data[key] = d
-                    flat_data[f"{key}/t"] = value["t"]
-            else:
-                flat_data[key] = value
-        return flat_data
-
     @cache
-    def _match_action_keys(self, action_keys: Tuple[str]) -> List[str]:
-        matched_keys = []
-        if self.config.pose_action:
-            key_words = ["pose/position", "pose/orientation"]
-        else:
-            key_words = ["position"]
-            if self.config.mit_action:
-                key_words += ["velocity", "effort", "kp", "kd"]
-            key_words = [
-                f"{comp}/joint_state/{field}"
-                for field in key_words
-                for comp in self.config.components
-            ]
-        for key_word in key_words:
-            for key in action_keys:
-                if key.endswith(key_word):
-                    matched_keys.append(key)
-                    break
-        return matched_keys
+    def _match_action_keys(
+        self, action_keys: Tuple[str]
+    ) -> Dict[ComponentType, List[str]]:
+        matched_keys = defaultdict(list)
+        key_words = {}
+        for index, component in enumerate(self.config.components):
+            act_cfg = self.config.action[index]
+            act_type = type(act_cfg)
+            if issubclass(act_type, JointControlBasis):
+                fields = ["position"]
+                if act_type is JointMIT:
+                    fields.extend(["velocity", "effort", "kp", "kd"])
+                key_words[component] = [
+                    f"{component}/joint_state/{field}" for field in fields
+                ]
+            elif act_type is PoseControlBasis:
+                key_words[component] = [
+                    f"{component}/pose/position",
+                    f"{component}/pose/orientation",
+                ]
+        for component, key_words in key_words.items():
+            for key_word in key_words:
+                for key in action_keys:
+                    if key.endswith(key_word):
+                        matched_keys[component].append(key)
+                        break
+        return dict(matched_keys)
 
-    def send_action(self, action: Union[List[float], Dict[str, Any]]) -> None:
-        mode = self.interface.get_control_mode()
+    @staticmethod
+    def action_data_to_list(action: DataStamped[np.ndarray]) -> List[float]:
+        return action["data"].tolist()
+
+    @staticmethod
+    def action_to_list(action: np.ndarray) -> List[float]:
+        return action.tolist()
+
+    @staticmethod
+    def action_forward(action: Any) -> Any:
+        return action
+
+    def send_action(
+        self, action: Union[List[float], DictDataStamped[np.ndarray]]
+    ) -> None:
         if isinstance(action, dict):
+            # tuple is hashable and can be cached
             act_keys = self._match_action_keys(tuple(action.keys()))
-            act = False
-            for key, value in action.items():
-                split = key.removeprefix("/").split("/", 2)
-                if len(split) == 2:
-                    component, dtype = split
-                    target = value["data"]["position"]
-                elif len(split) == 3:
-                    component, dtype, field = split
-                    target = value
+            for component, keys in act_keys.items():
+                # flatten the action values
+                if self.config.as_dict[component]["action"].flatten:
+                    target = []
+                    for key in keys:
+                        target.extend(self.action_post_process(action[key]))
                 else:
-                    raise ValueError(f"Invalid action key format: {key}.")
-                if (self.config.pose_action and dtype != "pose") or (
-                    not self.config.pose_action and dtype != "joint_state"
-                ):
-                    continue
-                act = True
-                act_cfg = self._comp_act[component]
-                if isinstance(target, np.ndarray):
-                    target = target.tolist()
-                if callable(act_cfg):
-                    act_cfg(target)
-                else:
-                    act_cfg[mode](target)
-            if not act:
-                self.get_logger().warning(
-                    f"No valid action found in the input action: {action.keys()}"
-                )
+                    target = [self.action_post_process(action[key]) for key in keys]
+                    if len(target) == 1:
+                        target = target[0]
+                self._type2func[component][self.config.action_types[component]](target)
         else:
-            if self.config.pose_action:
-                arm_end_index = 7
-            elif self.config.mit_action:
-                arm_end_index = 5  # nested action
-                # arm_end_index = 6 * 5  # flattened action
-            else:
-                arm_end_index = 6
-            self._comp_act["arm"][mode](action[:arm_end_index])
-            if eef_action := action[arm_end_index:]:
-                self.interface.servo_eef_pos(eef_action)
+            for component in self.config.components:
+                action_type = self.config.action_types[component]
+                act = action[self._type2slice[component][action_type]]
+                if act:
+                    self._type2func[component][action_type](act)
 
     def on_switch_mode(self, mode: SystemMode) -> bool:
         if mode is SystemMode.PASSIVE:
@@ -225,13 +222,17 @@ class AIRBOTPlay(System):
         elif mode is SystemMode.RESETTING:
             m = RobotMode.PLANNING_POS
         elif mode is SystemMode.SAMPLING:
-            if self.config.pose_action:
-                m = RobotMode.SERVO_CART_POSE
-            elif self.config.mit_action:
-                m = RobotMode.MIT_INTEGRATED
-            else:
-                m = RobotMode.SERVO_JOINT_POS
-        return self.interface.switch_mode(m)
+            m = {
+                comp: self.config.action_types[comp] for comp in self.config.components
+            }
+        return self._switch_mode(m)
+
+    def _switch_mode(
+        self, mode: Union[RobotMode, Dict[ComponentType, RobotMode]]
+    ) -> bool:
+        if isinstance(mode, RobotMode):
+            mode = {comp: mode for comp in self.config.components}
+        return self.interface.switch_mode(mode["arm"])
 
     def _init_args(self):
         self.get_logger().info(
@@ -286,15 +287,6 @@ class AIRBOTPlay(System):
 
         # self.get_logger().info(f"Processed pose: {pose}")
         return [list(pose[0]), list(pose[1])]
-
-    def _move_pose(self, target: Union[List[float], List[list[float]]]):
-        return self.interface.move_to_cart_pose(self._process_pose(target))
-
-    def _servo_pose(self, target: Union[List[float], List[list[float]]]):
-        return self.interface.servo_cart_pose(self._process_pose(target))
-
-    def _mit_control(self, target: List[float]):
-        return self.interface.mit_joint_integrated_control(*target)
 
     def capture_observation(
         self, timeout: Optional[float] = None
