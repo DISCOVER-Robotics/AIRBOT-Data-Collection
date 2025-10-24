@@ -89,11 +89,19 @@ class AIRBOTPlay(System):
 
     def on_configure(self) -> bool:
         self._init_args()
-        self._type2mode = {
+        type2mode = {
             JointPositionServo: RobotMode.SERVO_JOINT_POS,
             JointMIT: RobotMode.MIT_INTEGRATED,
             PoseServo: RobotMode.SERVO_CART_POSE,
             PosePlan: RobotMode.PLANNING_POS,
+        }
+        self._mode_mapping = {
+            SystemMode.PASSIVE: RobotMode.GRAVITY_COMP,
+            SystemMode.RESETTING: RobotMode.PLANNING_POS,
+            SystemMode.SAMPLING: {
+                comp: type2mode[self.config.action_types[comp]]
+                for comp in self.config.components
+            },
         }
         self._type2func = {
             "arm": {
@@ -108,26 +116,15 @@ class AIRBOTPlay(System):
                 JointPositionPlan: self.interface.move_eef_pos,
             },
         }
-        self._type2slice = {
+        self._type2length = {
             "arm": {
-                JointPositionServo: slice(0, 6),
-                JointPositionPlan: slice(0, 6),
+                JointPositionServo: 6,
+                JointPositionPlan: 6,
                 JointMIT: 0,
                 PoseServo: 0,
                 PosePlan: 0,
             },
-            "eef": {
-                JointPositionServo: slice(0, 1),
-                JointPositionPlan: slice(0, 1),
-            },
-        }
-        self._mode_mapping = {
-            SystemMode.PASSIVE: RobotMode.GRAVITY_COMP,
-            SystemMode.RESETTING: RobotMode.PLANNING_POS,
-            SystemMode.SAMPLING: {
-                comp: self._type2mode[self.config.action_types[comp]]
-                for comp in self.config.components
-            },
+            "eef": {JointPositionServo: 1, JointPositionPlan: 1},
         }
         self.action_post_process = self.action_data_to_list
         if self.interface.connect():
@@ -218,11 +215,16 @@ class AIRBOTPlay(System):
                         target = target[0]
                 self._type2func[component][self.config.action_types[component]](target)
         else:
+            cnt = 0
             for component in self.config.components:
                 action_type = self.config.action_types[component]
-                act = action[self._type2slice[component][action_type]]
+                length = self._type2length[component][action_type]
+                act = action[cnt : cnt + length] if length > 0 else action[cnt]
                 if act:
                     self._type2func[component][action_type](act)
+                else:
+                    break
+                cnt += length or 1
 
     def on_switch_mode(self, mode: SystemMode) -> bool:
         robot_mode = self._mode_mapping[mode]
