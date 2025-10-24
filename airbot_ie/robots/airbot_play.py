@@ -121,6 +121,14 @@ class AIRBOTPlay(System):
                 JointPositionPlan: slice(0, 1),
             },
         }
+        self._mode_mapping = {
+            SystemMode.PASSIVE: RobotMode.GRAVITY_COMP,
+            SystemMode.RESETTING: RobotMode.PLANNING_POS,
+            SystemMode.SAMPLING: {
+                comp: self._type2mode[self.config.action_types[comp]]
+                for comp in self.config.components
+            },
+        }
         self.action_post_process = self.action_data_to_list
         if self.interface.connect():
             # self.interface.set_speed_profile(self.config.speed_profile)
@@ -217,22 +225,10 @@ class AIRBOTPlay(System):
                     self._type2func[component][action_type](act)
 
     def on_switch_mode(self, mode: SystemMode) -> bool:
-        if mode is SystemMode.PASSIVE:
-            m = RobotMode.GRAVITY_COMP
-        elif mode is SystemMode.RESETTING:
-            m = RobotMode.PLANNING_POS
-        elif mode is SystemMode.SAMPLING:
-            m = {
-                comp: self.config.action_types[comp] for comp in self.config.components
-            }
-        return self._switch_mode(m)
-
-    def _switch_mode(
-        self, mode: Union[RobotMode, Dict[ComponentType, RobotMode]]
-    ) -> bool:
-        if isinstance(mode, RobotMode):
-            mode = {comp: mode for comp in self.config.components}
-        return self.interface.switch_mode(mode["arm"])
+        robot_mode = self._mode_mapping[mode]
+        if isinstance(robot_mode, RobotMode):
+            robot_mode = {comp: robot_mode for comp in self.config.components}
+        return self.interface.switch_mode(robot_mode["arm"])
 
     def _init_args(self):
         self.get_logger().info(

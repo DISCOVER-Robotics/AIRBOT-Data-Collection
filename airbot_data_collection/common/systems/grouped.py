@@ -396,6 +396,7 @@ class ComponentGroupManager:
                     f"Failed to switch leader mode for {group_name} to {mode}"
                 )
                 return False
+        return True
 
     def send_grouped_action(self, action: GroupsSendActionConfig) -> bool:
         """Control the leaders or followers after some demonstrate action"""
@@ -403,7 +404,10 @@ class ComponentGroupManager:
         for group_name, action_value, mode, to_follower in zip(
             action.groups, action.action_values, action.modes, action.to_follower
         ):
-            self.control_group_role(group_name, ComponentRole.l, mode, action_value)
+            if not self.control_group_role(
+                group_name, ComponentRole.l, mode, action_value
+            ):
+                return False
         return True
 
     def set_role_mode(self, role: ComponentRole, mode: Optional[SystemMode]) -> bool:
@@ -481,6 +485,10 @@ class GroupedComponentsSystem(System):
             raise NotImplementedError("Sending action as dict is not implemented yet")
         else:
             action = action[:]
+            # TODO: need to implement sending flattened array action
+            raise NotImplementedError(
+                "Sending action as flattened array is not implemented yet"
+            )
 
     def _start_following(self) -> bool:
         """Start to follow."""
