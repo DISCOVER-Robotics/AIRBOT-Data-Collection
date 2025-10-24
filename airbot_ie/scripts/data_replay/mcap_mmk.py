@@ -52,8 +52,8 @@ class MMKMcapDataReplay:
             self._robot.send_action(obs)
             input("Press Enter to continue...")
             cur_pos = self._robot.capture_observation()[
-                "observation/left_arm/joint_state"
-            ]["data"]["position"]
+                "observation/left_arm/joint_state/position"
+            ]["data"]
             print(f"{cur_pos=}")
             print(f"delta_pos={(act_pos - np.array(cur_pos)).tolist()}")
             return True

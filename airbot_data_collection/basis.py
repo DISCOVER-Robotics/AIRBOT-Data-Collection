@@ -331,7 +331,10 @@ class SystemConfig(BaseModel):
         self,
     ) -> Dict[
         str,
-        Dict[Literal["action", "observation"], Union[ActionConfig, ObservationConfig]],
+        Dict[
+            Literal["action", "observation"],
+            Union[Dict[SystemMode, ActionConfig], ObservationConfig],
+        ],
     ]:
         """Get the config as a nested dict."""
         cfg_dict = {}

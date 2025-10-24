@@ -170,12 +170,12 @@ class AIRBOTPlay(System):
 
     @cache
     def _match_action_keys(
-        self, action_keys: Tuple[str]
+        self, mode: SystemMode, action_keys: Tuple[str]
     ) -> Dict[ComponentType, List[str]]:
         matched_keys = defaultdict(list)
         key_words = {}
         for index, component in enumerate(self.config.components):
-            act_cfg = self.config.action[index]
+            act_cfg = self.config.action[index][mode]
             act_type = type(act_cfg)
             if issubclass(act_type, JointControlBasis):
                 fields = ["position"]
@@ -189,6 +189,8 @@ class AIRBOTPlay(System):
                     f"{component}/pose/position",
                     f"{component}/pose/orientation",
                 ]
+            else:
+                raise ValueError(f"Unsupported action type: {act_type}")
         for component, key_words in key_words.items():
             for key_word in key_words:
                 for key in action_keys:
@@ -212,13 +214,19 @@ class AIRBOTPlay(System):
     def send_action(
         self, action: Union[List[float], DictDataStamped[np.ndarray]]
     ) -> None:
-        component_func = self._mode2func[self.current_mode]
+        mode = self.current_mode
+        component_func = self._mode2func[mode]
         if isinstance(action, dict):
             # tuple is hashable and can be cached
-            act_keys = self._match_action_keys(tuple(action.keys()))
+            act_keys = self._match_action_keys(mode, tuple(action.keys()))
+            if not act_keys:
+                self.get_logger().error(
+                    f"No matching action keys from: {action.keys()}"
+                )
+                return
             for component, keys in act_keys.items():
                 # flatten the action values
-                if self.config.as_dict[component]["action"].flatten:
+                if self.config.as_dict[component]["action"][mode].flatten:
                     target = []
                     for key in keys:
                         target.extend(self.action_post_process(action[key]))
