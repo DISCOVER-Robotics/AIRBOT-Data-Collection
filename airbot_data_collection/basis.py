@@ -307,13 +307,16 @@ class ObservationConfig(CommonConfig):
         }, f"Reference mode {self.reference_mode} is not supported for observation."
 
 
+ActionConfigs = List[Dict[SystemMode, ActionConfig]]
+
+
 class SystemConfig(BaseModel):
     """Configuration for the robot system."""
 
     model_config = ConfigDict(validate_default=True)
 
     components: List[str] = []
-    action: List[ActionConfig] = []
+    action: ActionConfigs = []
     observation: List[ObservationConfig] = []
 
     @field_validator("action", "observation", mode="after")
@@ -342,9 +345,9 @@ class SystemConfig(BaseModel):
         return cfg_dict
 
     @cached_property
-    def action_types(self) -> Dict[str, Type[ActionConfig]]:
+    def action_types(self) -> Dict[str, Dict[SystemMode, Type[ActionConfig]]]:
         """Get the action config types for each component."""
         action_types = {}
         for comp, act_cfg in zip(self.components, self.action):
-            action_types[comp] = type(act_cfg)
+            action_types[comp] = {mode: type(cfg) for mode, cfg in act_cfg.items()}
         return action_types

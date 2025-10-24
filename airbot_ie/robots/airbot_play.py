@@ -10,6 +10,7 @@ from airbot_data_collection.basis import (
     InterfaceType,
     ReferenceMode,
     ActionConfig,
+    ActionConfigs,
     ObservationConfig,
     SystemMode,
     PostCaptureConfig,
@@ -55,7 +56,12 @@ class AIRBOTPlayConfig(SystemConfig):
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
     backend: str = "grpc"  # grpc or thin
     components: List[ComponentType] = Field(["arm", "eef"], min_length=1)
-    action: List[ActionConfig] = [JointPositionServo()]
+    action: ActionConfigs = [
+        {
+            SystemMode.RESETTING: JointPositionPlan(),
+            SystemMode.SAMPLING: JointPositionServo(),
+        }
+    ]
     observation: List[ObservationConfig] = [
         ObservationConfig(
             interfaces=InterfaceType.joint_states() | {InterfaceType.POSE}
@@ -76,7 +82,9 @@ class AIRBOTPlayConfig(SystemConfig):
 
     @cached_property
     def relative_action(self) -> bool:
-        return self.action[0].reference_mode != ReferenceMode.ABSOLUTE
+        return (
+            self.action[0][SystemMode.SAMPLING].reference_mode != ReferenceMode.ABSOLUTE
+        )
 
     @cached_property
     def relative_observation(self) -> bool:
@@ -90,20 +98,13 @@ class AIRBOTPlay(System):
     def on_configure(self) -> bool:
         self._init_args()
         type2mode = {
+            JointPositionPlan: RobotMode.PLANNING_POS,
+            PosePlan: RobotMode.PLANNING_POS,
             JointPositionServo: RobotMode.SERVO_JOINT_POS,
             JointMIT: RobotMode.MIT_INTEGRATED,
             PoseServo: RobotMode.SERVO_CART_POSE,
-            PosePlan: RobotMode.PLANNING_POS,
         }
-        self._mode_mapping = {
-            SystemMode.PASSIVE: RobotMode.GRAVITY_COMP,
-            SystemMode.RESETTING: RobotMode.PLANNING_POS,
-            SystemMode.SAMPLING: {
-                comp: type2mode[self.config.action_types[comp]]
-                for comp in self.config.components
-            },
-        }
-        self._type2func = {
+        type2func = {
             "arm": {
                 JointPositionServo: self.interface.servo_joint_pos,
                 JointPositionPlan: self.interface.move_to_joint_pos,
@@ -116,7 +117,7 @@ class AIRBOTPlay(System):
                 JointPositionPlan: self.interface.move_eef_pos,
             },
         }
-        self._type2length = {
+        type2length = {
             "arm": {
                 JointPositionServo: 6,
                 JointPositionPlan: 6,
@@ -126,6 +127,17 @@ class AIRBOTPlay(System):
             },
             "eef": {JointPositionServo: 1, JointPositionPlan: 1},
         }
+        self._mode_mapping = {SystemMode.PASSIVE: RobotMode.GRAVITY_COMP}
+        mode_mapping = defaultdict(dict)
+        self._mode2func = defaultdict(dict)
+        self._mode2length = defaultdict(dict)
+        for component, mode_act_cfg in zip(self.config.components, self.config.action):
+            for mode, act_cfg in mode_act_cfg.items():
+                cfg_type = type(act_cfg)
+                mode_mapping[mode][component] = type2mode[cfg_type]
+                self._mode2func[mode][component] = type2func[component][cfg_type]
+                self._mode2length[mode][component] = type2length[component][cfg_type]
+        self._mode_mapping.update(mode_mapping)
         self.action_post_process = self.action_data_to_list
         if self.interface.connect():
             # self.interface.set_speed_profile(self.config.speed_profile)
@@ -200,6 +212,7 @@ class AIRBOTPlay(System):
     def send_action(
         self, action: Union[List[float], DictDataStamped[np.ndarray]]
     ) -> None:
+        component_func = self._mode2func[self.current_mode]
         if isinstance(action, dict):
             # tuple is hashable and can be cached
             act_keys = self._match_action_keys(tuple(action.keys()))
@@ -213,15 +226,15 @@ class AIRBOTPlay(System):
                     target = [self.action_post_process(action[key]) for key in keys]
                     if len(target) == 1:
                         target = target[0]
-                self._type2func[component][self.config.action_types[component]](target)
+                component_func[component](target)
         else:
+            component_length = self._mode2length[self.current_mode]
             cnt = 0
             for component in self.config.components:
-                action_type = self.config.action_types[component]
-                length = self._type2length[component][action_type]
+                length = component_length[component]
                 act = action[cnt : cnt + length] if length > 0 else action[cnt]
-                if act:
-                    self._type2func[component][action_type](act)
+                if act:  # error for numpy array
+                    component_func[component](act)
                 else:
                     break
                 cnt += length or 1
