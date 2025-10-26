@@ -95,7 +95,9 @@ def main():
                     if sleep_time > 0:
                         time.sleep(sleep_time)
                     elif sleep_time < 0 and config.log_jitter:
-                        logger.warning(f"Update took too long: exceed {-sleep_time} s.")
+                        logger.warning(
+                            f"The main loop takes too long, timeout {-sleep_time:.4f} s."
+                        )
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received. Exiting...")
         finally:

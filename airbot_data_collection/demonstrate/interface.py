@@ -1,4 +1,5 @@
 from concurrent.futures import (
+    Executor,
     ProcessPoolExecutor,
     ThreadPoolExecutor,
     Future,
@@ -53,18 +54,19 @@ class DemonstrateInterface:
             )
             self._config.sample_limit.start_round = start_round
         self._sample_info = SampleInfo(round=start_round)
-        # init concurrent save
-        max_workers = self._config.concurrent_save_max_workers
-        if config.concurrent_save == ConcurrentMode.thread:
-            self._save_executor = ThreadPoolExecutor(max_workers, "save_thread")
-        elif config.concurrent_save == ConcurrentMode.process:
-            self._save_executor = ProcessPoolExecutor(max_workers)
-        else:
-            self._save_executor = None
-        self._save_futures: List[Future] = []
-        self._update_executor = None
-        self._reset_update_executor()
-        self._update_futures: List[Future] = []
+        # init concurrent actions
+        concur = self._config.concurrent
+        self._action_executors: Dict[DemonstrateAction, Executor] = {}
+        mode2executor = {
+            ConcurrentMode.thread: ThreadPoolExecutor,
+            ConcurrentMode.process: ProcessPoolExecutor,
+        }
+        for action, mode, max_workers in zip(
+            concur.actions, concur.modes, concur.max_workers
+        ):
+            args = (action.name,) if mode is ConcurrentMode.thread else ()
+            self._action_executors[action] = mode2executor[mode](max_workers, *args)
+        self._action_futures: Dict[DemonstrateAction, List[Future]] = defaultdict(list)
         # store current round data
         self._round_data = defaultdict(list)
         self._metrics = defaultdict(dict)
@@ -208,9 +210,7 @@ class DemonstrateInterface:
                     time.perf_counter() - start_sampler
                 )
 
-            self._update_futures.append(
-                self._update_executor.submit(update_sampler, data)
-            )
+            self._submit_action(DemonstrateAction.update, update_sampler, data)
             # update the progress bar
             start_bar = time.perf_counter()
             info.index += 1
@@ -232,22 +232,15 @@ class DemonstrateInterface:
 
     def save(self) -> None:
         """Save the sampled data and be ready for the next round."""
-        for update_future in tqdm(
-            as_completed(self._update_futures),
-            "Completing update futures",
-            len(self._update_futures),
-        ):
-            update_future.result()
-        concurrent_save = self._config.concurrent_save
+        self._wait_action_futures(DemonstrateAction.update)
         save_path = self._save_path
-        if concurrent_save != ConcurrentMode.none:
-            future = self._save_executor.submit(
-                self._sampler.save, save_path, self._round_data
+        if self._use_executor(DemonstrateAction.save):
+            future = self._submit_action(
+                DemonstrateAction.save, self._sampler.save, save_path, self._round_data
             )
             future.add_done_callback(
                 lambda f: self._show_save_info(save_path, f.result())
             )
-            self._save_futures.append(future)
         else:
             if not self._show_save_info(
                 save_path, self._sampler.save(save_path, self._round_data)
@@ -264,13 +257,7 @@ class DemonstrateInterface:
             path = self._sampler.compose_path(
                 self._config.dataset.absolute_directory, last_round
             )
-            if self._save_futures:
-                future = self._save_futures.pop()
-                if not future.done():
-                    self.get_logger().info(
-                        Bcolors.blue("Waiting for the last async saving")
-                    )
-                    future.result()
+            self._wait_action_futures(DemonstrateAction.save)
             # try to remove the data
             if not self._remove(path, True):
                 return False
@@ -314,14 +301,35 @@ class DemonstrateInterface:
         self._sample_info.index = 0
         self._save_path = ""
 
-    def _reset_update_executor(self) -> None:
-        if self._update_executor is not None:
-            self._update_executor.shutdown(wait=True, cancel_futures=True)
-        self._update_executor = ThreadPoolExecutor(1, "update_thread")
+    def _use_executor(self, action: DemonstrateAction) -> bool:
+        return action in self._action_executors
+
+    def _submit_action(
+        self, action: DemonstrateAction, func: Any, *args, **kwargs
+    ) -> Future:
+        future = self._action_executors[action].submit(func, *args, **kwargs)
+        self._action_futures[action].append(future)
+        return future
+
+    def _cancel_action_futures(self, action: DemonstrateAction) -> None:
+        futures = self._action_futures.get(action, None)
+        if futures:
+            for future in futures:
+                future.cancel()
+            self._action_futures[action] = []
+
+    def _wait_action_futures(self, action: DemonstrateAction) -> None:
+        futures = self._action_futures.get(action, None)
+        if futures:
+            for update_future in tqdm(
+                as_completed(futures), f"Completing {action.name} futures", len(futures)
+            ):
+                update_future.result()
+            self._action_futures[action] = []
 
     def abandon(self) -> bool:
         """Abandon the current round of sampling."""
-        self._reset_update_executor()
+        self._cancel_action_futures(DemonstrateAction.update)
         self._remove_path(self._save_path, False)
         self._clear()
         self.get_logger().info(

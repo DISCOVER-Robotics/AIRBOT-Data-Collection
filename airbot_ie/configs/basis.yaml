@@ -5,7 +5,6 @@ dataset:
 sample_limit:
   size: 1000
   start_round: -1
-concurrent_save: none
 sampler:
   name: airbot_mcap_sampler
   instance:
@@ -32,7 +31,8 @@ sampler:
       endpoint: 192.168.215.80
       username: admin
       password: "123456"
-
+concurrent:
+  actions: [update]
 visualizers:
   names:
     - opencv

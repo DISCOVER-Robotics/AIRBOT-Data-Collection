@@ -12,6 +12,7 @@ from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection.common.visualizers.basis import VisualizerBasis
 from airbot_data_collection.demonstrate.basis import Demonstrator, DemonstrateAction
+from functools import cache
 
 
 # TODO: should use multiple type vars for different classes?
@@ -122,6 +123,25 @@ class SampleLimit(BaseModel):
             self.end_round = self.start_round + self.rounds
 
 
+class ConcurrentConfig(BaseModel):
+    """Configuration for concurrent modes for different demonstrate actions."""
+
+    actions: List[DemonstrateAction] = []
+    modes: List[ConcurrentMode] = []
+    max_workers: List[NonNegativeInt] = []
+
+    def model_post_init(self, context) -> None:
+        if self.actions:
+            if not self.modes:
+                self.modes = [ConcurrentMode.thread] * len(self.actions)
+            if not self.max_workers:
+                self.max_workers = [1] * len(self.actions)
+
+    @cache
+    def __bool__(self):
+        return bool(self.actions + self.modes + self.max_workers)
+
+
 class DemonstrateConfig(BaseModel):
     dataset: DatasetConfig
     sample_limit: SampleLimit = SampleLimit()
@@ -136,10 +156,7 @@ class DemonstrateConfig(BaseModel):
     sampler: ComponentConfig[DataSampler]
     # the sampled data will be passed to the visualizers at each update
     visualizers: ComponentsConfig[VisualizerBasis] = ComponentsConfig[VisualizerBasis]()
-    # TODO: should use a dict to set the async mode for
-    # other actions, such as remove, abandon, etc?
-    concurrent_save: ConcurrentMode = ConcurrentMode.none
-    concurrent_save_max_workers: NonNegativeInt = 1
+    concurrent: ConcurrentConfig = ConcurrentConfig()
     # what to do with the data when the demonstration is removed
     # "permanent": delete the data permanently
     # "trash": move the data to the "trash" of the OS
