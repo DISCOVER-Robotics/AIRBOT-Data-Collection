@@ -2,7 +2,7 @@ from enum import Enum
 from pprint import pformat
 from bidict import bidict
 from pynput import keyboard
-from airbot_data_collection.basis import SystemMode
+from airbot_data_collection.common.systems.basis import SystemMode
 from airbot_data_collection.managers.basis import (
     DemonstrateManagerBasis,
     ManagerConfigBasis,

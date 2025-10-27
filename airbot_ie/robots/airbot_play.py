@@ -4,7 +4,7 @@ from time import time_ns, perf_counter
 from collections import defaultdict
 from functools import partial, cached_property
 from airbot_data_collection.utils import linear_map, zip
-from airbot_data_collection.basis import (
+from airbot_data_collection.common.systems.basis import (
     System,
     SystemConfig,
     InterfaceType,

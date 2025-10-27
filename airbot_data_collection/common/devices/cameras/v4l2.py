@@ -5,7 +5,7 @@ from time import time_ns
 from typing import Union, Optional
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
-from airbot_data_collection.basis import Sensor, DictDataStamped
+from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
 from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBConfig,
     find_camera_indices,

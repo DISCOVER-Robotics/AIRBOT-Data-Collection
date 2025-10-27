@@ -3,7 +3,7 @@ from multiprocessing import get_context, current_process
 from multiprocessing.connection import Connection
 from pydantic import BaseModel, ConfigDict
 from typing import Union, Dict, Type, Optional
-from airbot_data_collection.basis import Sensor, System
+from airbot_data_collection.common.systems.basis import Sensor, System
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.utils.event_rpc import (
     EventRpcManager,

@@ -4,8 +4,9 @@ from airbot_data_collection.common.systems.mcap_player import (
     McapDatasetConfig,
 )
 from airbot_ie.robots.airbot_play import AIRBOTPlay, AIRBOTPlayConfig
+
 # from airbot_ie.robots.airbot_play_mock import AIRBOTPlay, AIRBOTPlayConfig
-from airbot_data_collection.basis import SystemMode
+from airbot_data_collection.common.systems.basis import SystemMode
 from typing import Optional, List
 
 

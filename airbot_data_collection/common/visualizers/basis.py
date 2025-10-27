@@ -1,11 +1,8 @@
 from abc import abstractmethod
 from typing import Optional, Protocol, Union, runtime_checkable, final
 from pydantic import BaseModel, NonNegativeInt, PositiveInt
-from airbot_data_collection.basis import (
-    ConfigurableBasis,
-    ConcurrentMode,
-    DictDataStamped,
-)
+from airbot_data_collection.basis import ConfigurableBasis, ConcurrentMode
+from airbot_data_collection.basis import DictDataStamped
 from airbot_data_collection.common.utils.dict_utils import (
     DictKeyFilter,
     DictKeyFilterConfig,

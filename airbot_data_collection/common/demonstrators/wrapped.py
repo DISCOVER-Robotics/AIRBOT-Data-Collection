@@ -130,7 +130,7 @@ if __name__ == "__main__":
     )
     from omegaconf import OmegaConf
     from airbot_data_collection.utils import init_logging
-    from airbot_data_collection.basis import SystemMode
+    from airbot_data_collection.common.systems.basis import SystemMode
     from pprint import pprint
 
     init_logging()

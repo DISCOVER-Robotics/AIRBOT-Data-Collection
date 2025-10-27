@@ -7,14 +7,12 @@ from pydantic import (
 from typing import List, Union, Optional, Any, Dict, Callable, Literal, Set
 from typing_extensions import Self
 from airbot_data_collection.basis import (
-    Sensor,
-    System,
-    SystemMode,
     StrEnum,
     auto,
     PostCaptureConfig,
     ConcurrentMode,
 )
+from airbot_data_collection.common.systems.basis import Sensor, System, SystemMode
 from airbot_data_collection.common.utils.progress import Waitable
 
 # TODO: should we import from `demonstrate` here?
@@ -36,7 +34,7 @@ from airbot_data_collection.common.utils.utils import (
 )
 from logging import getLogger
 from collections import defaultdict, Counter
-from functools import cached_property
+from functools import cached_property, cache
 import time
 
 
@@ -570,11 +568,13 @@ class GroupedComponentsSystem(System):
         for group, component, comp_name in concur_comps:
             func(group, component, comp_name, "result", True)
 
+    @cache
     def _get_component_data_prefix(self, group_name: str, component_name: str) -> str:
         if component_name:
             return f"{group_name}/{component_name}"
         return f"{group_name}"
 
+    @cache
     def _get_component_data_key(self, prefix: str, key: str) -> str:
         # TODO: should allow component_name to be empty or the group name to be / ?
         return f"/{prefix}/{key}".removeprefix("//")

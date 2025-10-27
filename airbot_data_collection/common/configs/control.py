@@ -1,5 +1,5 @@
 from typing import Tuple
-from airbot_data_collection.basis import ActionConfig, InterfaceType
+from airbot_data_collection.common.systems.basis import ActionConfig, InterfaceType
 
 
 class JointControlBasis(ActionConfig):

@@ -5,7 +5,7 @@ from airbot_data_collection.common.utils.transformations import (
     quaternion_inverse,
     quaternion_multiply,
 )
-from airbot_data_collection.basis import ReferenceMode, ReferenceBase
+from airbot_data_collection.common.systems.basis import ReferenceMode, ReferenceBase
 
 
 Position = Tuple[float, float, float]

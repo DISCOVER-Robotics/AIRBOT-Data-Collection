@@ -4,7 +4,7 @@ from airbot_data_collection.common.systems.mcap_player import (
     McapDatasetConfig,
 )
 from airbot_ie.robots.airbot_mmk import AIRBOTMMK, AIRBOTMMKConfig
-from airbot_data_collection.basis import SystemMode
+from airbot_data_collection.common.systems.basis import SystemMode
 from typing import Optional, List
 from mmk2_types.types import RobotComponents
 import numpy as np

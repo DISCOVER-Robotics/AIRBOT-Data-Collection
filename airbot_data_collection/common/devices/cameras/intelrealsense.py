@@ -7,7 +7,7 @@ from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBDConfig,
     find_video_capture_devices,
 )
-from airbot_data_collection.basis import Sensor, DictDataStamped
+from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
 from pyrealsense2 import config as RSConfig  # noqa: N812
 from pyrealsense2 import format as RSFormat  # noqa: N812
 from pyrealsense2 import pipeline as RSPipeline  # noqa: N812

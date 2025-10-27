@@ -1,5 +1,5 @@
 from typing import Union, Optional
-from airbot_data_collection.basis import (
+from airbot_data_collection.common.systems.basis import (
     Sensor,
     System,
     SystemMode,
