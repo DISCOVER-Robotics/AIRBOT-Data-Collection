@@ -201,7 +201,10 @@ class AIRBOTPlay(System):
 
     @staticmethod
     def action_data_to_list(action: DataStamped[np.ndarray]) -> List[float]:
-        return action["data"].tolist()
+        data = action["data"]
+        if isinstance(data, list):
+            return data
+        return data.tolist()
 
     @staticmethod
     def action_to_list(action: np.ndarray) -> List[float]:

@@ -4,7 +4,7 @@ from airbot_data_collection.basis import (
     System,
     SystemMode,
 )
-from airbot_data_collection.demonstrate.basis import Demonstrator
+from airbot_data_collection.common.demonstrators.basis import Demonstrator
 from airbot_data_collection.demonstrate.configs import DemonstrateAction
 from airbot_data_collection.common.systems.grouped import (
     GroupedComponentsSystemConfig,

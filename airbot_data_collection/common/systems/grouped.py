@@ -15,9 +15,9 @@ from airbot_data_collection.basis import (
     PostCaptureConfig,
     ConcurrentMode,
 )
+from airbot_data_collection.common.utils.progress import Waitable
 
 # TODO: should we import from `demonstrate` here?
-from airbot_data_collection.demonstrate.basis import Waitable
 from airbot_data_collection.demonstrate.configs import (
     ComponentConfig,
     ComponentsConfig,
@@ -374,6 +374,9 @@ class ComponentGroupManager:
             if not self.configure_groups():
                 raise RuntimeError("Failed to configure groups")
             configure_here = True
+        # make sure followers are in sampling mode, at least the
+        # internal flag is
+        self.set_role_mode(ComponentRole.f, SystemMode.SAMPLING)
         logger.info(Bcolors.green("Auto control loop started"))
         # TODO: add ready event feedback
         with waitable:

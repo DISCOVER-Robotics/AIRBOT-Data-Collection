@@ -11,11 +11,8 @@ from pydantic import (
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection.common.visualizers.basis import VisualizerBasis
-from airbot_data_collection.demonstrate.basis import (
-    Demonstrator,
-    DemonstrateAction,
-    DemonstrateState,
-)
+from airbot_data_collection.common.demonstrators.basis import Demonstrator
+from airbot_data_collection.demonstrate.basis import DemonstrateAction, DemonstrateState
 from airbot_data_collection.state_machine.basis import CallbackEventType
 from functools import cache
 

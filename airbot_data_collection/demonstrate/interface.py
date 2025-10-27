@@ -23,7 +23,7 @@ from airbot_data_collection.utils import get_items_by_ext, zip
 from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection.common.utils.progress import ProgressBar
-from airbot_data_collection.demonstrate.basis import Demonstrator
+from airbot_data_collection.common.demonstrators.basis import Demonstrator
 from airbot_data_collection.state_machine.basis import CallbackEventType
 from collections import defaultdict
 from functools import partial

@@ -1,4 +1,4 @@
-from airbot_data_collection.demonstrate.basis import Demonstrator
+from airbot_data_collection.common.demonstrators.basis import Demonstrator
 from pydantic import BaseModel, ConfigDict
 from typing import List
 from airbot_data_collection.demonstrate.configs import DemonstrateAction

@@ -6,7 +6,7 @@ defaults:
 demonstrator:
   name: grouped
   instance:
-    _target_: airbot_data_collection.demonstrate.demonstrators.grouped.GroupedDemonstrator
+    _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
     auto_control:
       groups: []
     components:

@@ -1,12 +1,9 @@
-from airbot_data_collection.basis import System, ConcurrentMode
+from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.utils.progress import (
     Waitable,
-    ProgressHandler,
     ConcurrentProgressHandler,
 )
 from multiprocessing import get_context
-from pydantic import BaseModel
-from abc import abstractmethod
 from airbot_data_collection.utils import StrEnum
 from enum import auto
 import time
@@ -35,32 +32,6 @@ class DemonstrateState(StrEnum):
 
 
 SpawnEvent = get_context("spawn").Event
-
-
-class Demonstrator(System):
-    """Abstract base class for all demonstrators."""
-
-    @abstractmethod
-    def react(self, action: DemonstrateAction) -> bool:
-        """React to a demonstration action."""
-
-    @property
-    @abstractmethod
-    def handler(self) -> ProgressHandler:
-        """Gets the handler for the demonstrator."""
-
-
-class MockDemonstratorConfig(BaseModel):
-    pass
-
-
-class MockDemonstrator(Demonstrator):
-    """Mock implementation of the Demonstrator for testing purposes."""
-
-    config: MockDemonstratorConfig
-
-    def on_configure(self):
-        self._handler = ProgressHandler()
 
 
 if __name__ == "__main__":
