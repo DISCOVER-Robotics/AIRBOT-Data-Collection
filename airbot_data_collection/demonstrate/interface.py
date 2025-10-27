@@ -24,7 +24,9 @@ from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection.common.utils.progress import ProgressBar
 from airbot_data_collection.demonstrate.basis import Demonstrator
+from airbot_data_collection.state_machine.basis import CallbackEventType
 from collections import defaultdict
+from functools import partial
 from pathlib import Path
 from tqdm import tqdm
 import time
@@ -70,6 +72,7 @@ class DemonstrateInterface:
         # store current round data
         self._round_data = defaultdict(list)
         self._metrics = defaultdict(dict)
+        self._register_fsm_callbacks()
 
     def get_logger(self):
         """
@@ -81,20 +84,17 @@ class DemonstrateInterface:
         """
         Configure all the components.
         """
-        if self._demonstrator.configure():
-            # set info before configuring the sampler
-            # so that the sampler can use it for configuring
-            names = list(self._visualizers.keys())
-            components = list(self._visualizers.values())
-            types = ["visualizer"] * len(self._visualizers)
-            if self._configure_components(names, components, types):
-                self._sampler.set_info(
-                    self._demonstrator.get_info() | {"system": SystemInfo.all_info()}
-                )
-                if self._configure_components(
-                    ["sampler"], [self._sampler], ["sampler"]
-                ):
-                    return self._demonstrator.react(DemonstrateAction.configure)
+        # set info before configuring the sampler
+        # so that the sampler can use it for configuring
+        names = list(self._visualizers.keys())
+        components = list(self._visualizers.values())
+        types = ["visualizer"] * len(self._visualizers)
+        if self._configure_components(names, components, types):
+            self._sampler.set_info(
+                self._demonstrator.get_info() | {"system": SystemInfo.all_info()}
+            )
+            if self._configure_components(["sampler"], [self._sampler], ["sampler"]):
+                return True
         return False
 
     def _configure_components(
@@ -109,39 +109,33 @@ class DemonstrateInterface:
                 return False
         return True
 
-    def _post_action(self, action: DemonstrateAction) -> bool:
-        # TODO: register as the post-action of the fsm
-        if not self._demonstrator.send_action(self._config.send_actions.get(action)):
-            self.get_logger().error(f"Failed to send post action: {action}")
-            return False
-        # self.get_logger().info(f"Post action: {action} finished")
-        return True
-
-    def _pre_action(self, action: DemonstrateAction) -> bool:
-        # TODO: register as the pre-action of the fsm
-        if not self._demonstrator.react(action):
-            self.get_logger().error(f"Failed to react to action: {action}")
-            return False
-        return True
+    def _register_fsm_callbacks(self):
+        """Register FSM callbacks, which will be called automatically by the FSM."""
+        self.fsm_callbacks = defaultdict(dict)
+        # register send action callbacks
+        for cb_type, configs in self._config.send_actions.items():
+            for key, action in configs.items():
+                self.fsm_callbacks[cb_type][key] = partial(
+                    self._demonstrator.send_action, action
+                )
+        # register react callbacks
+        # TODO: Allow both prepare before and after.
+        for action in DemonstrateAction:
+            self.fsm_callbacks[CallbackEventType.PREPARE_EVENT_BEFORE][action] = (
+                partial(self._demonstrator.react, action)
+            )
 
     def activate(self) -> bool:
-        if self._pre_action(DemonstrateAction.activate):
-            self._bar = ProgressBar(
-                self._config.sample_limit.size,
-                f"Round {self._sample_info.round}",
-            )
-            Path(self._config.dataset.absolute_directory).mkdir(
-                parents=True, exist_ok=True
-            )
-            self.get_logger().info("Warming up...")
-            self.capture(warm_up=True)
-            return self._post_action(DemonstrateAction.activate)
-        return False
+        self._bar = ProgressBar(
+            self._config.sample_limit.size, f"Round {self._sample_info.round}"
+        )
+        Path(self._config.dataset.absolute_directory).mkdir(parents=True, exist_ok=True)
+        self.get_logger().info("Warming up...")
+        self.capture(warm_up=True)
+        return True
 
     def deactivate(self) -> bool:
-        if self._demonstrator.react(DemonstrateAction.deactivate):
-            return self._post_action(DemonstrateAction.deactivate)
-        return False
+        return True
 
     def sample(self) -> bool:
         """
@@ -149,18 +143,15 @@ class DemonstrateInterface:
         """
         if self.is_reached_round:
             self.get_logger().warning("Maximum number of rounds was reached.")
-        # set the mode for leaders to passive
-        elif self._demonstrator.react(DemonstrateAction.sample):
-            self.get_logger().info(
-                Bcolors.green(f"Start sampling round: {self._sample_info.round}")
-            )
-            self._save_path = self._sampler.compose_path(
-                self._config.dataset.absolute_directory, self._sample_info.round
-            )
-            if self._post_action(DemonstrateAction.sample):
-                self._bar.reset(desc=f"Round {self._sample_info.round}")
-                return True
-        return False
+            return False
+        self.get_logger().info(
+            Bcolors.green(f"Start sampling round: {self._sample_info.round}")
+        )
+        self._save_path = self._sampler.compose_path(
+            self._config.dataset.absolute_directory, self._sample_info.round
+        )
+        self._bar.reset(desc=f"Round {self._sample_info.round}")
+        return True
 
     def capture(self, warm_up: bool = False) -> Dict[str, Any]:
         # TODO: can be called when sampling?
@@ -248,7 +239,7 @@ class DemonstrateInterface:
                 return False
         self._sample_info.round += 1
         self._clear()
-        return self._post_action(DemonstrateAction.save)
+        return True
 
     def remove(self) -> bool:
         """Remove the last round saved sample."""
@@ -335,21 +326,19 @@ class DemonstrateInterface:
         self.get_logger().info(
             Bcolors.green(f"Abandoned the current round: {self._sample_info.round}")
         )
-        return self._post_action(DemonstrateAction.abandon)
+        return True
 
     def finish(self) -> bool:
         """
         Finish the demonstration.
         """
-        if self._demonstrator.react(DemonstrateAction.finish):
-            self.get_logger().info(
-                f"Finished the demonstration: from {self._config.sample_limit.start_round} to {self._sample_info.round}"
-            )
-            for vis in self._visualizers.values():
-                vis.shutdown()
-            self._bar.close()
-            return self._post_action(DemonstrateAction.finish)
-        return False
+        self.get_logger().info(
+            f"Finished the demonstration: from {self._config.sample_limit.start_round} to {self._sample_info.round}"
+        )
+        for vis in self._visualizers.values():
+            vis.shutdown()
+        self._bar.close()
+        return True
 
     def log_round(self):
         self.get_logger().info(

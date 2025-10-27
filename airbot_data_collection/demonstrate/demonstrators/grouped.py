@@ -42,6 +42,8 @@ class GroupedDemonstrator(Demonstrator):
             return self.switch_mode(SystemMode.PASSIVE)
         elif action is DemonstrateAction.deactivate:
             return self.interface.handler.exit()
+        elif action is DemonstrateAction.configure:
+            return self.configure()
         else:
             func = getattr(self, f"_{action.value}", None)
             if func is not None:

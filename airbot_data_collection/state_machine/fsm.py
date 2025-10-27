@@ -11,7 +11,9 @@ from airbot_data_collection.demonstrate.interface import (
 from airbot_data_collection.state_machine.basis import (
     StateMachineBasis,
     StateMachineConfig,
+    CallbackEventType,
 )
+
 
 Action = DemonstrateAction
 State = DemonstrateState
@@ -29,9 +31,12 @@ class DemonstrateFSM(StateMachineBasis):
         super().__init__(config.state_machine)
         self.config = config
         self.__interface = DemonstrateInterface(config.interface)
-        self.action_calls = {
-            action: getattr(self.__interface, action.name) for action in Action
-        }
+        self.register_callbacks(
+            CallbackEventType.PREPARE_EVENT,
+            {action: getattr(self.__interface, action.name) for action in Action},
+        )
+        for cbtype, callbacks in self.__interface.fsm_callbacks.items():
+            self.register_callbacks(cbtype, callbacks)
 
     def on_enter_active(self, event):
         """Actions to perform when entering the active state."""

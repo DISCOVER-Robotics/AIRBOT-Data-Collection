@@ -245,7 +245,7 @@ class GroupsSendActionConfig(BaseModel):
         if not length:
             # The upper class is allowed to modify groups after initialization,
             # so no post-processing is performed here. The upper class should
-            # explicitly call the post-processing method after the modification
+            # explicitly call this post-processing method after the modification
             # is completed.
             return
         if len(set(self.groups)) != length:

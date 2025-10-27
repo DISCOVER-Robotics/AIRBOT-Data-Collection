@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Literal, List, TypeVar, Generic
+from typing import Any, Dict, Literal, List, TypeVar, Generic, Union
 from pydantic import (
     BaseModel,
     NonNegativeFloat,
@@ -11,7 +11,12 @@ from pydantic import (
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection.common.visualizers.basis import VisualizerBasis
-from airbot_data_collection.demonstrate.basis import Demonstrator, DemonstrateAction
+from airbot_data_collection.demonstrate.basis import (
+    Demonstrator,
+    DemonstrateAction,
+    DemonstrateState,
+)
+from airbot_data_collection.state_machine.basis import CallbackEventType
 from functools import cache
 
 
@@ -142,13 +147,16 @@ class ConcurrentConfig(BaseModel):
         return bool(self.actions + self.modes + self.max_workers)
 
 
+SendActionValue = Union[Dict[DemonstrateAction, Any], Dict[DemonstrateState, Any]]
+
+
 class DemonstrateConfig(BaseModel):
     dataset: DatasetConfig
     sample_limit: SampleLimit = SampleLimit()
-    # what the leaders / followers to act when
-    # performing an actions for each group
+    # what the demonstrator to act on
+    # entering a fsm state for each group
     # if None, no action values will be sent
-    send_actions: Dict[DemonstrateAction, Any] = {}
+    send_actions: Dict[CallbackEventType, SendActionValue] = {}
     # the demonstrator to be used for the demonstration
     demonstrator: ComponentConfig[Demonstrator]
     # the sampler to be used to collect and save the data
@@ -161,3 +169,10 @@ class DemonstrateConfig(BaseModel):
     # "permanent": delete the data permanently
     # "trash": move the data to the "trash" of the OS
     remove_mode: Literal["permanent", "trash"] = "permanent"
+
+    def model_post_init(self, context):
+        if CallbackEventType.PREPARE_EVENT in self.send_actions:
+            raise ValueError(
+                "send_actions cannot contain PREPARE_EVENT, "
+                "as it is reserved for internal use."
+            )

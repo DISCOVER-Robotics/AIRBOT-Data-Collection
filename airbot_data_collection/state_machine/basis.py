@@ -1,4 +1,3 @@
-import logging
 from collections import defaultdict
 from enum import Enum, auto
 from functools import partial
@@ -13,27 +12,16 @@ from airbot_data_collection.utils import StrEnum
 State = Optional[Union[str, Enum, dict]]
 StateKey = Union[str, Enum]
 Action = Union[str, Enum]
-
-
-class LogLevel(StrEnum):
-    debug = auto()
-    info = auto()
-    warning = auto()
-    error = auto()
-    critical = auto()
-
-    @classmethod
-    def get(cls, level: str):
-        return {
-            "debug": logging.DEBUG,
-            "info": logging.INFO,
-            "warning": logging.WARNING,
-            "error": logging.ERROR,
-            "critical": logging.CRITICAL,
-        }[level]
-
-
 SMCallable = Optional[Union[Callable, str, List[Union[Callable, str]]]]
+Nameable = Union[str, Enum, partial, Callable]
+
+
+class CallbackEventType(StrEnum):
+    PREPARE_EVENT_BEFORE = auto()
+    PREPARE_EVENT = auto()
+    PREPARE_EVENT_AFTER = auto()
+    BEFORE_STATE_CHANGE = auto()
+    AFTER_STATE_CHANGE = auto()
 
 
 class ToDestConfig(BaseModel):
@@ -91,6 +79,7 @@ class StateMachineBasis:
         self.machine = LockedMachine(
             self,
             before_state_change=self.before_state_change,
+            after_state_change=self.after_state_change,
             prepare_event=self.prepare_event,
             on_exception=self.on_exception,
             queued=False,
@@ -103,8 +92,8 @@ class StateMachineBasis:
         self._action_result: Dict[str, bool] = {}
         self._last_state = self.get_state()
         self._last_action = None
-        self._action_calls_raw: Dict[Action, Callable] = {}
-        self._action_calls: Dict[str, Callable] = {}
+        self._calls = defaultdict(dict)
+        self._calls_raw = {}
         self.add_action_transitions(config.action_transitions)
         self.add_source_transitions(config.source_transitions or {})
 
@@ -118,7 +107,7 @@ class StateMachineBasis:
         The order of the ToDestConfig is important.
         """
         for action, transitions in action_transitions.items():
-            action_name = self.get_action_name(action)
+            action_name = self.get_name(action)
             for source, to_dests in transitions.items():
                 for index, to_dest in enumerate(to_dests):
                     if to_dest.conditions is None:
@@ -156,7 +145,7 @@ class StateMachineBasis:
         not_only_success: Optional[list[ToDestConfig]] = None,
         not_only_failure: Optional[list[ToDestConfig]] = None,
     ):
-        action_name = self.get_action_name(action)
+        action_name = self.get_name(action)
         assert not self.is_action_source_added(action_name, source)
         self._add_action_source_transitions(
             action_name, source, success, not_only_success, "success"
@@ -216,29 +205,30 @@ class StateMachineBasis:
         if not isinstance(source, tuple):
             source = (source,)
         for src in source:
-            if self.machine.get_transitions(f"t_{self.get_action_name(action)}", src):
+            if self.machine.get_transitions(f"t_{self.get_name(action)}", src):
                 # self.get_logger().error(
                 #     f"Action {action} source {source} is already added."
                 # )
                 return True
         return False
 
-    def get_action_name(self, action: Action) -> str:
-        if isinstance(action, Enum):
-            return action.name
-        elif isinstance(action, str):
-            return action
-        elif isinstance(action, partial):
-            return action.func.__name__
+    @staticmethod
+    def get_name(value: Nameable) -> str:
+        if isinstance(value, Enum):
+            return value.name
+        elif isinstance(value, str):
+            return value
+        elif isinstance(value, partial):
+            return value.func.__name__
         else:
-            return action.__name__
+            return value.__name__
 
     def get_state(self) -> str:
         return self.state
 
     def act(self, action: Action) -> bool:
         """Act the action and return the result."""
-        if not self.trigger(f"t_{self.get_action_name(action)}"):
+        if not self.trigger(f"t_{self.get_name(action)}"):
             self.get_logger().warning(f"Action failed: {action}")
             return False
         return True
@@ -249,22 +239,60 @@ class StateMachineBasis:
         self.get_logger().info(
             f"Executing action: {action} in state: {self.get_state()}"
         )
-        self._action_result[action] = self._call_action(action)
+        result = False
+        if self._execute_callbacks(CallbackEventType.PREPARE_EVENT_BEFORE, action):
+            if self._execute_callbacks(CallbackEventType.PREPARE_EVENT, action):
+                if self._execute_callbacks(
+                    CallbackEventType.PREPARE_EVENT_AFTER, action
+                ):
+                    result = True
+                else:
+                    self.get_logger().error(
+                        f"Prepare event after callback failed for action: {action}"
+                    )
+            else:
+                self.get_logger().error(
+                    f"Prepare event callback failed for action: {action}"
+                )
+        else:
+            self.get_logger().error(
+                f"Prepare event before callback failed for action: {action}"
+            )
+        self._action_result[action] = result
         self._last_action = action
 
     def before_state_change(self, event_data: EventData):
         """Prepare the state."""
         self._last_state = self.get_state()
+        # self.get_logger().info(f"State is about to change from {self._last_state}")
+        # self._calls[CallbackType.BEFORE_STATE_CHANGE].get(
+        #     self.get_state(), lambda: None
+        # )()
+
+    def after_state_change(self, event_data: EventData):
+        """After the state is changed."""
+        # TODO: now call only if state actually changed
+        # should we make this behavior configurable?
+        if self._last_state != self.get_state():
+            self.get_logger().info(
+                f"State changed from {self._last_state} to {self.get_state()}"
+            )
+            if not self._execute_callbacks(
+                CallbackEventType.AFTER_STATE_CHANGE, self.get_state()
+            ):
+                self.get_logger().error(
+                    f"After state change callback failed for state: {self.get_state()}"
+                )
 
     def _get_action_from_event(self, event_data: EventData) -> str:
         return event_data.event.name.removeprefix("t_")
 
-    def _call_action(self, action: str) -> Any:
+    def _execute_callbacks(self, cb_type: CallbackEventType, name: str) -> Any:
         """Call the action."""
-        if action in self._action_calls:
-            return self._action_calls[action]()
-        else:
-            return getattr(self, action)()
+        call = self._calls[cb_type].get(name, None)
+        if call is not None:
+            return call()
+        return True
 
     def is_action_success(self, event_data: EventData) -> bool:
         """Check if the action is success."""
@@ -285,14 +313,12 @@ class StateMachineBasis:
     #     """Finalize the event."""
     #     self.get_logger().debug(f"{event_data}")
 
-    @property
-    def action_calls(self) -> Dict[Action, Callable]:
-        """Get the action calls."""
-        return self._action_calls_raw
+    def register_callbacks(
+        self, cb_type: CallbackEventType, callbacks: Dict[Nameable, Callable]
+    ):
+        self._calls_raw[cb_type] = callbacks
+        for name, callback in callbacks.items():
+            self._calls[cb_type][name] = callback
 
-    @action_calls.setter
-    def action_calls(self, action_calls: Dict[Action, Callable]):
-        """Set the action calls."""
-        self._action_calls_raw = action_calls
-        for action, func in action_calls.items():
-            self._action_calls[self.get_action_name(action)] = func
+    def get_callbacks(self) -> Dict[CallbackEventType, Dict[Nameable, Callable]]:
+        return self._calls_raw
