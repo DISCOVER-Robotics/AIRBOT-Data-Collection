@@ -4,6 +4,7 @@ from airbot_data_collection.common.systems.mcap_player import (
     McapDatasetConfig,
 )
 from airbot_ie.robots.airbot_play import AIRBOTPlay, AIRBOTPlayConfig
+# from airbot_ie.robots.airbot_play_mock import AIRBOTPlay, AIRBOTPlayConfig
 from airbot_data_collection.basis import SystemMode
 from typing import Optional, List
 
@@ -35,17 +36,12 @@ class AIRBOTPlayMcapDataReplay:
 
     def update(self) -> bool:
         if obs := self._mcap_player.capture_observation():
-            self._robot.send_action(self._to_action(obs))
+            print(obs)
+            self._robot.send_action(obs)
             # input("Press Enter to continue...")
             return True
         else:
             return False
-
-    def _to_action(self, obs) -> List[float]:
-        action = []
-        for topic in self.topics:
-            action.extend(obs[topic].tolist())
-        return action
 
     def shutdown(self) -> bool:
         return self._mcap_player.shutdown() and self._robot.shutdown()

@@ -5,6 +5,7 @@ from airbot_ie.robots.airbot_play import (
     SpeedProfile,
 )
 from numpy import random
+import logging
 
 
 class AIRBOTArmMock:
@@ -40,17 +41,21 @@ class AIRBOTArmMock:
         return isinstance(speed_profile, SpeedProfile)
 
     def servo_joint_pos(self, joint_pos, speed_profile=None):
+        self.get_logger().info(f"servo joint pos: {joint_pos}")
         assert isinstance(joint_pos, list)
         assert len(joint_pos) == 6
 
     def servo_eef_pos(self, eef_pos, speed_profile=None):
+        self.get_logger().info(f"servo eef pos: {eef_pos}")
         assert len(eef_pos) == 1
         assert isinstance(eef_pos, list)
 
     def move_eef_pos(self, eef_pos, speed_profile=None):
+        self.get_logger().info(f"move eef pos: {eef_pos}")
         self.servo_eef_pos(eef_pos, speed_profile)
 
     def move_to_joint_pos(self, joint_pos, speed_profile=None):
+        self.get_logger().info(f"move_to_joint_pos: {joint_pos}")
         self.servo_joint_pos(joint_pos, speed_profile)
 
     def move_to_cart_pose(self, position, orientation, speed_profile=None):
@@ -82,10 +87,15 @@ class AIRBOTArmMock:
         return isinstance(params, dict)
 
     def switch_mode(self, mode):
+        self.get_logger().info(f"Switched mode to {mode}")
         return isinstance(mode, RobotMode)
 
     def disconnect(self):
         return True
+
+    @classmethod
+    def get_logger(cls) -> logging.Logger:
+        return logging.getLogger(cls.__name__)
 
 
 class AIRBOTPlay(AIRBOTPlayReal):
