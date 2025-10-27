@@ -94,6 +94,7 @@ class AIRBOTPlayConfig(SystemConfig):
 class AIRBOTPlay(System):
     config: AIRBOTPlayConfig
     interface: AIRBOTArm
+    force_switch_mode: bool = False
 
     def on_configure(self) -> bool:
         self._init_args()

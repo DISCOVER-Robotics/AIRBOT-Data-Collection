@@ -92,6 +92,13 @@ class Sensor(ConfigurableBasis):
 
 
 class System(Sensor):
+    # Whether to force switch mode even if the mode is the same.
+    # Generally, it is recommended to set it to False for the
+    # bottom-level System class to avoid repeated switching, and
+    # to True for the top-level class to ensure that the bottom-level
+    # mode can be restored uniformly after being destroyed.
+    force_switch_mode: bool = True
+
     def __init__(self, config: ConfigType = None, **kwargs):
         super().__init__(config, **kwargs)
         self._current_mode = None
@@ -101,8 +108,7 @@ class System(Sensor):
 
     @final
     def switch_mode(self, mode: SystemMode) -> bool:
-        # NOTE: should we allow switching to the same mode?
-        if self._current_mode == mode:
+        if (not self.force_switch_mode) and self._current_mode == mode:
             return True
         if self.on_switch_mode(mode):
             self._current_mode = mode
