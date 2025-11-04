@@ -48,12 +48,12 @@ all = [
     "opencv-python",
     # "pyrealsense2",
     "linuxpy",
-    # "fastapi",
-    # "uvicorn",
     "PyTurboJPEG",
     "pyudev",
     "mcap-data-loader",
     "send2trash",
+    "array-api-compat",
+    "types-array-api",
 ]
 # no hardware support, such as
 # opencv, linuxpy, udev, pynput
