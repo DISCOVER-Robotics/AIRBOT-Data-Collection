@@ -147,14 +147,16 @@ if __name__ == "__main__":
         WrapperBasis,
         ForwardingWrapper,
         TakeOverEnvWrapper,
-        MockEnvironment,
-        MockEnvironmentConfig,
     )
     from airbot_data_collection.common.callers.basis import (
         CallerBasis,
         HorizonConfig,
         MockCaller,
         MockCallerConfig,
+    )
+    from airbot_data_collection.common.environments.basis import (
+        MockEnvironment,
+        MockEnvironmentConfig,
     )
 
     logging.basicConfig(level=logging.INFO)

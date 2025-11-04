@@ -1,6 +1,7 @@
 from pydantic import (
     BaseModel,
     NonNegativeFloat,
+    ConfigDict,
     model_validator,
     Field,
 )
@@ -270,6 +271,8 @@ class GroupsSendActionConfig(BaseModel):
 
 
 class GroupedComponentsSystemConfig(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+
     # NOTE: need to use a predefined class here to avoid
     # pickling issues with dynamically created generic types
     components: SystemSensorComponentGroupsConfig
@@ -401,7 +404,7 @@ class ComponentGroupManager:
 
     def send_grouped_action(self, action: GroupsSendActionConfig) -> bool:
         """Control the leaders or followers after some demonstrate action"""
-        self.get_logger().info(Bcolors.cyan(f"Sending action: {action}"))
+        # self.get_logger().info(Bcolors.cyan(f"Sending action: {action}"))
         for group_name, action_value, mode, to_follower in zip(
             action.groups, action.action_values, action.modes, action.to_follower
         ):

@@ -1,6 +1,7 @@
 import numpy as np
-from typing import Callable, Any, final
+from typing import Any, Generic, TypeVar, final
 from typing_extensions import Self
+from collections.abc import Callable
 from abc import abstractmethod
 from pydantic import BaseModel, PositiveInt
 from logging import getLogger
@@ -11,7 +12,10 @@ from airbot_data_collection.common.environments.basis import (
 )
 
 
-class WrapperBasis(ConfigurableBasis):
+T = TypeVar("T", bound=Callable[..., Any])
+
+
+class WrapperBasis(ConfigurableBasis, Generic[T]):
     caller: Callable
     # the chained outputs of the wrappers, cleared on reset
     output_chain: list = []
@@ -21,13 +25,10 @@ class WrapperBasis(ConfigurableBasis):
         return True
 
     @final
-    def wrap(self, caller: Callable) -> Self:
+    def wrap(self, caller: T) -> Self:
         """Wrap the callable with additional functionality."""
-        caller_type = self.__annotations__["caller"]
-        if caller_type == Callable:
-            if not callable(caller):
-                raise TypeError("The caller must be callable")
-        elif not isinstance(caller, caller_type):
+        caller_type = self.__annotations__.get("caller", Callable)
+        if not isinstance(caller, caller_type):
             raise TypeError(
                 f"Expected callable of type {self.caller}, got {type(caller)}"
             )
