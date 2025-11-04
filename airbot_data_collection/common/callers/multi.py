@@ -1,6 +1,6 @@
 from pydantic import BaseModel, PositiveInt, Field
 from collections.abc import Callable
-from typing import List
+from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from airbot_data_collection.common.callers.basis import CallerBasis
 from airbot_data_collection.basis import ConcurrentMode
@@ -11,8 +11,9 @@ class MultiCallerConfig(BaseModel):
 
     callables: List[Callable] = Field(min_length=1)
     """List of callables to be called in sequence or in parallel."""
-    num_workers: PositiveInt = 1
-    """Number of worker threads to use. 1 means no parallelism (no executor)."""
+    num_workers: Optional[PositiveInt] = 1
+    """Number of worker threads to use. 1 means no parallelism (no executor).
+    None means using as many workers as callables."""
     mode: ConcurrentMode = ConcurrentMode.thread
 
 
@@ -22,8 +23,8 @@ class MultiCaller(CallerBasis):
     config: MultiCallerConfig
 
     def on_configure(self) -> bool:
-        if self.config.num_workers > 1:
-            max_workers = self.config.num_workers
+        max_workers = self.config.num_workers or len(self.config.callables)
+        if max_workers > 1:
             self._executor = (
                 ThreadPoolExecutor(max_workers)
                 if self.config.mode is ConcurrentMode.thread
@@ -68,7 +69,7 @@ if __name__ == "__main__":
     ]
 
     config = MultiCallerConfig(
-        callables=callables, num_workers=2, mode=ConcurrentMode.thread
+        callables=callables, num_workers=None, mode=ConcurrentMode.thread
     )
     multi_caller = MultiCaller(config=config)
     multi_caller.on_configure()

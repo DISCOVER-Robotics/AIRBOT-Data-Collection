@@ -28,8 +28,6 @@ class WrappedDemonstrator(Demonstrator):
 
     def on_configure(self):
         if self.config.caller.configure():
-            if not isinstance(self.config.environment, EnvironmentBasis):
-                raise TypeError("The environment must inherit from EnvironmentBasis")
             if self.config.environment.configure():
                 self.config.environment.reset()
                 if self._init_wrapped():

@@ -53,7 +53,8 @@ class WrapperBasis(ConfigurableBasis, Generic[T]):
 
     @final
     def warm_up(self, *args, **kwds) -> Any:
-        """Warm up the wrapper"""
+        """Warm up the wrapper by calling the caller once and process its output.
+        The inputs are the same as the caller inputs."""
         if not hasattr(self, "caller"):
             raise RuntimeError("No caller, please wrap first")
         output = self.caller(*args, **kwds)
@@ -97,7 +98,7 @@ class WrapperBasis(ConfigurableBasis, Generic[T]):
 
     @abstractmethod
     def on_warm_up(self, output: Any):
-        """Hook when `warm_up` is called."""
+        """Hook when `warm_up` is called. The `output` is the return value of the caller."""
 
     @abstractmethod
     def call(self, *args, **kwds) -> Any:
