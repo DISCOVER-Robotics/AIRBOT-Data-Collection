@@ -118,9 +118,9 @@ class McapDataSampler(DataSampler):
         writer.add_attachment(
             time_ns(),
             time_ns(),
-            name="component_info",
-            data=json.dumps(info).encode("utf-8"),
-            media_type=MediaType.APPLICATION_JSON,
+            "component_info",
+            MediaType.APPLICATION_JSON,
+            json.dumps(info).encode("utf-8"),
         )
         log_stamps = data.pop("log_stamps")
         mcap_tool.add_log_stamps_attachment(log_stamps)

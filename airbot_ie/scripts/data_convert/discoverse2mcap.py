@@ -1,11 +1,15 @@
-from mcap_data_loader.utils.mcap_utils import (
+from mcap_data_loader.serialization.flb import (
     McapFlatBuffersWriter,
     FlatBuffersSchemas,
 )
 from airbot_ie.samplers.mcap_sampler import (
     AIRBOTMcapDataSampler,
     AIRBOTMcapDataSamplerConfig,
+)
+from airbot_data_collection.common.samplers.mcap_sampler import (
     TaskInfo,
+    McapTool,
+    MediaType,
 )
 from mcap.writer import Writer
 from pydantic import BaseModel
@@ -56,6 +60,7 @@ for folder in folders:
     mcap_writer.start()
     flb_writer = McapFlatBuffersWriter()
     flb_writer.set_writer(mcap_writer)
+    mcap_tool = McapTool(mcap_writer)
     all_schemas = set(FlatBuffersSchemas)
     all_schemas.remove(FlatBuffersSchemas.COMPRESSED_IMAGE)
     flb_writer.register_schemas(all_schemas)
@@ -70,9 +75,11 @@ for folder in folders:
         with open(mp4_file, "rb") as f:
             name = f"/{os.path.basename(mp4_file).removesuffix('.mp4')}/color/image_raw"
             print(f"Adding video attachment: {name}")
-            AIRBOTMcapDataSampler.add_video_attachment(
-                mcap_writer,
+            mcap_writer.add_attachment(
+                time.time_ns(),
+                time.time_ns(),
                 name,
+                MediaType.VIDEO_MP4,
                 f.read(),
             )
 
@@ -138,27 +145,30 @@ for folder in folders:
 
         for stamp in times:
             stamps_ns.append(int(stamp * 1e9))
-        AIRBOTMcapDataSampler.add_log_stamps_attachment(
-            mcap_writer,
-            stamps_ns,
+        mcap_writer.add_attachment(
+            time.time_ns(),
+            time.time_ns(),
         )
+        mcap_tool.add_log_stamps_attachment(stamps_ns)
 
         for i, action in enumerate(acts):
             stamp_ns = stamps_ns[i]
             for topic, slc in topic_mapping["act"].items():
                 if slc:
-                    flb_writer.add_array(topic, action[slc], stamp_ns, stamp_ns)
+                    flb_writer.add_float_array(topic, action[slc], stamp_ns, stamp_ns)
                 else:
-                    flb_writer.add_array(topic, action, stamp_ns, stamp_ns)
+                    flb_writer.add_float_array(topic, action, stamp_ns, stamp_ns)
 
         for key, values in obs.items():
             for topic, slc in topic_mapping.get(key, {key: None}).items():
                 for i, value in enumerate(values):
                     stamp_ns = stamps_ns[i]
                     if slc:
-                        flb_writer.add_array(topic, value[slc], stamp_ns, stamp_ns)
+                        flb_writer.add_float_array(
+                            topic, value[slc], stamp_ns, stamp_ns
+                        )
                     else:
-                        flb_writer.add_array(topic, value, stamp_ns, stamp_ns)
+                        flb_writer.add_float_array(topic, value, stamp_ns, stamp_ns)
 
     mcap_writer.finish()
 
