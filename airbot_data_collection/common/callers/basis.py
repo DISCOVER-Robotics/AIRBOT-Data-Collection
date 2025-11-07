@@ -1,14 +1,12 @@
-import torch
-import numpy as np
 from abc import abstractmethod
-from typing import Any, Tuple, Literal
+from typing import Any, Tuple, Literal, List
 from pydantic import BaseModel
 from airbot_data_collection.basis import ConfigurableBasis
+from collections.abc import Callable
 
 
 class CallerBasis(ConfigurableBasis):
-    @abstractmethod
-    def reset(self):
+    def reset(self) -> None:
         """Reset the internal state of the caller, if any."""
 
     @abstractmethod
@@ -32,6 +30,11 @@ class MockCaller(CallerBasis):
     config: MockCallerConfig
 
     def on_configure(self):
+        if self.config.output_type == "ndarray":
+            import numpy as xp
+        elif self.config.output_type == "Tensor":
+            import torch as xp
+        self._xp = xp
         return True
 
     def reset(self):
@@ -42,6 +45,38 @@ class MockCaller(CallerBasis):
         if self.config.output_type == "list":
             return lis
         elif self.config.output_type == "ndarray":
-            return np.array(lis)
+            return self._xp.array(lis)
         elif self.config.output_type == "Tensor":
-            return torch.tensor(lis)
+            return self._xp.tensor(lis)
+
+
+class CallerChainConfig(BaseModel):
+    callers: List[Callable]
+
+
+class CallerChain(CallerBasis):
+    """A caller that chains multiple callers together."""
+
+    config: CallerChainConfig
+
+    def on_configure(self):
+        return True
+
+    def reset(self):
+        for caller in self.config.callers:
+            if hasattr(caller, "reset"):
+                caller.reset()
+
+    def __call__(self, input: Any) -> Any:
+        output = input
+        for caller in self.config.callers:
+            output = caller(output)
+        return output
+
+
+if __name__ == "__main__":
+    caller_chain = CallerChain(
+        config=CallerChainConfig(callers=[lambda x: x + 1, lambda x: x * 2])
+    )
+    caller_chain.configure()
+    print(caller_chain(0.0))  # Should print 2.0
