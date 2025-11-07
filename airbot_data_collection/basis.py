@@ -77,6 +77,10 @@ class ConfigurableBasis(ABC):
                     config = replace(config, **kwargs)
         self.config = config
         self._configured = False
+        self.on_init()
+
+    def on_init(self) -> None:
+        """Callback to be called when initializing"""
 
     @final
     def configure(self) -> bool:
