@@ -1,20 +1,17 @@
-from typing import Any, List, Generic, TypeVar
-from pydantic import BaseModel
+from typing import Any, List
+from pydantic import BaseModel, Field
 from collections.abc import Callable
-from airbot_data_collection.common.callers.basis import CallerBasis
-
-
-T = TypeVar("T")
+from airbot_data_collection.common.callers.basis import CallerBasis, T
 
 
 class CallerChainConfig(BaseModel):
-    callables: List[Callable]
+    callables: List[Callable] = Field(min_length=1)
     """List of callables to be chained together."""
-    single_input: bool = True
+    single_input: bool = False
     """Whether the input to the chain is a single value or are args & kwargs."""
 
 
-class CallerChain(CallerBasis, Generic[T]):
+class CallerChain(CallerBasis[T]):
     """A caller that chains multiple callers together."""
 
     config: CallerChainConfig
@@ -61,9 +58,7 @@ class CallerChain(CallerBasis, Generic[T]):
 
 if __name__ == "__main__":
     caller_chain = CallerChain(
-        config=CallerChainConfig(
-            callables=[lambda x: x + 1, lambda x: x * 2], single_input=False
-        )
+        config=CallerChainConfig(callables=[lambda x: x + 1, lambda x: x * 2])
     )
     caller_chain.configure()
     print(caller_chain(x=0.0))  # Should print 2.0

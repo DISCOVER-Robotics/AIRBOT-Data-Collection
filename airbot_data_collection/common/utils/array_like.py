@@ -39,7 +39,10 @@ class ArrayInfo(BaseModel, frozen=True):
     def from_array(cls, array: Array) -> Self:
         """Create an ArrayInfo from an array-like object."""
         return cls(
-            type=type(array), dtype=array.dtype, shape=array.shape, device=array.device
+            arr_type=type(array),
+            dtype=array.dtype,
+            shape=array.shape,
+            device=array.device,
         )
 
 
@@ -70,9 +73,11 @@ def get_array_type_by_ns_name(name: str) -> Type:
         return str
 
 
-def get_tensor_device_auto() -> str:
+def get_tensor_device_auto(device: str = "") -> str:
     import torch
 
+    if device:
+        return device
     return f"cuda:{torch.cuda.current_device()}" if torch.cuda.is_available() else "cpu"
 
 

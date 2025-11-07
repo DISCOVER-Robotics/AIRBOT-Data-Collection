@@ -1,15 +1,18 @@
 from abc import abstractmethod
-from typing import Any, Tuple, Literal
+from typing import Tuple, Literal, Generic, TypeVar
 from pydantic import BaseModel
 from airbot_data_collection.basis import ConfigurableBasis
 
 
-class CallerBasis(ConfigurableBasis):
+T = TypeVar("T")
+
+
+class CallerBasis(ConfigurableBasis, Generic[T]):
     def reset(self) -> None:
         """Reset the internal state of the caller, if any."""
 
     @abstractmethod
-    def __call__(self, *args, **kwds) -> Any:
+    def __call__(self, *args, **kwds) -> T:
         """Call the caller with the given inputs."""
 
 

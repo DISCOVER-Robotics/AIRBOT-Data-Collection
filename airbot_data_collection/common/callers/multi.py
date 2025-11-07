@@ -1,6 +1,6 @@
 from pydantic import BaseModel, PositiveInt, Field
 from collections.abc import Callable
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Generic, TypeVar
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from airbot_data_collection.common.callers.basis import CallerBasis
 from airbot_data_collection.basis import ConcurrentMode
@@ -11,6 +11,9 @@ from airbot_data_collection.common.utils.array_like import (
     get_array_type_by_ns_name,
     get_tensor_device_auto,
 )
+
+
+T = TypeVar("T", bound=Callable)
 
 
 class ScalarsToContainerConfig(BaseModel):
@@ -36,10 +39,10 @@ class ScalarsToContainerConfig(BaseModel):
                 self.device = get_tensor_device_auto()
 
 
-class MultiCallerConfig(BaseModel):
+class MultiCallerConfig(BaseModel, Generic[T]):
     """Configuration for MultiCaller"""
 
-    callables: List[Callable] = Field(min_length=1)
+    callables: List[T] = Field(min_length=1)
     """List of callables to be called in sequence or in parallel."""
     num_workers: Optional[PositiveInt] = 1
     """Number of worker threads to use. 1 means no parallelism (no executor).
