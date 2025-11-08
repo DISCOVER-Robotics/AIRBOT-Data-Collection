@@ -1,44 +1,31 @@
-from typing import Any, List
-from pydantic import BaseModel, Field
-from collections.abc import Callable
-from airbot_data_collection.common.callers.basis import CallerBasis, T
+from airbot_data_collection.common.callers.basis import (
+    CallerEnsembleBasis,
+    CallerEnsembleConfig,
+)
 
 
-class CallerChainConfig(BaseModel):
-    callables: List[Callable] = Field(min_length=1)
-    """List of callables to be chained together."""
+class CallerChainConfig(CallerEnsembleConfig):
     single_input: bool = False
     """Whether the input to the chain is a single value or are args & kwargs."""
 
 
-class CallerChain(CallerBasis[T]):
+class CallerChain(CallerEnsembleBasis):
     """A caller that chains multiple callers together."""
 
     config: CallerChainConfig
 
-    def on_configure(self):
-        self.output_chain = []
-        for caller in self.config.callables:
-            if isinstance(caller, CallerBasis):
-                if not caller.configure():
-                    self.get_logger().error(f"Failed to configure caller: {caller}")
-                    return False
-        return True
-
     def reset(self):
-        for caller in self.config.callables:
-            if isinstance(caller, CallerBasis):
-                caller.reset()
         self.output_chain = []
+        return super().reset()
 
-    def _single_call(self, input: Any) -> T:
+    def _single_call(self, input):
         output = input
         for caller in self.config.callables:
             output = caller(output)
             self.output_chain.append(output)
         return output
 
-    def _multi_call(self, *args, **kwds) -> T:
+    def _multi_call(self, *args, **kwds):
         first = True
         for caller in self.config.callables:
             if first:
@@ -49,7 +36,7 @@ class CallerChain(CallerBasis[T]):
             self.output_chain.append(output)
         return output
 
-    def __call__(self, *args, **kwds) -> T:
+    def __call__(self, *args, **kwds):
         if self.config.single_input:
             return self._single_call(*args, **kwds)
         else:
@@ -61,6 +48,7 @@ if __name__ == "__main__":
         config=CallerChainConfig(callables=[lambda x: x + 1, lambda x: x * 2])
     )
     caller_chain.configure()
+    caller_chain.reset()
     print(caller_chain(x=0.0))  # Should print 2.0
     print(caller_chain.output_chain)  # Should print [1.0, 2.0]
     caller_chain.output_chain = []

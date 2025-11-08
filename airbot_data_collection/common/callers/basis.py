@@ -1,15 +1,20 @@
 from abc import abstractmethod
-from typing import Tuple, Literal, Generic, TypeVar
-from pydantic import BaseModel
+from typing import Tuple, Literal, Generic, TypeVar, List
+from collections.abc import Callable
+from pydantic import BaseModel, Field
 from airbot_data_collection.basis import ConfigurableBasis
 
 
 T = TypeVar("T")
+CallT = TypeVar("CallT", bound=Callable)
 
 
 class CallerBasis(ConfigurableBasis, Generic[T]):
     def reset(self) -> None:
         """Reset the internal state of the caller, if any."""
+
+    def on_configure(self):
+        return True
 
     @abstractmethod
     def __call__(self, *args, **kwds) -> T:
@@ -50,3 +55,28 @@ class MockCaller(CallerBasis):
             return self._xp.array(lis)
         elif self.config.output_type == "Tensor":
             return self._xp.tensor(lis)
+
+
+class CallerEnsembleConfig(BaseModel, Generic[CallT]):
+    callables: List[CallT] = Field(min_length=1)
+    """Tuple of callers to be called in ensemble."""
+
+
+class CallerEnsembleBasis(CallerBasis):
+    """A caller that ensembles multiple callers' outputs."""
+
+    config: CallerEnsembleConfig
+
+    def on_configure(self):
+        for func in self.config.callables:
+            if isinstance(func, CallerBasis):
+                if not func.configure():
+                    self.get_logger().error(f"Failed to configure callable: {func}")
+                    return False
+        return True
+
+    def reset(self):
+        """Reset the internal state of the caller, if any."""
+        for func in self.config.callables:
+            if isinstance(func, CallerBasis):
+                func.reset()

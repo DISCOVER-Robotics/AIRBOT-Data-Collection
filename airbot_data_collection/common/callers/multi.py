@@ -1,8 +1,11 @@
-from pydantic import BaseModel, PositiveInt, Field
+from pydantic import BaseModel, PositiveInt
 from collections.abc import Callable
-from typing import List, Optional, Literal, Generic, TypeVar
+from typing import Optional, Literal, TypeVar
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from airbot_data_collection.common.callers.basis import CallerBasis
+from airbot_data_collection.common.callers.basis import (
+    CallerEnsembleConfig,
+    CallerEnsembleBasis,
+)
 from airbot_data_collection.basis import ConcurrentMode
 from airbot_data_collection.common.utils.array_like import (
     ArrayInfo,
@@ -39,11 +42,9 @@ class ScalarsToContainerConfig(BaseModel):
                 self.device = get_tensor_device_auto()
 
 
-class MultiCallerConfig(BaseModel, Generic[T]):
+class MultiCallerConfig(CallerEnsembleConfig):
     """Configuration for MultiCaller"""
 
-    callables: List[T] = Field(min_length=1)
-    """List of callables to be called in sequence or in parallel."""
     num_workers: Optional[PositiveInt] = 1
     """Number of worker threads to use. 1 means no parallelism (no executor).
     None means using as many workers as callables."""
@@ -55,12 +56,12 @@ class MultiCallerConfig(BaseModel, Generic[T]):
     container will be used."""
 
 
-class MultiCaller(CallerBasis):
+class MultiCaller(CallerEnsembleBasis):
     """A caller that calls multiple callables in sequence and aggregates their outputs."""
 
     config: MultiCallerConfig
 
-    def on_configure(self) -> bool:
+    def on_init(self):
         max_workers = self.config.num_workers or len(self.config.callables)
         if max_workers > 1:
             self._executor = (
@@ -72,10 +73,6 @@ class MultiCaller(CallerBasis):
         else:
             self._call = self._call_in_sequence
         self._first_call = True
-        return True
-
-    def reset(self):
-        """Reset the internal state of the caller, if any."""
 
     def _first_setup(self, *args, **kwds):
         info_set = set()
