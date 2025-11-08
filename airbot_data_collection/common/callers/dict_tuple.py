@@ -39,9 +39,9 @@ class DictTuple(CallerBasis[Item]):
         )
         self._last_sep = config.separator if config.separate_key else ""
 
-    def __call__(self, input: Tuple[Item]):
+    def __call__(self, data: Tuple[Item]):
         self._tuple_dict: Item = {}
-        self._func(input, "", self.config.depth)
+        self._func(data, "", self.config.depth)
         return self._tuple_dict
 
     def _process_auto(self, tp: Tuple[Item], prefix: str, depth: int = 0):
