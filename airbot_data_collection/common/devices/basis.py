@@ -17,8 +17,7 @@ class EventValueMode(StrEnum):
 class EventableDeviceBasis(ConfigurableBasis):
     """Base class for devices that can generate events based on state changes."""
 
-    def __init__(self, config: ConfigType = None, **kwargs):
-        super().__init__(config, **kwargs)
+    def __init__(self, config: ConfigType = None):
         self._event_callbacks: Dict[EventValueMode, Dict[Enum, List[Callable]]] = (
             defaultdict(lambda: defaultdict(list))
         )

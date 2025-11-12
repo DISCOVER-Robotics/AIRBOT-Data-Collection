@@ -35,7 +35,7 @@ basic = [
     "bidict",
     "pynput >=1.8.1",
     "tqdm",
-    "send2trash",
+    "send2trash >=1.8.3",
 ]
 all = [
     "pydantic-settings",
@@ -51,7 +51,7 @@ all = [
     "PyTurboJPEG",
     "pyudev",
     "mcap-data-loader",
-    "send2trash",
+    "send2trash >=1.8.3",
 ]
 # no hardware support, such as
 # opencv, linuxpy, udev, pynput
@@ -64,7 +64,7 @@ soft = [
     "bidict",
     "tqdm",
     "mcap-data-loader",
-    "send2trash",
+    "send2trash >=1.8.3",
 ]
 ml = ["torch", "torchvision"]
 plt = ["ipykernel", "holoviews"]
