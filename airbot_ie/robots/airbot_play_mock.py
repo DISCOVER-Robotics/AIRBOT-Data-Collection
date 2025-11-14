@@ -43,12 +43,12 @@ class AIRBOTArmMock:
     def servo_joint_pos(self, joint_pos, speed_profile=None):
         self.get_logger().debug(f"servo joint pos: {joint_pos}")
         assert isinstance(joint_pos, list)
-        assert len(joint_pos) == 6
+        assert len(joint_pos) == 6, joint_pos
 
     def servo_eef_pos(self, eef_pos, speed_profile=None):
         self.get_logger().debug(f"servo eef pos: {eef_pos}")
-        assert len(eef_pos) == 1
-        assert isinstance(eef_pos, list)
+        assert len(eef_pos) == 1, eef_pos
+        assert isinstance(eef_pos, list), eef_pos
 
     def move_eef_pos(self, eef_pos, speed_profile=None):
         self.get_logger().debug(f"move eef pos: {eef_pos}")

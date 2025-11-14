@@ -1,0 +1,81 @@
+from airbot_data_collection.common.systems.grouped import (
+    GroupedComponentsSystemConfig,
+    GroupedComponentsSystem,
+    GroupsSendActionConfig,
+)
+from pydantic import field_validator, ValidationInfo
+from mcap_data_loader.datasets.dataset import RealTimeDatasetABC
+from mcap_data_loader.utils.basic import DictDataStamped
+
+
+class GroupedSystemDataSourceConfig(GroupedComponentsSystemConfig):
+    """Configuration for Grouped Components System Data Source"""
+
+    reset_action: GroupsSendActionConfig = GroupsSendActionConfig()
+    """Action to reset the grouped components system"""
+
+    @field_validator("reset_action")
+    def validate_reset_action(cls, v: GroupsSendActionConfig, info: ValidationInfo):
+        if v.action_values and not v.groups:
+            v.groups = list(dict.fromkeys(info.data["components"].groups))
+        v.model_post_init(None)
+        return v
+
+
+class GroupedSystemDataSource(RealTimeDatasetABC[DictDataStamped]):
+    """Grouped Components System Data Source"""
+
+    def __init__(self, config: GroupedSystemDataSourceConfig):
+        self.config = config
+        self.interface = GroupedComponentsSystem(config)
+        if not self.interface.configure():
+            raise RuntimeError("Failed to configure GroupedComponentsSystem")
+
+    def reset(self):
+        return self.interface.send_action(self.config.reset_action)
+
+    def write(self, input: GroupsSendActionConfig):
+        return self.interface.send_action(input)
+
+    def read(self):
+        return self.interface.capture_observation()
+
+    def close(self):
+        return self.interface.shutdown()
+
+
+if __name__ == "__main__":
+    from airbot_data_collection.utils import init_logging
+    from airbot_data_collection.common.systems.basis import SystemMode
+    from airbot_data_collection.common.systems.grouped import (
+        SystemSensorComponentGroupsConfig,
+        AutoControlConfig,
+    )
+    from pprint import pprint
+    from airbot_data_collection.common.devices.cameras.mock import MockCamera
+    from airbot_data_collection.common.systems.mock import MockSystem
+
+    init_logging()
+
+    reset_action = GroupsSendActionConfig(
+        groups=["/"], action_values=[[0.0] * 6], modes=[SystemMode.RESETTING]
+    )
+    system = MockSystem()
+    camera = MockCamera()
+    config = GroupedSystemDataSourceConfig(
+        components=SystemSensorComponentGroupsConfig(
+            groups=["/", "/"],
+            names=["lead_arm", "left_camera"],
+            roles=["l", "o"],
+            instances=[system, camera],
+        ),
+        reset_action=reset_action,
+        auto_control=AutoControlConfig(groups=[]),
+    )
+    pprint(config.model_dump())
+    live_data = GroupedSystemDataSource(config)
+    # assert live_data.configure()
+    live_data.reset()
+    print(live_data.read().keys())
+    reset_action.modes = [SystemMode.SAMPLING] * len(reset_action.modes)
+    live_data.write(reset_action)

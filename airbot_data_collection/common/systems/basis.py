@@ -1,6 +1,5 @@
 from airbot_data_collection.basis import (
     ConfigurableBasis,
-    ConfigType,
     PostCaptureConfig,
     DictDataStamped,
 )
@@ -32,9 +31,12 @@ class SystemMode(Enum):
 
 
 class Sensor(ConfigurableBasis):
-    def __init__(self, config: ConfigType = None, **kwargs):
-        super().__init__(config, **kwargs)
+    """Base class for sensors."""
+
+    def config_post_init(self):
+        super().config_post_init()
         self._metrics: DefaultDict[str, Dict[str, Any]] = defaultdict(dict)
+        self.get_logger().debug(f"Sensor {self.__class__.__name__} initialized.")
 
     @abstractmethod
     def capture_observation(
@@ -92,15 +94,20 @@ class Sensor(ConfigurableBasis):
 
 
 class System(Sensor):
-    # Whether to force switch mode even if the mode is the same.
-    # Generally, it is recommended to set it to False for the
-    # bottom-level System class to avoid repeated switching, and
-    # to True for the top-level class to ensure that the bottom-level
-    # mode can be restored uniformly after being destroyed.
-    force_switch_mode: bool = True
+    """Base class for systems with modes and actions."""
 
-    def __init__(self, config: ConfigType = None, **kwargs):
-        super().__init__(config, **kwargs)
+    force_switch_mode: bool = True
+    """
+    Whether to force switch mode even if the mode is the same.
+    Generally, it is recommended to set it to False for the
+    bottom-level System class to avoid repeated switching, and
+    to True for the top-level class to ensure that the bottom-level
+    mode can be restored uniformly after being destroyed.
+    """
+
+    @final
+    def config_post_init(self):
+        super().config_post_init()
         self._current_mode = None
 
     @abstractmethod

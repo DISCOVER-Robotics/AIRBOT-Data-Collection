@@ -82,15 +82,15 @@ class IntelRealSenseCameraConfig(CameraRGBDConfig):
 class IntelRealSenseCamera(Sensor):
     """Interface for Intel RealSense cameras."""
 
-    config: IntelRealSenseCameraConfig
-
-    def on_configure(self):
-        config = self.config
+    def __init__(self, config: IntelRealSenseCameraConfig):
+        self.config = config
         self.fps = config.fps
         self.width = config.width
         self.height = config.height
         self._rs_pipe = None
         self.logs = {}
+
+    def on_configure(self):
         self._connect()
         return True
 
