@@ -4,7 +4,7 @@ import time
 from typing import List, Optional
 from enum import Enum
 from airbot_data_collection.common.utils.interpolate import Interpolate
-from airbot_data_collection.common.utils.terminal import Bcolors
+from airbot_data_collection.basis import Bcolors
 from logging import getLogger
 from threading import Thread
 

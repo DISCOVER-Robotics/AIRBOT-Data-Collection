@@ -6,7 +6,7 @@ from airbot_data_collection.common.devices.vr.quest import (
     VRControllerEvent,
     EventValueMode,
 )
-from airbot_data_collection.common.utils.terminal import Bcolors
+from airbot_data_collection.basis import Bcolors
 from pprint import pformat
 from functools import partial
 from abc import ABC, abstractmethod

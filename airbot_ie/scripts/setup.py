@@ -17,8 +17,7 @@ from airbot_data_collection.utils import (
     BaseModelWithFieldAliases,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
-from airbot_data_collection.common.utils.terminal import Bcolors
-from airbot_data_collection.basis import PACKAGE_NAME
+from airbot_data_collection.basis import PACKAGE_NAME, Bcolors
 from collections import defaultdict
 from pprint import pformat
 from pydantic import Field

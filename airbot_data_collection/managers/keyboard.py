@@ -8,7 +8,7 @@ from airbot_data_collection.managers.basis import (
     ManagerConfigBasis,
 )
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.common.utils.terminal import Bcolors
+from airbot_data_collection.basis import Bcolors
 from typing import Dict
 
 

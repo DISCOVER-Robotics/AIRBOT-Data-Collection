@@ -16,7 +16,7 @@ dependencies = [
     "more-itertools",
     "typing-extensions",
     "setproctitle",
-    "termcolor",
+    "mcap-data-loader",
 ]
 
 [project.optional-dependencies]
@@ -50,7 +50,6 @@ all = [
     "linuxpy",
     "PyTurboJPEG",
     "pyudev",
-    "mcap-data-loader",
     "send2trash >=1.8.3",
 ]
 # no hardware support, such as
@@ -63,7 +62,6 @@ soft = [
     "transitions",
     "bidict",
     "tqdm",
-    "mcap-data-loader",
     "send2trash >=1.8.3",
 ]
 ml = ["torch", "torchvision"]

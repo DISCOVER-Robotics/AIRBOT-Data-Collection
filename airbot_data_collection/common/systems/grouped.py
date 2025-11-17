@@ -14,6 +14,7 @@ from airbot_data_collection.basis import (
     ConcurrentMode,
     ForceSetAttr,
     force_set_attr,
+    Bcolors,
 )
 from airbot_data_collection.common.systems.basis import Sensor, System, SystemMode
 from airbot_data_collection.common.utils.progress import Waitable
@@ -25,7 +26,6 @@ from airbot_data_collection.demonstrate.configs import (
     T,
 )
 from airbot_data_collection.utils import zip, init_logging
-from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection.common.systems.wrappers import (
     ConcurrentWrapperConfig,
     SensorConcurrentWrapper,

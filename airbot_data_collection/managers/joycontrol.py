@@ -13,7 +13,7 @@ from sensor_msgs.msg import Joy
 
 from airbot_data_collection.managers.basis import DemonstrateManagerBasis
 from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.common.utils.terminal import Bcolors
+from airbot_data_collection.basis import Bcolors
 
 
 logging.basicConfig(level=logging.INFO)

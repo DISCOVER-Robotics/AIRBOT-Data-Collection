@@ -2,7 +2,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict
 from typing import Dict
 from logging import getLogger
-from airbot_data_collection.common.utils.terminal import Bcolors
+from airbot_data_collection.basis import Bcolors
 from airbot_data_collection.common.samplers.mcap_sampler import (
     McapDataSampler,
     McapDataSamplerConfig,

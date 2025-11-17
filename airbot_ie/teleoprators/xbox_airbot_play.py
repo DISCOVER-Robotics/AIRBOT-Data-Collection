@@ -2,7 +2,7 @@ from discoverse.examples.force_control_data_collect_using_joy.robot_joy_controll
     RobotJoyController,
 )
 from airbot_data_collection.common.systems.basis import System
-from airbot_data_collection.common.utils.terminal import Bcolors
+from airbot_data_collection.basis import Bcolors
 from pydantic import BaseModel
 from threading import Thread
 from time import time_ns, sleep
