@@ -9,7 +9,6 @@ from airbot_data_collection.state_machine.fsm import (
     DemonstrateState,
 )
 from airbot_data_collection.basis import PACKAGE_NAME
-from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
 from airbot_data_collection.configurers.basis import ConfigurerBasis
 from importlib.metadata import version
 from collections import deque, defaultdict
@@ -117,8 +116,12 @@ def main():
         logger.info("Summary:\n" + pformat(summary))
         logger.info("Done.")
 
-    prepare_cv2_imshow(logger)
+    try:
+        from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
 
+        prepare_cv2_imshow(logger)
+    except Exception as e:
+        logger.warning(f"Failed to prepare cv2 imshow: {e}")
     main_loop(configurer.configure())
 
     return 0

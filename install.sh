@@ -21,3 +21,5 @@ if  [ "$arg" == "realsense" ]; then
         pip install pyrealsense2-beta -i https://pypi.mirrors.ustc.edu.cn/simple
     fi
 fi
+
+pip install mcap-data-loader @ git+https://github.com/OpenGHz/MCAP-DataLoader.git -U

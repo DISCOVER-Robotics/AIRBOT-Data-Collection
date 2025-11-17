@@ -17,8 +17,8 @@ from airbot_data_collection.utils import (
     BaseModelWithFieldAliases,
 )
 from airbot_data_collection.common.utils.system_info import SystemInfo
+from airbot_data_collection.common.utils.terminal import Bcolors
 from airbot_data_collection.basis import PACKAGE_NAME
-from mcap_data_loader.utils.basic import bcolors
 from collections import defaultdict
 from pprint import pformat
 from pydantic import Field
@@ -144,20 +144,20 @@ if set(new_can) != set(can_itfs):
     )
     # TODO: detect whether the CAN interfaces are bound correctly
     logger.info(
-        bcolors.OKCYAN
-        + "Please reconnect the robotic arms and press `Enter` to continue..."
+        Bcolors.cyan(
+            "Please reconnect the robotic arms and press `Enter` to continue..."
+        )
     )
     input()
     logger.info("Waiting for the system to stabilize after reconnection...")
     time.sleep(4)
     if check_can_interfaces(new_can):
         logger.info(
-            bcolors.OKGREEN + f"Successfully bound CAN group {can_itfs} to {new_can}."
+            Bcolors.green(f"Successfully bound CAN group {can_itfs} to {new_can}.")
         )
     else:
         logger.error(
-            bcolors.FAIL
-            + f"Failed to bind CAN group {can_itfs} to {new_can}. Please check the connections."
+            f"Failed to bind CAN group {can_itfs} to {new_can}. Please check the connections."
         )
         exit(1)
 else:
@@ -167,7 +167,7 @@ else:
 
 all_cam_devices = find_video_capture_devices(True)
 realsense_buses = []
-logger.info(bcolors.OKCYAN + f"Found v4l2 devices: \n{pformat(all_cam_devices)}")
+logger.info(Bcolors.cyan(f"Found v4l2 devices: \n{pformat(all_cam_devices)}"))
 for device_key in list(all_cam_devices.keys()):
     bus_id = device_key[1]
     if bus_id in args.ignore_cameras:
@@ -189,8 +189,8 @@ if USE_REALSENSE:
 else:
     args.ignore_cameras.extend(realsense_buses)
 assert used_camera_indices, "No used cameras. Please check the args and connections."
-logger.info(bcolors.OKBLUE + f"All ignored cameras: {args.ignore_cameras}")
-logger.info(bcolors.OKBLUE + f"Used camera indices: {used_camera_indices}")
+logger.info(Bcolors.blue(f"All ignored cameras: {args.ignore_cameras}"))
+logger.info(Bcolors.blue(f"Used camera indices: {used_camera_indices}"))
 
 cameras: list[V4L2Camera] = []
 camera_vis_keys: list[str] = []
@@ -245,8 +245,9 @@ for i, index in enumerate(list(used_camera_indices)):
             prefix = bus_name_mapping.get(bus, "None")
             if prefix == "None":
                 logger.info(
-                    bcolors.OKBLUE
-                    + f"Camera {index} bus/serial info {bus} not found in bus/serial name mapping."
+                    Bcolors.blue(
+                        f"Camera {index} bus/serial info {bus} not found in bus/serial name mapping."
+                    )
                 )
                 no_cfg_buses_indexes.append(i)
             else:
@@ -272,16 +273,17 @@ else:
     exit(1)
 
 logger.info(
-    bcolors.OKBLUE
-    + "\n"
-    + pformat(
-        {
-            "q or ESC": "Quit the setup script without saving configs.",
-            "c": "Configure cameras with names.",
-            "s": "Save the current configuration and exit.",
-        }
+    Bcolors.blue(
+        "\n"
+        + pformat(
+            {
+                "q or ESC": "Quit the setup script without saving configs.",
+                "c": "Configure cameras with names.",
+                "s": "Save the current configuration and exit.",
+            }
+        )
+        + "\nNote: Click any of the image windows and then press the key"
     )
-    + "\nNote: Click any of the image windows and then press the key"
 )
 while True:
     for camera, vis_key, visualizer in zip(cameras, camera_vis_keys, visualizers):
@@ -298,7 +300,7 @@ while True:
             logger.warning(
                 "No need to configure since all cameras are mapped to their names"
             )
-            logger.info(bcolors.OKBLUE + "Do you want to re-configue? (y/n)")
+            logger.info(Bcolors.blue("Do you want to re-configue? (y/n)"))
             if cv2.waitKey(0) & 0xFF == ord("y"):
                 no_cfg_buses_indexes = list(range(len(camera_bus_serials)))
                 # clear the previous configuration
@@ -331,8 +333,9 @@ while True:
                 for i, name in enumerate(unused_name):
                     hint_str += f"{name}[{i}] | "
                 logger.info(
-                    bcolors.OKCYAN
-                    + f"Name the camera on {bus} (press the digital number in []): {hint_str.removesuffix('| ')}"
+                    Bcolors.cyan(
+                        f"Name the camera on {bus} (press the digital number in []): {hint_str.removesuffix('| ')}"
+                    )
                 )
                 index = cv2.waitKey(0) & 0xFF - ord("0")
                 final_name = unused_name.pop(index)
@@ -344,7 +347,7 @@ while True:
             cfged_indices.append(camera_indices[bus_index])
             cfged_camera_types.append(camera_types[bus])
             bus_name_mapping[bus] = final_name
-            logger.info(bcolors.OKGREEN + f"Camera {bus} renamed to {final_name}")
+            logger.info(Bcolors.green(f"Camera {bus} renamed to {final_name}"))
         with open(station_config_path, "w") as f:
             yaml.dump(station_config, f, default_flow_style=False)
         logger.info(f"Updated station config: {station_config_path}")
@@ -380,7 +383,7 @@ while True:
         input_file_path = f"{defaults_dir}/airbot_play.yaml"
         with open(input_file_path) as f:
             config: dict = yaml.safe_load(f)
-            param_dict: dict = config["demonstrator"]["param"]
+            param_dict: dict = config["demonstrator"]["instance"]
             param_dict["components"] = components
             config["defaults"].append(
                 {"post_capture@demonstrator.instance": str(can_num)}
@@ -398,4 +401,4 @@ cv2.destroyAllWindows()
 logger.info("Shutting down cameras...")
 for camera in cameras:
     camera.shutdown()
-logger.info("Setup script completed successfully.")
+logger.info(Bcolors.green("Setup completed successfully."))

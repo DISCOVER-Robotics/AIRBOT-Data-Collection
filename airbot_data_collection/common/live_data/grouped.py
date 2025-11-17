@@ -54,6 +54,7 @@ if __name__ == "__main__":
     from pprint import pprint
     from airbot_data_collection.common.devices.cameras.mock import MockCamera
     from airbot_data_collection.common.systems.mock import MockSystem
+    import time
 
     init_logging()
 
@@ -79,3 +80,11 @@ if __name__ == "__main__":
     print(live_data.read().keys())
     reset_action.modes = [SystemMode.SAMPLING] * len(reset_action.modes)
     live_data.write(reset_action)
+
+    for i, data in enumerate(live_data):
+        for key, value in data.items():
+            print(f"{key}: {value['t']}")
+        time.sleep(0.5)
+        if i >= 5:
+            break
+    live_data.close()
