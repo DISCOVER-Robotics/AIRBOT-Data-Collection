@@ -1,5 +1,5 @@
 import json
-from pydantic import BaseModel, PositiveInt
+from pydantic import BaseModel, PositiveInt, ConfigDict
 from typing import Literal, Dict, Union, List
 from mcap.writer import Writer
 from flatten_dict import flatten
@@ -15,7 +15,7 @@ from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection import __version__ as collector_version
 
 
-class Subtask(BaseModel):
+class Subtask(BaseModel, frozen=True):
     # Skill template with placeholders like "pick {A} from {B}"
     skill: str
     # English description of the subtask
@@ -24,7 +24,9 @@ class Subtask(BaseModel):
     description_zh: str
 
 
-class TaskInfo(BaseModel):
+class TaskInfo(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
     # Name of the task, used for identification, logging, and reporting.
     task_name: str = ""
     task_description: str = ""
@@ -45,17 +47,22 @@ class TaskInfo(BaseModel):
     subtasks: List[Subtask] = []
 
 
-class SaveType(BaseModel):
+class SaveType(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
     color: Literal["raw", "jpeg", "h264"] = "h264"
     depth: Literal["raw"] = "raw"
 
 
-class Version(BaseModel):
+class Version(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
     collector: str = collector_version
     data_schema: str = "0.0.1"
 
 
-class McapDataSamplerConfig(BaseModel):
+class McapDataSamplerConfig(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
     task_info: TaskInfo = TaskInfo()
     version: Version = Version()
     save_type: SaveType = SaveType()

@@ -12,6 +12,8 @@ from airbot_data_collection.basis import (
     auto,
     PostCaptureConfig,
     ConcurrentMode,
+    ForceSetAttr,
+    force_set_attr,
 )
 from airbot_data_collection.common.systems.basis import Sensor, System, SystemMode
 from airbot_data_collection.common.utils.progress import Waitable
@@ -45,28 +47,32 @@ Component = Union[System, Sensor]
 class ComponentRole(StrEnum):
     """The role of the component in the group."""
 
-    # the leader of the group
     l = auto()  #  # noqa: E741
-    # the follower of the group
+    """the leader of the group"""
     f = auto()  #  # noqa: E741
-    # the other components in the group
-    # e.g. the sensors such as cameras,
-    # imus, tactiles, etc.
+    """the follower of the group"""
     o = auto()
+    """
+    the other components in the group
+    e.g. the sensors such as cameras,
+    imus, tactiles, etc.
+    """
 
 
-class ComponentGroupsConfig(ComponentsConfig[T]):
+class ComponentGroupsConfig(ComponentsConfig[T], frozen=True):
     """Configuration for multiple components in groups."""
 
-    # the group name of each component
     groups: List[str] = []
-    # the role of each component in the group
+    """the group name of each component"""
     roles: List[ComponentRole] = []
-    # the components with these roles will be ignored,
-    # which can be used to reuse the demonstration
-    # configuration when not demonstrating by ignoring
-    # some roles, e.g. ignoring the followers
+    """the role of each component in the group"""
     ignore_roles: Set[ComponentRole] = set()
+    """
+    the components with these roles will be ignored,
+    which can be used to reuse the demonstration
+    configuration when not demonstrating by ignoring
+    some roles, e.g. ignoring the followers
+    """
 
     def model_post_init(self, context):
         super().model_post_init(context)
@@ -192,19 +198,29 @@ class SystemSensorComponentGroupsConfig(ComponentGroupsConfig[Component]):
     """Configuration for multiple systems and sensors in groups."""
 
 
-class AutoControlConfig(BaseModel):
-    # the group names where the leader states
-    # are used to control the follower states
-    # None means all group names are used
-    # if empty, the control should be implicitly implemented when
-    # switching to the active / passive mode
+class AutoControlConfig(BaseModel, frozen=True):
+    """Configuration for auto control of the followers based on the leaders."""
+
+    model_config = ConfigDict(extra="forbid")
+
     groups: Optional[List[str]] = None
-    # the rate of the auto control loop for each group
-    # 0 means as fast as possible
+    """
+    the group names where the leader states
+    are used to control the follower states
+    None means all group names are used
+    if empty, the control should be implicitly implemented when
+    switching to the active / passive mode
+    """
     rates: List[NonNegativeFloat] = []
-    # the mode of the auto control loop for each group
-    # can not be none
+    """
+    the rate of the auto control loop for each group
+    0 means as fast as possible
+    """
     modes: List[ConcurrentMode] = []
+    """
+    the mode of the auto control loop for each group
+    can not be none
+    """
 
     def refresh(self, groups: List[str]):
         for group in set(self.groups) - set(groups):
@@ -213,6 +229,7 @@ class AutoControlConfig(BaseModel):
             self.rates.pop(index)
             self.modes.pop(index)
 
+    @force_set_attr
     def model_post_init(self, context):
         # check when groups are not empty
         if self.groups or self.groups is None:
@@ -228,17 +245,24 @@ class AutoControlConfig(BaseModel):
                     raise ValueError("rates must be set if groups is not empty")
 
 
-class GroupsSendActionConfig(BaseModel):
+class GroupsSendActionConfig(BaseModel, frozen=True):
     """Which action value and mode to perform for each group
     when the action is called. The action values and mode will be sent
     to the leaders only unless `to_follower` is set to True.
     """
 
-    groups: List[str] = []
-    action_values: List[Any] = []
-    modes: List[SystemMode] = []
-    to_follower: List[bool] = []
+    model_config = ConfigDict(extra="forbid")
 
+    groups: List[str] = []
+    """the group names to send the action to"""
+    action_values: List[Any] = []
+    """the action values to send to each group"""
+    modes: List[SystemMode] = []
+    """the modes to switch to for each group"""
+    to_follower: List[bool] = []
+    """whether to send the action to the followers instead of leaders"""
+
+    @force_set_attr
     def model_post_init(self, context):
         length = len(self.groups)
         if not length:
@@ -270,34 +294,37 @@ class GroupsSendActionConfig(BaseModel):
             raise ValueError("groups and to_follower must have the same length")
 
 
-class GroupedComponentsSystemConfig(BaseModel):
-    model_config = ConfigDict(validate_assignment=True)
+class GroupedComponentsSystemConfig(BaseModel, frozen=True):
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
 
     # NOTE: need to use a predefined class here to avoid
     # pickling issues with dynamically created generic types
     components: SystemSensorComponentGroupsConfig
+    """the components in groups"""
     auto_control: AutoControlConfig = Field(default_factory=AutoControlConfig)
-    # the post capture config for each group leader
+    """the auto control configuration"""
     post_capture: Dict[str, PostCaptureConfig] = {}
+    """the post capture config for each group leader"""
 
     def model_post_init(self, context):
-        if self.auto_control.groups is None:
-            self.auto_control.groups = self.components.unique_groups
-        if {ComponentRole.l, ComponentRole.f} - set(self.components.roles):
-            if self.auto_control.groups:
-                getLogger(self.__class__.__name__).warning(
-                    "No leader and follower role found in the components, "
-                    "clear auto_control.groups."
+        with ForceSetAttr(self.auto_control):
+            if self.auto_control.groups is None:
+                self.auto_control.groups = self.components.unique_groups
+            if {ComponentRole.l, ComponentRole.f} - set(self.components.roles):
+                if self.auto_control.groups:
+                    getLogger(self.__class__.__name__).warning(
+                        "No leader and follower role found in the components, "
+                        "clear auto_control.groups."
+                    )
+                    self.auto_control.groups = []
+            auto_groups = self.auto_control.groups
+            if auto_groups:
+                self.auto_control.rates = ensure_equal_length(
+                    auto_groups, self.auto_control.rates
                 )
-                self.auto_control.groups = []
-        auto_groups = self.auto_control.groups
-        if auto_groups:
-            self.auto_control.rates = ensure_equal_length(
-                auto_groups, self.auto_control.rates
-            )
-            self.auto_control.modes = ensure_equal_length(
-                auto_groups, self.auto_control.modes
-            )
+                self.auto_control.modes = ensure_equal_length(
+                    auto_groups, self.auto_control.modes
+                )
 
 
 class ComponentGroupManager:
@@ -435,9 +462,13 @@ class ComponentGroupManager:
     def new_for_auto_control(self) -> Self:
         # create a new instance of the class to remove
         # all references to the original instance
-        config_auto_c = self._config_ori.model_copy(deep=True)
-        config_auto_c.components = self._config_ori.components.deep_copy_with_ignoring(
-            {ComponentRole.o}
+        config_auto_c = self._config_ori.model_copy(
+            deep=True,
+            update={
+                "components": self._config_ori.components.deep_copy_with_ignoring(
+                    {ComponentRole.o}
+                )
+            },
         )
         config_auto_c.auto_control.refresh(config_auto_c.components.groups)
         return self.__class__(config_auto_c)

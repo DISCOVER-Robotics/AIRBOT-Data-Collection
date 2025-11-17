@@ -1,12 +1,14 @@
-from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt
+from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, ConfigDict
 from typing import Any, Optional
 from airbot_data_collection.common.systems.basis import System, SystemMode
 from more_itertools import consume, seekable
 from mcap_data_loader.datasets.dataset import IterableDatasetABC
 
 
-class DataPlayerConfig(BaseModel):
+class DataPlayerConfig(BaseModel, frozen=True):
     """Configuration for the data player."""
+
+    model_config = ConfigDict(extra="forbid")
 
     source: Any
     loop: bool = False

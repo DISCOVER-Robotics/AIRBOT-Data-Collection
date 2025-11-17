@@ -3,9 +3,9 @@ from airbot_data_collection.common.systems.grouped import (
     GroupedComponentsSystem,
     GroupsSendActionConfig,
 )
+from airbot_data_collection.basis import DictDataStamped, ForceSetAttr
 from pydantic import field_validator, ValidationInfo
 from mcap_data_loader.datasets.dataset import RealTimeDatasetABC
-from mcap_data_loader.utils.basic import DictDataStamped
 
 
 class GroupedSystemDataSourceConfig(GroupedComponentsSystemConfig):
@@ -16,10 +16,11 @@ class GroupedSystemDataSourceConfig(GroupedComponentsSystemConfig):
 
     @field_validator("reset_action")
     def validate_reset_action(cls, v: GroupsSendActionConfig, info: ValidationInfo):
-        if v.action_values and not v.groups:
-            v.groups = list(dict.fromkeys(info.data["components"].groups))
-        v.model_post_init(None)
-        return v
+        with ForceSetAttr(v):
+            if v.action_values and not v.groups:
+                v.groups = list(dict.fromkeys(info.data["components"].groups))
+            v.model_post_init(None)
+            return v
 
 
 class GroupedSystemDataSource(RealTimeDatasetABC[DictDataStamped]):

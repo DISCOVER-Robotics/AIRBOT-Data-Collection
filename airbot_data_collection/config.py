@@ -9,7 +9,7 @@ from airbot_data_collection.state_machine.fsm import (
 )
 
 
-class DataCollectionConfig(BaseModel):
+class DataCollectionConfig(BaseModel, frozen=True):
     """Configuration for the data collection."""
 
     # the maximum rate for the managers

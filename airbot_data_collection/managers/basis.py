@@ -11,7 +11,7 @@ from airbot_data_collection.common.utils.terminal import Bcolors
 from pprint import pformat
 
 
-class ManagerConfigBasis(BaseModel):
+class ManagerConfigBasis(BaseModel, frozen=True):
     """Configuration for the manager."""
 
     action_key: Dict[DemonstrateAction, Any] = {}

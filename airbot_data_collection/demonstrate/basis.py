@@ -3,9 +3,10 @@ from airbot_data_collection.common.utils.progress import (
     Waitable,
     ConcurrentProgressHandler,
 )
-from multiprocessing import get_context
 from airbot_data_collection.utils import StrEnum
+from multiprocessing import get_context
 from enum import auto
+from pydantic import NonNegativeInt, BaseModel
 import time
 
 
@@ -32,6 +33,16 @@ class DemonstrateState(StrEnum):
 
 
 SpawnEvent = get_context("spawn").Event
+
+
+class SampleInfo(BaseModel):
+    """Information of the current sampling round."""
+
+    # NOTE: no frozen, no validation for performance consideration
+    index: NonNegativeInt = 0
+    """the current index (number) of the data in a single sample round"""
+    round: NonNegativeInt = 0
+    """the current round of the sampling"""
 
 
 if __name__ == "__main__":

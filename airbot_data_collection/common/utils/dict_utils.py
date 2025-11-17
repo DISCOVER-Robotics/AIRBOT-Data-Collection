@@ -6,7 +6,7 @@ from functools import cache, cached_property
 T = TypeVar("T", bound=Dict[str, Any])
 
 
-class DictKeyFilterConfig(BaseModel):
+class DictKeyFilterConfig(BaseModel, frozen=True):
     """Config for DictKeyFilter."""
 
     include_equal: Set[str] = set()

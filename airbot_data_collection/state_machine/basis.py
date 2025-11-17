@@ -3,7 +3,7 @@ from enum import Enum, auto
 from functools import partial
 from logging import getLogger
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from transitions import EventData
 from transitions.extensions import LockedMachine
 from airbot_data_collection.utils import StrEnum
@@ -24,7 +24,9 @@ class CallbackEventType(StrEnum):
     AFTER_STATE_CHANGE = auto()
 
 
-class ToDestConfig(BaseModel):
+class ToDestConfig(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
     dest: State
     conditions: SMCallable = None
     unless: SMCallable = None
@@ -37,7 +39,9 @@ ActionTransitions = Dict[Union[State, Tuple[State, ...]], List[ToDestConfig]]
 SourceTransitions = Dict[Action, List[ToDestConfig]]
 
 
-class StateMachineConfig(BaseModel):
+class StateMachineConfig(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
     states: List[State] = []
     initial: State = None
     # The action transitions will be added first, then the source transitions.

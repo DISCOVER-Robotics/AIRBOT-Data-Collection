@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Dict
 from logging import getLogger
 from airbot_data_collection.common.utils.terminal import Bcolors
@@ -20,7 +20,9 @@ except ImportError:
     )
 
 
-class UploadConfig(BaseModel):
+class UploadConfig(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
     enable: bool = False
     endpoint: str = ""
     username: str = ""

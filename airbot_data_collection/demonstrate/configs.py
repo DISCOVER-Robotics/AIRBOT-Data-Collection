@@ -8,7 +8,7 @@ from pydantic import (
     computed_field,
     model_validator,
 )
-from airbot_data_collection.basis import ConcurrentMode
+from airbot_data_collection.basis import ConcurrentMode, force_set_attr
 from airbot_data_collection.common.samplers.basis import DataSampler
 from airbot_data_collection.common.visualizers.basis import VisualizerBasis
 from airbot_data_collection.common.demonstrators.basis import Demonstrator
@@ -17,11 +17,10 @@ from airbot_data_collection.state_machine.basis import CallbackEventType
 from functools import cache
 
 
-# TODO: should use multiple type vars for different classes?
 T = TypeVar("T")
 
 
-class ComponentConfig(BaseModel, Generic[T]):
+class ComponentConfig(BaseModel, Generic[T], frozen=True):
     """The config of one component to be used in the demonstration."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
@@ -36,7 +35,7 @@ class ComponentConfig(BaseModel, Generic[T]):
     update_rate: NonNegativeFloat = 0
 
 
-class ComponentsConfig(BaseModel, Generic[T]):
+class ComponentsConfig(BaseModel, Generic[T], frozen=True):
     """The config of multiple components to be used in the demonstration."""
 
     # TODO: set extra="forbid" after pydantic fix relevant bugs
@@ -49,6 +48,7 @@ class ComponentsConfig(BaseModel, Generic[T]):
     concurrents: List[ConcurrentMode] = []
     update_rates: List[NonNegativeFloat] = []
 
+    @force_set_attr
     def model_post_init(self, context) -> None:
         name_length = len(self.names)
         if name_length == 0:
@@ -82,7 +82,7 @@ class ComponentsConfig(BaseModel, Generic[T]):
         return dict(zip(self.names, self.instances))
 
 
-class DatasetConfig(BaseModel):
+class DatasetConfig(BaseModel, frozen=True):
     root: Path = Path("./data")  # root directory of all data
     # relative directory to the root directory where the data files are stored
     directory: str = ""
@@ -96,7 +96,7 @@ class DatasetConfig(BaseModel):
         return (self.root / self.directory).absolute()
 
 
-class SampleLimit(BaseModel):
+class SampleLimit(BaseModel, frozen=True):
     # the start round of the data files to be saved
     # if < 0, the start round will be automatically
     # determined by the the number of items in the
@@ -120,18 +120,20 @@ class SampleLimit(BaseModel):
     # 0 means no limit
     end_round: NonNegativeInt = 0
 
+    @force_set_attr
     def model_post_init(self, context):
         if self.end_round == 0 and self.rounds > 0:
             self.end_round = self.start_round + self.rounds
 
 
-class ConcurrentConfig(BaseModel):
+class ConcurrentConfig(BaseModel, frozen=True):
     """Configuration for concurrent modes for different demonstrate actions."""
 
     actions: List[DemonstrateAction] = []
     modes: List[ConcurrentMode] = []
     max_workers: List[NonNegativeInt] = []
 
+    @force_set_attr
     def model_post_init(self, context) -> None:
         if self.actions:
             if not self.modes:
@@ -147,7 +149,7 @@ class ConcurrentConfig(BaseModel):
 SendActionValue = Union[Dict[DemonstrateAction, Any], Dict[DemonstrateState, Any]]
 
 
-class DemonstrateConfig(BaseModel):
+class DemonstrateConfig(BaseModel, frozen=True):
     dataset: DatasetConfig
     sample_limit: SampleLimit = SampleLimit()
     # what the demonstrator to act on

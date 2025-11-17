@@ -175,8 +175,10 @@ class ReferenceMode(StrEnum):
             return ReferenceBase.ACTION
 
 
-class CommonConfig(BaseModel):
+class CommonConfig(BaseModel, frozen=True):
     """Common configuration for both observation and action."""
+
+    model_config = ConfigDict(extra="forbid")
 
     reference_mode: ReferenceMode = ReferenceMode.ABSOLUTE
 
@@ -206,10 +208,10 @@ class ObservationConfig(CommonConfig):
 ActionConfigs = List[Dict[SystemMode, ActionConfig]]
 
 
-class SystemConfig(BaseModel):
+class SystemConfig(BaseModel, frozen=True):
     """Configuration for the robot system."""
 
-    model_config = ConfigDict(validate_default=True)
+    model_config = ConfigDict(validate_default=True, extra="forbid")
 
     components: List[str] = []
     action: ActionConfigs = []

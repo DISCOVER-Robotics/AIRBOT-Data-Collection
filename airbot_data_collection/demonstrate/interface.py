@@ -8,17 +8,13 @@ from concurrent.futures import (
 from logging import getLogger
 from typing import Any, List, Dict, Union
 from send2trash import send2trash
-from airbot_data_collection.common import (
-    DataSampler,
-    MockDataSampler,
-    SampleInfo,
-    Visualizer,
-)
+from airbot_data_collection.common import DataSampler, MockDataSampler, Visualizer
 from airbot_data_collection.demonstrate.configs import (
     ConcurrentMode,
     DemonstrateAction,
     DemonstrateConfig,
 )
+from airbot_data_collection.demonstrate.basis import SampleInfo
 from airbot_data_collection.utils import get_items_by_ext, zip
 from airbot_data_collection.common.utils.system_info import SystemInfo
 from airbot_data_collection.common.utils.terminal import Bcolors
@@ -54,7 +50,11 @@ class DemonstrateInterface:
                 + start_round
                 + 1
             )
-            self._config.sample_limit.start_round = start_round
+            self._sample_limit = self._config.sample_limit.model_copy(
+                update={"start_round": start_round}
+            )
+        else:
+            self._sample_limit = self._config.sample_limit
         self._sample_info = SampleInfo(round=start_round)
         # init concurrent actions
         concur = self._config.concurrent
@@ -127,7 +127,7 @@ class DemonstrateInterface:
 
     def activate(self) -> bool:
         self._bar = ProgressBar(
-            self._config.sample_limit.size, f"Round {self._sample_info.round}"
+            self._sample_limit.size, f"Round {self._sample_info.round}"
         )
         Path(self._config.dataset.absolute_directory).mkdir(parents=True, exist_ok=True)
         self.get_logger().info("Warming up...")
@@ -333,7 +333,7 @@ class DemonstrateInterface:
         Finish the demonstration.
         """
         self.get_logger().info(
-            f"Finished the demonstration: from {self._config.sample_limit.start_round} to {self._sample_info.round}"
+            f"Finished the demonstration: from {self._sample_limit.start_round} to {self._sample_info.round}"
         )
         for vis in self._visualizers.values():
             vis.shutdown()
@@ -347,7 +347,7 @@ class DemonstrateInterface:
 
     @property
     def is_reached(self) -> bool:
-        limit = self._config.sample_limit
+        limit = self._sample_limit
         reach_size = limit.size > 0 and self._sample_info.index >= limit.size
         reach_duration = (
             limit.duration > 0
@@ -357,7 +357,7 @@ class DemonstrateInterface:
 
     @property
     def is_reached_round(self) -> bool:
-        end_round = self._config.sample_limit.end_round
+        end_round = self._sample_limit.end_round
         return end_round > 0 and self._sample_info.round > end_round
 
     @property

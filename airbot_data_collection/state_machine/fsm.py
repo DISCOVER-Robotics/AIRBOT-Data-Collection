@@ -19,11 +19,13 @@ Action = DemonstrateAction
 State = DemonstrateState
 
 
-class DemonstrateFSMConfig(BaseModel):
+class DemonstrateFSMConfig(BaseModel, frozen=True):
     """Demonstrate FSM config."""
 
     state_machine: StateMachineConfig
+    """State machine configuration."""
     interface: DemonstrateConfig
+    """Demonstrate interface configuration."""
 
 
 class DemonstrateFSM(StateMachineBasis):

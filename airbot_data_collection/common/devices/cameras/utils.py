@@ -1,23 +1,38 @@
 import platform
 from enum import Enum
 from typing import List, Dict, Tuple, Optional, Union, Literal
-from pydantic import BaseModel, NonNegativeInt, PositiveInt, field_validator
+from pydantic import BaseModel, ConfigDict, NonNegativeInt, PositiveInt, field_validator
 from collections import defaultdict
 
 
-class CameraRGBConfig(BaseModel):
+class CameraRGBConfig(BaseModel, frozen=True):
+    """Configuration for an RGB camera device."""
+
+    model_config = ConfigDict(extra="forbid")
+
     camera_index: Optional[Union[int, str]] = None
+    """The index of the camera to use. If None, the default camera will be used."""
     fps: Optional[PositiveInt] = None
+    """The frame rate of the camera."""
     width: Optional[PositiveInt] = None
+    """The width of the camera image."""
     height: Optional[PositiveInt] = None
+    """The height of the camera image."""
     color_mode: Literal["bgr", "rgb"] = "bgr"
+    """The color mode of the camera image."""
     pixel_format: Optional[Union[str, Enum]] = None
+    """The pixel format of the camera image."""
 
 
 class CameraRGBDConfig(CameraRGBConfig):
+    """Configuration for an RGB-D camera device."""
+
     enable_depth: bool = False
+    """Whether to enable depth sensing."""
     enable_color: bool = True
+    """Whether to enable color sensing."""
     align_depth: bool = False
+    """Whether to align depth to color."""
 
     @field_validator("align_depth", mode="after")
     def check_align_depth(cls, align_depth, values):
@@ -26,15 +41,22 @@ class CameraRGBDConfig(CameraRGBConfig):
         return align_depth
 
 
-class RegionOfInterest(BaseModel):
+class RegionOfInterest(BaseModel, frozen=True):
+    """Region of interest in an image."""
+
     x_offset: NonNegativeInt = 0
+    """The horizontal offset of the region of interest."""
     y_offset: NonNegativeInt = 0
+    """The vertical offset of the region of interest."""
     height: NonNegativeInt = 0
+    """The height of the region of interest."""
     width: NonNegativeInt = 0
+    """The width of the region of interest."""
     do_rectify: bool = False
+    """Whether to rectify the region of interest."""
 
 
-class CameraInfo(BaseModel):
+class CameraInfo(BaseModel, frozen=True):
     width: NonNegativeInt
     height: NonNegativeInt
     distortion_model: str = ""
@@ -52,7 +74,7 @@ class CameraInfo(BaseModel):
         assert len(self.p) in {0, 12}, "Camera matrix P must be 3x4"
 
 
-class CameraControl(BaseModel):
+class CameraControl(BaseModel, frozen=True):
     brightness: NonNegativeInt
     contrast: NonNegativeInt
     saturation: NonNegativeInt
