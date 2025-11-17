@@ -1,10 +1,10 @@
 import airbot_hardware_py
+import numpy as np
+import time
 from typing import List, Optional
 from enum import Enum
 from airbot_data_collection.common.utils.interpolate import Interpolate
 from airbot_data_collection.common.utils.terminal import Bcolors
-import numpy as np
-import time
 from logging import getLogger
 from threading import Thread
 

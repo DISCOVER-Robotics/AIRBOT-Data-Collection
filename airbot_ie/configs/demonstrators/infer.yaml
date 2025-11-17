@@ -13,7 +13,7 @@ _setup:
         ignore_roles: [l]
 
 demonstrator:
-  param:
+  instance:
     _target_: airbot_data_collection.common.demonstrators.wrapped.WrappedDemonstrator
     environment:
       _target_: airbot_data_collection.common.environments.grouped.GroupedEnvironment
