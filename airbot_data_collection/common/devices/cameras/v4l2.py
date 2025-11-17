@@ -5,6 +5,7 @@ from time import time_ns
 from typing import Union, Optional
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
+from airbot_data_collection.basis import force_set_attr
 from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
 from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBConfig,
@@ -26,6 +27,7 @@ class V4L2CameraConfig(CameraRGBConfig):
     decode: bool = True
     pixel_format: Union[PixelFormat, str] = PixelFormat.MJPEG
 
+    @force_set_attr
     def model_post_init(self, context):
         self.mode = {
             "mmap": Capability.STREAMING,

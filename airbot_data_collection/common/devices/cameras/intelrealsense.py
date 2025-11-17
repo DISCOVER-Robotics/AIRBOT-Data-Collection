@@ -8,6 +8,7 @@ from airbot_data_collection.common.devices.cameras.utils import (
     find_video_capture_devices,
 )
 from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
+from airbot_data_collection.basis import force_set_attr
 from pyrealsense2 import config as RSConfig  # noqa: N812
 from pyrealsense2 import format as RSFormat  # noqa: N812
 from pyrealsense2 import pipeline as RSPipeline  # noqa: N812
@@ -62,6 +63,7 @@ def find_camera_device_ids(
 class IntelRealSenseCameraConfig(CameraRGBDConfig):
     force_hardware_reset: bool = True
 
+    @force_set_attr
     def model_post_init(self, context):
         at_least_one_is_not_none = (
             self.fps is not None or self.width is not None or self.height is not None
