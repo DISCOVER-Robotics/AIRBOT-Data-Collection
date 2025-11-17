@@ -55,7 +55,6 @@ class V4L2Camera(Sensor):
             if "usb" in cam_id:
                 cam_id = get_camera_index_by_bus_info(cam_id)[0]
             self.device = Device(cam_id)
-        self.config.camera_index = cam_id
         self.device.open()
         if self.device.closed:
             return False
