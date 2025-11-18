@@ -349,7 +349,7 @@ while True:
             bus_name_mapping[bus] = final_name
             logger.info(Bcolors.green(f"Camera {bus} renamed to {final_name}"))
         with open(station_config_path, "w") as f:
-            yaml.dump(station_config, f, default_flow_style=False)
+            yaml.dump(station_config, f)
         logger.info(f"Updated station config: {station_config_path}")
         cv2.destroyAllWindows()
         no_cfg_buses_indexes.clear()
