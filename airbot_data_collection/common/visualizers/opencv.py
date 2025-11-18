@@ -93,7 +93,6 @@ class OpenCVVisualizer(VisualizerBasis):
                 np.ones((self.config.height, self.config.width, 3), dtype=np.uint8)
                 * 255
             )
-        self._images = {}
         self._concurrent: SpawnProcess = None
         spawn_ctx = get_context("spawn")
         self._smm: SharedMemoryManager = SharedMemoryManager(ctx=spawn_ctx)
@@ -124,9 +123,10 @@ class OpenCVVisualizer(VisualizerBasis):
     def on_update(
         self, data: DictDataStamped[ImageType], info: SampleInfo, warm_up: bool = False
     ) -> bool:
-        """Show the data on the OpenCV window."""
+        """Show the data on the QT window."""
         if warm_up or not self._is_concurrent:
-            images = self._get_images(data, info, self._warm_up_images)
+            self._images = {}
+            images = self._get_images(data, info, self._assign_images)
             if self._is_concurrent:
                 self._smm.start()
                 ShareableNumpy.from_array_dict(
@@ -176,7 +176,7 @@ class OpenCVVisualizer(VisualizerBasis):
             func("info", image)
         return self._images
 
-    def _warm_up_images(self, key: str, value: np.ndarray) -> None:
+    def _assign_images(self, key: str, value: np.ndarray) -> None:
         self._images[key] = value
 
     def _update_images(self, key: str, value: np.ndarray) -> None:
