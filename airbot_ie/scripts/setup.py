@@ -26,12 +26,13 @@ from typing import List
 from importlib.metadata import version
 from pathlib import Path
 import logging
-import yaml
+from ruamel.yaml import YAML
 import cv2
 import subprocess
 import time
 
 
+yaml = YAML()
 init_logging()
 logger = logging.getLogger(f"{PACKAGE_NAME}-setup")
 logger.info(f"Version: {version(PACKAGE_NAME)}")
@@ -97,7 +98,7 @@ logger.info(f"Hardware uuid: {hw_uuid}")
 
 cur_dir = Path(__file__).parent.resolve()
 station_config_path = cur_dir / "station_config.yaml"
-station_config = yaml.safe_load(open(station_config_path))
+station_config = yaml.load(open(station_config_path))
 NAME_CHOICES = station_config["choices"]
 BUS_NAME_MAPPINGS = station_config["bus_name_mapping"]
 # TODO: support for X5
@@ -381,7 +382,7 @@ while True:
         defaults_dir = cur_dir.parent / "configs/demonstrators"
         input_file_path = f"{defaults_dir}/airbot_play.yaml"
         with open(input_file_path) as f:
-            config: dict = yaml.safe_load(f)
+            config: dict = yaml.load(f)
             param_dict: dict = config["demonstrator"]["instance"]
             param_dict["components"] = components
             config["defaults"].append(
@@ -389,9 +390,9 @@ while True:
             )
         post_capture_path = f"{defaults_dir}/post_capture/{can_num}.yaml"
         with open(post_capture_path) as f:
-            param_dict.update(yaml.safe_load(f))
+            param_dict.update(yaml.load(f))
         with open(defaults_dir / "setup.yaml", "w") as f:
-            yaml.dump(config, f, default_flow_style=False)
+            yaml.dump(config, f)
         break
 cv2.destroyAllWindows()
 

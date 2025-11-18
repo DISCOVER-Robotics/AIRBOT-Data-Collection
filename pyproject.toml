@@ -20,6 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+aibrot = ["ruamel.yaml"]
 cv2 = ["opencv-python"]
 rs = ["pyrealsense2"]
 web = ["fastapi", "uvicorn"]

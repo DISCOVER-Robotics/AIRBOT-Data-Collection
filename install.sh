@@ -8,7 +8,7 @@ arg=$1
 
 sudo apt-get install -y pip python3-dev libturbojpeg gcc
 pip install --upgrade pip wheel -i https://pypi.mirrors.ustc.edu.cn/simple
-pip install --no-build-isolation -e ."[all]" -i https://pypi.mirrors.ustc.edu.cn/simple
+pip install --no-build-isolation -e ."[all,airbot]" -i https://pypi.mirrors.ustc.edu.cn/simple
 
 if  [ "$arg" == "realsense" ]; then
     PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
