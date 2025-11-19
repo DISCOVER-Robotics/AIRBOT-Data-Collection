@@ -22,4 +22,4 @@ if  [ "$arg" == "realsense" ]; then
     fi
 fi
 
-pip install mcap-data-loader @ git+https://github.com/OpenGHz/MCAP-DataLoader.git -U
+pip install "mcap-data-loader @ git+https://github.com/OpenGHz/MCAP-DataLoader.git@22ffa928a6dd40228b2f2bfb0baa09c13b708741" -U
