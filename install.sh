@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Install dependencies for Airbot Data Collection
+# Install dependencies for AIRBOT Data Collection
 
 set -e
 

@@ -1,8 +1,8 @@
 from hydra_zen import instantiate, store
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
+from mcap_data_loader.utils.hydra_utils import relative_path_between
 from airbot_data_collection.configurers.basis import ConfigurerBasis, T
-from airbot_data_collection.common.utils.utils import relative_path_between
 from airbot_data_collection.common.utils.file import find_file_paths
 from hydra.core import hydra_config
 import hydra
