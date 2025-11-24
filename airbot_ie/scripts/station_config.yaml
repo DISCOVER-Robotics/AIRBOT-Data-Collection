@@ -24,6 +24,8 @@ bus_name_mapping:
       usb-0000:00:14.0-13.3: right_camera
       usb-0000:00:14.0-4: env_camera
       usb-0000:00:14.0-8: left_camera
+# NOTE: The 2 and 4 below refer to the number of robotic arms. During automatic setup,
+# the number of robotic arms determines the available camera names.
 choices:
   2:  # 1 * (leader + follower)
   - follow_camera
