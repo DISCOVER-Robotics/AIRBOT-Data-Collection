@@ -319,7 +319,8 @@ while True:
         unused_name = list(set(name_choices) - set(cfged_names))
         if len(unused_name) < len(no_cfg_buses_indexes):
             logger.error(
-                f"Not enough names to configure cameras: {unused_name=} {no_cfg_buses_indexes=}"
+                f"Not enough names to configure cameras: {unused_name=} {no_cfg_buses_indexes=}."
+                "Please remove the extra camera or update the `choices` field in the `station_config.yaml` config file with more name choices."
             )
             break
         logger.info(f"Configuring cameras {unused_name=} {cfged_names=}...")
@@ -393,6 +394,7 @@ while True:
             param_dict.update(yaml.load(f))
         with open(defaults_dir / "setup.yaml", "w") as f:
             yaml.dump(config, f)
+        logger.info(Bcolors.green("Setup completed successfully."))
         break
 cv2.destroyAllWindows()
 
@@ -401,4 +403,3 @@ cv2.destroyAllWindows()
 logger.info("Shutting down cameras...")
 for camera in cameras:
     camera.shutdown()
-logger.info(Bcolors.green("Setup completed successfully."))
