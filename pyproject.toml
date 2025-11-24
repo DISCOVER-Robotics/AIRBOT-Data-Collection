@@ -16,7 +16,7 @@ dependencies = [
     "more-itertools",
     "typing-extensions",
     "setproctitle",
-    "mcap-data-loader",
+    "mcap-data-loader ==0.0.4",
 ]
 
 [project.optional-dependencies]
