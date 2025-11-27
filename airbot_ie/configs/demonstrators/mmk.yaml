@@ -5,7 +5,7 @@ defaults:
 
 demonstrator:
   name: grouped
-  param:
+  instance:
     _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
     auto_control:
       groups: []
