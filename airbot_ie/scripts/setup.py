@@ -86,6 +86,11 @@ class SetupConfig(BaseModelWithFieldAliases):
         validation_alias="can",
         description="List of CAN interfaces to use. If not provided, all available CAN interfaces will be used.",
     )
+    ignore_cans: List[str] = Field(
+        [],
+        validation_alias="ii",
+        description="Ignore CAN interfaces by their names.",
+    )
 
 
 args = CliApp.run(SetupConfig)
@@ -103,21 +108,15 @@ NAME_CHOICES = station_config["choices"]
 BUS_NAME_MAPPINGS = station_config["bus_name_mapping"]
 # TODO: support for X5
 CAN_NAME_MAPPINGS = {
-    2: {
-        "can0": "can_lead",
-        "can1": "can_follow",
-    },
-    4: {
-        "can0": "can_left_lead",
-        "can1": "can_left",
-        "can2": "can_right_lead",
-        "can3": "can_right",
-    },
+    2: ["can_lead", "can_follow"],
+    4: ["can_left_lead", "can_left", "can_right_lead", "can_right"],
 }
 
 """Process CAN Interfaces"""
 
-can_itfs = args.can_interfaces or sorted(get_can_interfaces())
+can_itfs = args.can_interfaces or sorted(
+    set(get_can_interfaces()) - set(args.ignore_cans)
+)
 can_num = len(can_itfs)
 assert can_num in BUS_NAME_MAPPINGS, f"Not correct can number: {can_itfs}"
 can_buses = list_to_nested_tuples(can_itfs)
@@ -127,18 +126,20 @@ logger.info(f"CAN interfaces: {can_buses}")
 if hw_uuid not in BUS_NAME_MAPPINGS[can_num]:
     BUS_NAME_MAPPINGS[can_num][hw_uuid] = {}
 bus_name_mapping: dict = BUS_NAME_MAPPINGS[can_num][hw_uuid]
-can_name_mapping = CAN_NAME_MAPPINGS[can_num]
+target_cans = CAN_NAME_MAPPINGS[can_num]
 name_choices = NAME_CHOICES[can_num]
 
-new_can = [can_name_mapping.get(can, can) for can in can_itfs]
-if set(new_can) != set(can_itfs):
-    for can in can_itfs:
-        assert can in can_name_mapping, f"Unknown CAN interface: {can}"
+if target_cans != can_itfs:
+    logger.info(
+        Bcolors.cyan(
+            f"Binding CAN group {can_itfs} to target interfaces {target_cans}..."
+        )
+    )
     execute_shell_script(
         f"{cur_dir}/bind_can_udev.sh",
         args=[
             "--target",
-            *new_can,
+            *target_cans,
         ],
         with_sudo=True,
     )
@@ -151,14 +152,10 @@ if set(new_can) != set(can_itfs):
     input()
     logger.info("Waiting for the system to stabilize after reconnection...")
     time.sleep(4)
-    if check_can_interfaces(new_can):
-        logger.info(
-            Bcolors.green(f"Successfully bound CAN group {can_itfs} to {new_can}.")
-        )
+    if check_can_interfaces(target_cans):
+        logger.info(Bcolors.green("Successfully bound."))
     else:
-        logger.error(
-            f"Failed to bind CAN group {can_itfs} to {new_can}. Please check the connections."
-        )
+        logger.error("Failed to bind. Please check the connections.")
         exit(1)
 else:
     logger.info(f"CAN {can_itfs} already bound correctly.")

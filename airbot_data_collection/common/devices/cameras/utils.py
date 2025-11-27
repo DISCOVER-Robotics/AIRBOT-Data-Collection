@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Dict, Tuple, Optional, Union, Literal
 from pydantic import BaseModel, ConfigDict, NonNegativeInt, PositiveInt, field_validator
 from collections import defaultdict
+from airbot_data_collection.basis import ConcurrentMode
 
 
 class CameraRGBConfig(BaseModel, frozen=True):
@@ -22,6 +23,10 @@ class CameraRGBConfig(BaseModel, frozen=True):
     """The color mode of the camera image."""
     pixel_format: Optional[Union[str, Enum]] = None
     """The pixel format of the camera image."""
+    concurrent: ConcurrentMode = ConcurrentMode.none
+    """The concurrency mode of the camera."""
+    blocking: bool = True
+    """Whether to block until a frame is available."""
 
 
 class CameraRGBDConfig(CameraRGBConfig):

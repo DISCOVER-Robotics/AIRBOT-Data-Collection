@@ -71,14 +71,16 @@ class V4L2Camera(Sensor):
             self._jpeg = TurboJPEG()
         self._init_info()
         self._visualizer = None
+        self.frame = None
         return True
 
     def capture_observation(
         self, timeout: Optional[float] = None
     ) -> DictDataStamped[Union[bytes, np.ndarray]]:
-        if not self._event.wait(timeout):
-            raise TimeoutError("Timeout waiting for camera frame.")
-        self._event.clear()
+        if self.config.blocking or self.frame is None:
+            if not self._event.wait(timeout):
+                raise TimeoutError(f"Timeout waiting for camera frame: {timeout} s.")
+            self._event.clear()
         frame_bytes = bytes(self.frame)
         key = "color/image_raw"
         obs = {key: {"t": self.stamp}}
