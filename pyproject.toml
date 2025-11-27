@@ -52,6 +52,7 @@ all = [
     "PyTurboJPEG",
     "pyudev",
     "send2trash >=1.8.3",
+    "flatten-dict",
 ]
 # no hardware support, such as
 # opencv, linuxpy, udev, pynput
