@@ -58,6 +58,8 @@ class AIRBOTMMK(System):
                     & set(self.config.components)
                 }
             )
+            if RobotComponents.BASE in self.config.components:
+                self._action_topics[RobotComponents.BASE] = TopicNames.velocity
             self.get_logger().info(f"Action topics: {self._action_topics}")
             self.interface.listen_to(self._action_topics.values())
         self.interface.enable_resources(self.config.cameras)
@@ -154,7 +156,6 @@ class AIRBOTMMK(System):
         stamp = robot_state.joint_state.header.stamp
         t = self._to_time_ns(stamp)
         for comp in self.config.components:
-            self._set_js_field(data, comp, t, all_joints)
             if comp == RobotComponents.BASE:
                 base_pose = robot_state.base_state.pose
                 base_vel = robot_state.base_state.velocity
@@ -169,14 +170,9 @@ class AIRBOTMMK(System):
                     base_vel.y,
                     base_vel.omega,
                 ]
-                data[f"observation/{comp.value}/joint_state"] = {
-                    "t": t,
-                    "data": {
-                        "position": data_pose,
-                        "velocity": data_vel,
-                        "effort": [0.0] * len(data_pose),
-                    },
-                }
+                self._set_js_fields(data, comp.value, t, data_pose, data_vel, None)
+            else:
+                self._set_js_field(data, comp, t, all_joints)
         if self.config.demonstrate:
             for comp in self.config.components:
                 # self.get_logger().info(f"Processing component: {comp}, topic: {self._action_topics.get(comp)}")
@@ -196,22 +192,14 @@ class AIRBOTMMK(System):
                             "make sure the robot has entered the teleoperating sync mode"
                         )
                     jq = self.interface.get_joint_values_by_names(js, arm_jn + eef_jn)
-                    data[f"action/{comp.value}/joint_state"] = {
-                        "t": t,
-                        "data": {
-                            "position": jq[:-1],
-                            "velocity": [0.0] * len(arm_jn),
-                            "effort": [0.0] * len(arm_jn),
-                        },
+                    slices = {
+                        comp.value: slice(0, len(arm_jn)),
+                        comp_eef: slice(len(arm_jn), len(arm_jn) + len(eef_jn)),
                     }
-                    data[f"action/{comp_eef}/joint_state"] = {
-                        "t": t,
-                        "data": {
-                            "position": [jq[-1]],
-                            "velocity": [0.0],
-                            "effort": [0.0],
-                        },
-                    }
+                    for component in (comp.value, comp_eef):
+                        self._set_js_fields(
+                            data, component, t, jq[slices[component]], prefix="action"
+                        )
                 elif comp in RobotComponentsGroup.HEAD_SPINE:
                     start = time.perf_counter()
                     listened_data = self.interface.get_listened(
@@ -220,32 +208,79 @@ class AIRBOTMMK(System):
                     self._logs[f"get_listened_{comp.value}_dt_s"] = (
                         time.perf_counter() - start
                     )
-                    if listened_data and listened_data.data:
-                        jq = list(listened_data.data)
-                        data[f"action/{comp.value}/joint_state"] = {
-                            "t": t,
-                            "data": {
-                                "position": jq,
-                                "velocity": [0.0] * len(jq),
-                                "effort": [0.0] * len(jq),
-                            },
-                        }
+                    if listened_data is not None and listened_data.data:
+                        self._set_js_fields(
+                            data,
+                            comp.value,
+                            t,
+                            list(listened_data.data),
+                            prefix="action",
+                        )
                     else:
                         self.get_logger().warning(
                             f"No data received for component: {comp}"
                         )
+                elif comp is RobotComponents.BASE:
+                    start = time.perf_counter()
+                    listened_data = self.interface.get_listened(
+                        self._action_topics[comp]
+                    )
+                    self._logs[f"get_listened_{comp.value}_dt_s"] = (
+                        time.perf_counter() - start
+                    )
+                    if listened_data is not None:
+                        self._set_twist_field(
+                            data, comp.value, t, listened_data, prefix="action"
+                        )
+                    else:
+                        self.get_logger().warning(
+                            f"No data received for component: {comp}"
+                        )
+                else:
+                    raise ValueError(f"Unknown component in demonstrate mode: {comp}")
         return data
 
     def _set_js_field(
-        self, data: dict, comp: RobotComponents, t: float, js: JointState
+        self,
+        data: dict,
+        comp: RobotComponents,
+        t: float,
+        js: JointState,
+        prefix: str = "observation",
     ):
-        comp_data = {"t": t, "data": {}}
         for field in {"position", "velocity", "effort"}:
             value = self.interface.get_joint_values_by_names(
                 js, JointNames[comp.name].value, field
             )
-            comp_data["data"][field] = value
-        data[f"observation/{comp.value}/joint_state"] = comp_data
+            data[f"{prefix}/{comp.value}/joint_state/{field}"] = {"t": t, "data": value}
+
+    def _set_js_fields(
+        self,
+        data: dict,
+        comp: str,
+        t: float,
+        pos,
+        vel=None,
+        eff=None,
+        prefix: str = "observation",
+    ):
+        for field, value in zip(("position", "velocity", "effort"), (pos, vel, eff)):
+            if value is not None:
+                data[f"{prefix}/{comp}/joint_state/{field}"] = {
+                    "t": t,
+                    "data": value,
+                }
+
+    def _set_twist_field(
+        self,
+        data: dict,
+        comp: str,
+        t: float,
+        twist,
+        prefix: str = "observation",
+    ):
+        for field, value in zip(("linear", "angular"), (twist.linear, twist.angular)):
+            data[f"{prefix}/{comp}/twist/{field}"] = {"t": t, "data": value}
 
     def _capture_images(self, strict: bool = True) -> dict:
         images_obs = {}
