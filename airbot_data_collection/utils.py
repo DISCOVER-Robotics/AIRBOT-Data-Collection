@@ -207,3 +207,7 @@ def sort_index(order: list, name_list: list, value_list: list) -> tuple:
     sorted_pairs = sorted(zip(value_list, name_list), key=lambda x: order_dict[x[1]])
     sorted_value_list, _ = zip(*sorted_pairs)
     return sorted_value_list
+
+
+def list_remove(lis: list, items: set) -> list:
+    return [item for item in lis if item not in items]

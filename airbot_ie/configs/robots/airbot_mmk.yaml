@@ -1,8 +1,7 @@
 _target_: airbot_ie.robots.airbot_mmk.AIRBOTMMK
 
-# ip: 192.168.11.200
-ip: 172.25.11.115
-components: [left_arm, left_arm_eef, right_arm, right_arm_eef, head, spine]
+ip: 192.168.11.200
+components: [left_arm, left_arm_eef, right_arm, right_arm_eef, head, spine] # , base
 cameras:
   head_camera: # D435
     camera_type: REALSENSE
@@ -55,5 +54,8 @@ default_action: [
     0.0,
     -0.0, # head (2 joints)
     0.0, # spine (1 joint)
+    # 0.0,
+    # 0.0,
+    # 0.0, # base (x, y, theta)
   ]
 demonstrate: true

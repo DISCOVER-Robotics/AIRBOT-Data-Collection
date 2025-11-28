@@ -1,5 +1,6 @@
 from pydantic import BaseModel, PositiveInt
 from airbot_data_collection.common.systems.basis import System, SystemMode
+from airbot_data_collection.utils import list_remove
 from mmk2_types.types import (
     RobotComponents,
     ImageTypes,
@@ -14,6 +15,9 @@ from mmk2_types.grpc_msgs import (
     TrajectoryParams,
     ForwardPositionParams,
     MoveServoParams,
+    Pose3D,
+    Twist3D,
+    BaseControlParams,
 )
 from airbot_py.airbot_mmk2 import AirbotMMK2
 from typing import Optional, List, Union, Dict
@@ -44,10 +48,14 @@ class AIRBOTMMK(System):
     interface: AirbotMMK2
 
     def on_configure(self) -> bool:
+        self._joint_components = list_remove(
+            self.config.components, {RobotComponents.BASE}
+        )
+        self._use_base = RobotComponents.BASE in self.config.components
         if self.config.demonstrate:
             self._action_topics = {
                 comp: TopicNames.tracking.format(component=comp.value)
-                for comp in set(RobotComponentsGroup.ARMS) & set(self.config.components)
+                for comp in set(RobotComponentsGroup.ARMS) & set(self._joint_components)
             }
             self._action_topics.update(
                 {
@@ -55,10 +63,15 @@ class AIRBOTMMK(System):
                         controller=f"/{comp.value}_{ControllerTypes.FORWARD_POSITION.value}_controller"
                     )
                     for comp in set(RobotComponentsGroup.HEAD_SPINE)
-                    & set(self.config.components)
+                    & set(self._joint_components)
                 }
             )
-            if RobotComponents.BASE in self.config.components:
+            if self._use_base:
+                base_index = self.config.components.index(RobotComponents.BASE)
+                if base_index != len(self.config.components) - 1:
+                    self.get_logger().warning(
+                        "BASE component should be the last in the components list."
+                    )
                 self._action_topics[RobotComponents.BASE] = TopicNames.velocity
             self.get_logger().info(f"Action topics: {self._action_topics}")
             self.interface.listen_to(self._action_topics.values())
@@ -78,9 +91,9 @@ class AIRBOTMMK(System):
             self._cameras_goal[cam] = goal
         self.get_logger().info(f"Camera goals: {self._cameras_goal}")
         self._check_joint_names(self.interface.get_robot_state().joint_state.name)
-        self._expected_dim = sum(
-            len(JointNames[comp.name].value) for comp in self.config.components
-        )
+        jn = sum(len(JointNames[comp.name].value) for comp in self._joint_components)
+        self._expected_dims = {jn + 2, jn + 3} if self._use_base else {jn}
+        self.switch_mode(SystemMode.RESETTING)
         self._reset()
         self._logs = {}
         if self._cameras_goal:
@@ -94,54 +107,81 @@ class AIRBOTMMK(System):
 
     def _reset(self, sleep_time=0):
         if self.config.default_action is not None:
-            goal = self._action_array_to_goal(self.config.default_action)
-            self._move_by_traj(goal)
+            self.send_action(self.config.default_action)
         else:
             self.get_logger().warning("No default action is set.")
         time.sleep(sleep_time)
 
-    def _move_by_traj(self, goal: dict):
+    def send_action(self, action):
+        if isinstance(action, dict):
+            goal, param = self._action_dict_to_goal(action)
+        else:
+            goal, param = self._action_array_to_goal(action)
         if self.config.demonstrate:
             # TODO: since the arms and eefs are controlled by the teleop bag
             for comp in RobotComponentsGroup.ARMS_EEFS:
                 goal.pop(comp, None)
-        if goal:
-            self.interface.set_goal(goal, TrajectoryParams())
-            # set forward position goal so that action can always
-            # be listened
+        # pprint(goal)
+        # pprint(param)
+        self.interface.set_goal(goal, param)
+        # set forward position goal so that action can always be listened
+        if self.config.demonstrate and self._current_mode is SystemMode.RESETTING:
+            goal.pop(RobotComponents.BASE, None)
             self.interface.set_goal(goal, ForwardPositionParams())
 
-    def send_action(self, action):
-        if isinstance(action, dict):
-            goal = self._action_dict_to_goal(action)
-        else:
-            goal = self._action_array_to_goal(action)
-        if self._current_mode is SystemMode.RESETTING:
-            self.interface.set_goal(goal, TrajectoryParams())
-        else:
-            self.interface.set_goal(goal, ForwardPositionParams())
-            # self.interface.set_goal(goal, MoveServoParams())
+    def _get_js_param(self):
+        return (
+            TrajectoryParams()
+            if self._current_mode is SystemMode.RESETTING
+            else ForwardPositionParams()
+        )
 
     def _action_dict_to_goal(self, obs: dict) -> List[float]:
         goal = {}
-        for comp in self.config.components:
+        param = {}
+        js_param = self._get_js_param()
+        for comp in self._joint_components:
             goal[comp] = JointState(
                 position=obs[f"/mmk/action/{comp.value}/joint_state/position"]
             )
-        return goal
+            param[comp] = js_param
+        if self._use_base:
+            linear = obs["/mmk/action/base/twist/linear"]
+            angular = obs["/mmk/action/base/twist/angular"]
+            goal[RobotComponents.BASE] = Twist3D(
+                x=linear[0], y=linear[1], omega=angular[2]
+            )
+            param[RobotComponents.BASE] = BaseControlParams()
+        return goal, param
 
     def _action_array_to_goal(self, action) -> Dict[RobotComponents, JointState]:
-        if len(action) != self._expected_dim:
+        if len(action) not in self._expected_dims:
             raise ValueError(
-                f"Action dimension mismatch: expected {self._expected_dim}, got {len(action)}"
+                f"Action dimension mismatch: expected {self._expected_dims}, got {len(action)}"
             )
         goal = {}
+        param = {}
         j_cnt = 0
-        for comp in self.config.components:
+        js_param = self._get_js_param()
+        for comp in self._joint_components:
             end = j_cnt + len(JointNames[comp.name].value)
             goal[comp] = JointState(position=action[j_cnt:end])
+            param[comp] = js_param
             j_cnt = end
-        return goal
+        if self._use_base:
+            base_action = action[j_cnt:]
+            if len(base_action) == 2:
+                base_goal = Twist3D(x=base_action[0], omega=base_action[1])
+            elif len(base_action) == 3:
+                x, y, theta = base_action
+                base_goal = Pose3D(x=x, y=y, theta=theta)
+            else:
+                raise ValueError(
+                    f"Base action dimension mismatch: expected 2 or 3, got {len(base_action)}"
+                )
+            goal[RobotComponents.BASE] = base_goal
+            param[RobotComponents.BASE] = BaseControlParams()
+        return goal, param
 
     def on_switch_mode(self, mode: SystemMode):
         self._current_mode = mode
@@ -159,38 +199,32 @@ class AIRBOTMMK(System):
             if comp == RobotComponents.BASE:
                 base_pose = robot_state.base_state.pose
                 base_vel = robot_state.base_state.velocity
-                data_pose = [
-                    base_pose.x,
-                    base_pose.y,
-                    base_pose.theta,
-                ]
-                # data[f"observation/{comp.value}/pose"] = data_pose
-                data_vel = [
-                    base_vel.x,
-                    base_vel.y,
-                    base_vel.omega,
-                ]
-                self._set_js_fields(data, comp.value, t, data_pose, data_vel, None)
+                data[f"observation/{comp.value}/velocity"] = {
+                    "t": t,
+                    "data": [base_vel.x, base_vel.y, base_vel.omega],
+                }
+                data[f"observation/{comp.value}/pose"] = {
+                    "t": t,
+                    "data": [base_pose.x, base_pose.y, base_pose.theta],
+                }
             else:
                 self._set_js_field(data, comp, t, all_joints)
         if self.config.demonstrate:
             for comp in self.config.components:
+                action_topic = self._action_topics[comp]
+                listened_data = self.interface.get_listened(action_topic)
+                if listened_data is None:
+                    raise ValueError(
+                        f"Action topic: {action_topic} is not listened yet, "
+                        "please make sure the robot has entered the teleoperating sync mode"
+                    )
                 # self.get_logger().info(f"Processing component: {comp}, topic: {self._action_topics.get(comp)}")
                 if comp in RobotComponentsGroup.ARMS:
                     arm_jn = JointNames[comp.name].value
                     comp_eef = comp.value + "_eef"
                     eef_jn = JointNames[RobotComponents(comp_eef).name].value
-                    action_topic = self._action_topics.get(comp)
                     start = time.perf_counter()
-                    js = self.interface.get_listened(action_topic)
-                    self._logs[f"get_listened_{comp.value}_dt_s"] = (
-                        time.perf_counter() - start
-                    )
-                    if js is None:
-                        raise ValueError(
-                            f"Action topic: {action_topic} is not listened yet, "
-                            "make sure the robot has entered the teleoperating sync mode"
-                        )
+                    js = listened_data
                     jq = self.interface.get_joint_values_by_names(js, arm_jn + eef_jn)
                     slices = {
                         comp.value: slice(0, len(arm_jn)),
@@ -200,15 +234,12 @@ class AIRBOTMMK(System):
                         self._set_js_fields(
                             data, component, t, jq[slices[component]], prefix="action"
                         )
-                elif comp in RobotComponentsGroup.HEAD_SPINE:
-                    start = time.perf_counter()
-                    listened_data = self.interface.get_listened(
-                        self._action_topics[comp]
-                    )
                     self._logs[f"get_listened_{comp.value}_dt_s"] = (
                         time.perf_counter() - start
                     )
-                    if listened_data is not None and listened_data.data:
+                elif comp in RobotComponentsGroup.HEAD_SPINE:
+                    start = time.perf_counter()
+                    if listened_data.data:
                         self._set_js_fields(
                             data,
                             comp.value,
@@ -216,26 +247,21 @@ class AIRBOTMMK(System):
                             list(listened_data.data),
                             prefix="action",
                         )
+                        self._logs[f"get_listened_{comp.value}_dt_s"] = (
+                            time.perf_counter() - start
+                        )
                     else:
                         self.get_logger().warning(
                             f"No data received for component: {comp}"
                         )
                 elif comp is RobotComponents.BASE:
                     start = time.perf_counter()
-                    listened_data = self.interface.get_listened(
-                        self._action_topics[comp]
+                    self._set_twist_field(
+                        data, comp.value, t, listened_data, prefix="action"
                     )
                     self._logs[f"get_listened_{comp.value}_dt_s"] = (
                         time.perf_counter() - start
                     )
-                    if listened_data is not None:
-                        self._set_twist_field(
-                            data, comp.value, t, listened_data, prefix="action"
-                        )
-                    else:
-                        self.get_logger().warning(
-                            f"No data received for component: {comp}"
-                        )
                 else:
                     raise ValueError(f"Unknown component in demonstrate mode: {comp}")
         return data
@@ -321,7 +347,7 @@ class AIRBOTMMK(System):
 
     def _check_joint_names(self, joint_names: List[str]):
         required_joints = set()
-        for component in self.config.components:
+        for component in self._joint_components:
             required_joints.update(JointNames[component.name].value)
         missing = required_joints - set(joint_names)
         if missing:

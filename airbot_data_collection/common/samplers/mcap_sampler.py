@@ -175,23 +175,24 @@ class McapDataSampler(DataSampler):
 
     @cache
     def _key_to_schema_type(self, key: str) -> FlatBuffersSchemas:
-        color_save_type = self.config.save_type.color
         is_color = "/color/" in key
         if is_color:
-            if color_save_type == "jpeg":
+            save_type = self.config.save_type.color
+            if save_type == "jpeg":
                 return FlatBuffersSchemas.COMPRESSED_IMAGE
-            elif color_save_type == "raw":
-                return FlatBuffersSchemas.RAW_IMAGE
-        depth_save_type = self.config.save_type.depth
-        is_depth = "depth" in key
-        if is_depth:
-            if depth_save_type == "raw":
+            elif save_type == "raw":
                 return FlatBuffersSchemas.RAW_IMAGE
             else:
-                raise NotImplementedError
-        if "action" in key or "joint_state" in key or "pose" in key or "wrench" in key:
-            return FlatBuffersSchemas.FLOAT_ARRAY
-        return FlatBuffersSchemas.NONE
+                return FlatBuffersSchemas.NONE
+        is_depth = "depth" in key
+        if is_depth:
+            save_type = self.config.save_type.depth
+            if save_type == "raw":
+                return FlatBuffersSchemas.RAW_IMAGE
+            raise NotImplementedError
+        elif key == "log_stamps":
+            return FlatBuffersSchemas.NONE
+        return FlatBuffersSchemas.FLOAT_ARRAY
 
     @classmethod
     def add_config_metadata(cls, writer: Writer, config: McapDataSamplerConfig):
