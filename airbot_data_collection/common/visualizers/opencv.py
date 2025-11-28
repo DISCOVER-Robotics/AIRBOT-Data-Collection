@@ -37,7 +37,8 @@ def prepare_cv2_imshow(logger: logging.Logger):
         cv2.imshow(name, image)
         cv2.waitKey(1)
         logger.info(f"{name} is ready")
-        cv2.destroyAllWindows()
+        cv2.destroyWindow(name)
+        cv2.waitKey(1)
 
     show_image("Prepared image")
 
