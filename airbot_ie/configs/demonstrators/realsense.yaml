@@ -18,6 +18,7 @@ demonstrator:
           width: 640
           enable_depth: true
           align_depth: true
+          fps: 30
       roles:
         - o
 dataset:

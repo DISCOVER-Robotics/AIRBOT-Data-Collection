@@ -192,7 +192,7 @@ class IntelRealSenseCamera(Sensor):
             raise OSError(
                 f"Can't capture color image from IntelRealSenseCamera({self.camera_index})."
             )
-        color_image = np.asanyarray(color_frame.get_data())
+        color_image = np.asanyarray(color_frame.get_data()).copy()
         # IntelRealSense uses RGB format as default (red, green, blue).
         if self.config.color_mode == "bgr":
             color_image = color_image[..., ::-1]  # Convert RGB to BGR
@@ -206,7 +206,7 @@ class IntelRealSenseCamera(Sensor):
                 raise OSError(
                     f"Can't capture depth image from IntelRealSenseCamera({self.config.camera_index})."
                 )
-            depth_map = np.asanyarray(depth_frame.get_data())
+            depth_map = np.asanyarray(depth_frame.get_data()).copy()
             if self.config.align_depth:
                 key = "aligned_depth_to_color/image_raw"
             else:
