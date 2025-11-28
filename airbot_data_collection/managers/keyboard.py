@@ -22,7 +22,6 @@ class KeyboardCallbackConfig(ManagerConfigBasis):
         Action.finish: "z",
     }
     instruction: Dict[str, str] = {
-        "b": "Back to sample the last round (override the last saved file)",
         "i": "Show this instruction again",
         "g": "Switch passive (gravity composation) / resetting mode of the leaders",
         "f": "Start / stop following",
