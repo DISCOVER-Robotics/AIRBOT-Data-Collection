@@ -184,6 +184,9 @@ if USE_REALSENSE:
             realsense_serials.add(serial)
     used_camera_indices.extend(realsense_serials)
 else:
+    logger.warning(
+        f"Ignoring Intel RealSense cameras since the package is not installed: {realsense_buses}."
+    )
     args.ignore_cameras.extend(realsense_buses)
 assert used_camera_indices, "No used cameras. Please check the args and connections."
 logger.info(Bcolors.blue(f"All ignored cameras: {args.ignore_cameras}"))
