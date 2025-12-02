@@ -127,7 +127,7 @@ class DemonstrateInterface:
 
     def activate(self) -> bool:
         self._bar = ProgressBar(
-            self._sample_limit.size, f"Round {self._sample_info.round}"
+            self._sample_limit.size, f"Round {self._sample_info.round}", leave_mode=-1
         )
         Path(self._config.dataset.absolute_directory).mkdir(parents=True, exist_ok=True)
         self.get_logger().info("Warming up...")

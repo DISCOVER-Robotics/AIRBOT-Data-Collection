@@ -377,13 +377,17 @@ def run_event_loop() -> asyncio.AbstractEventLoop:
 
 
 class ProgressBar:
-    def __init__(self, total: int, desc: str):
+    def __init__(
+        self, total: int, desc: str, leave: Optional[bool] = True, leave_mode: int = 0
+    ):
         self.total = total
         from tqdm import tqdm
         # from tqdm.asyncio import tqdm
 
-        self.progress_bar = tqdm(total=total, desc=desc, unit="step")
+        self.progress_bar = tqdm(total=total, desc=desc, unit="step", leave=leave)
         self.progress_bar.clear()
+        self._leave_mode = leave_mode
+        self._leave = leave
 
     def update(self, index: int):
         self.progress_bar.n = index
@@ -399,4 +403,18 @@ class ProgressBar:
         self.progress_bar.clear()
 
     def close(self):
-        self.progress_bar.close()
+        bar = self.progress_bar
+        if self._leave_mode < 0:
+            bar.leave = bar.n == self.total
+        elif self._leave_mode > 0:
+            bar.leave = bar.n > 0
+        else:
+            bar.leave = self._leave
+        bar.leave = (
+            bar.n == self.total
+            if self._leave_mode < 0
+            else bar.n > 0
+            if self._leave_mode > 0
+            else self._leave
+        )
+        bar.close()
