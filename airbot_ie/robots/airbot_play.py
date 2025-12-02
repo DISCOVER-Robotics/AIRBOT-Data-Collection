@@ -264,22 +264,26 @@ class AIRBOTPlay(System):
         self._js_fields = {"position", "velocity", "effort"}
         self._pose_fields = ("position", "orientation")
         self._post_capture = defaultdict(dict)
-        self._default_limit: Dict[str, Dict[str, Dict[int, Tuple]]] = {
+        limits: Dict[str, Dict[str, Dict[int, Tuple]]] = {
             "E2B": {"eef/joint_state/position": {0: (0, 0.0471)}},
-            "PE2": {"eef/joint_state/position": {0: (0, 0.0471)}},
             "G2": {
                 "eef/joint_state/position": {0: (0, 0.0720)},
             },
             "play_pro": {
                 "arm/joint_state/position": {0: (-2.74, 2.74)},
             },
-            "play_lite": {
-                "arm/joint_state/position": {0: (-2.74, 2.74)},
-            },
             "play": {
                 "arm/joint_state/position": {0: (-3.151, 2.080)},
             },
         }
+        limits.update(
+            {
+                "PE2": limits["E2B"],
+                "old_G2": limits["G2"],
+                "play_lite": limits["play_pro"],
+            }
+        )
+        self._default_limit = limits
 
     def _init_relative_control(self):
         pose = self.interface.get_end_pose()
@@ -365,25 +369,31 @@ class AIRBOTPlay(System):
 
     def set_post_capture(self, config: PostCaptureConfig) -> None:
         product_info = self.interface.get_product_info()
-        product_type = product_info["product_type"]
+        arm_type = product_info["product_type"]
         eef_type = product_info["eef_types"][0]
         default_limits = self._default_limit.get(
-            product_type, {}
+            arm_type, {}
         ) | self._default_limit.get(eef_type, {})
         for key, value in zip(config.keys, config.target_ranges):
             # e.g. key = "arm/joint_state/position"
             limit = self.config.limit.get(key, {})
             default_limit = default_limits.get(key, {})
             default_limit.update(limit)
-            for index, target_range in value.items():
-                self._post_capture[key][int(index)] = partial(
-                    linear_map,
-                    raw_range=default_limit[index],
-                    target_range=target_range,
-                )
-                # self.get_logger().info(
-                #     f"Post capture config set: {target_range=}"
-                # )
+            try:
+                for index, target_range in value.items():
+                    self._post_capture[key][int(index)] = partial(
+                        linear_map,
+                        raw_range=default_limit[index],
+                        target_range=target_range,
+                    )
+                    # self.get_logger().info(
+                    #     f"Post capture config set: {target_range=}"
+                    # )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to set post capture for {key} with "
+                    f"{default_limits=}, {arm_type=}, {eef_type=}"
+                ) from e
 
 
 if __name__ == "__main__":
