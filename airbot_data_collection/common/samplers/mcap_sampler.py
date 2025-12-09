@@ -85,6 +85,8 @@ class McapDataSampler(DataSampler):
 
     def compose_path(self, directory: Path, round: int) -> Path:
         path = directory / f"{round}.mcap"
+        # unset here to ensure a fresh writer for each file
+        # but the writer is finished in save()
         self._mf_writer.unset_writer()
         self._mf_writer.set_writer(Writer(str(path)), True)
         for coder in self._coders.values():
@@ -131,6 +133,7 @@ class McapDataSampler(DataSampler):
         )
         log_stamps = data.pop("log_stamps")
         mcap_tool.add_log_stamps_attachment(log_stamps)
+        mcap_tool.add_topic_statistics_attachment(self._mf_writer.topic_statistics)
         for key, values in data.items():
             if not self._add_messages(key, values, log_stamps):
                 self.get_logger().warning(f"Unknown data type for key: {key}")
