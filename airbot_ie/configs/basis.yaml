@@ -45,7 +45,7 @@ visualizers:
           - color/image_raw
           - depth/image_rect_raw
           - aligned_depth_to_color/image_raw
-
+prepare_cv2: "${instantiate:{_target_: airbot_data_collection.common.visualizers.opencv.prepare_cv2_imshow}}"
 managers:
   names:
     - self_manager

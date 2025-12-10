@@ -46,7 +46,7 @@ def main():
 
     setproctitle(PACKAGE_NAME)
 
-    def main_loop(config: DataCollectionArgs) -> None:
+    def main_loop(config: DataCollectionArgs) -> int:
         """
         The main manager of data collection.
         """
@@ -62,7 +62,7 @@ def main():
         interval = 1.0 / config.update_rate if config.update_rate > 0 else 0.0
         logger.info(f"Update rate: {config.update_rate} Hz")
         # start updating the managers
-        # TODO: based on async io to update asynchronously?
+        # TODO: use async io to update asynchronously?
         time_queue = deque(maxlen=20)
         total_start = time.perf_counter()
         metrics = defaultdict(dict)
@@ -115,16 +115,9 @@ def main():
             )
         logger.info("Summary:\n" + pformat(summary))
         logger.info("Done.")
+        return 0
 
-    try:
-        from airbot_data_collection.common.visualizers.opencv import prepare_cv2_imshow
-
-        prepare_cv2_imshow(logger)
-    except Exception as e:
-        logger.warning(f"Failed to prepare cv2 imshow: {e}")
-    main_loop(configurer.configure())
-
-    return 0
+    return main_loop(configurer.configure())
 
 
 if __name__ == "__main__":

@@ -24,10 +24,13 @@ from typing import Dict, Callable, Optional, Union
 ImageType = Union[np.ndarray, bytes]
 
 
-def prepare_cv2_imshow(logger: logging.Logger):
+def prepare_cv2_imshow(logger: Optional[logging.Logger] = None):
     """Prepare OpenCV imshow for displaying images before import pynput.
     Otherwise, the imshow will block and not show the image.
     """
+
+    if logger is None:
+        logger = logging.getLogger("prepare_cv2_imshow")
 
     logger.info("Preparing cv2.imshow")
     image = np.zeros((480, 640, 3), np.uint8)
@@ -43,6 +46,7 @@ def prepare_cv2_imshow(logger: logging.Logger):
     show_image("Prepared image")
 
     logger.info("cv2.imshow is ready")
+    return True
 
 
 def decode_image(

@@ -1,9 +1,9 @@
-from hydra_zen import instantiate, store
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 from mcap_data_loader.utils.hydra_utils import relative_path_between
 from airbot_data_collection.configurers.basis import ConfigurerBasis, T
 from airbot_data_collection.common.utils.file import find_file_paths
+from hydra_zen import instantiate, store
 from hydra.core import hydra_config
 import hydra
 import argparse
@@ -81,17 +81,16 @@ class Configurer(ConfigurerBasis[T]):
             sys.path.insert(0, cwd)
         elif add_cwd_mode == "append":
             sys.path.append(cwd)
-        hydra.main(config_path or None, config_name, None)(self.__set_dict_config)()
-        # NOTE: restoring sys.path may cause issues if using multiprocessing with spawn method
-        # sys.path = syspath
-        if self._dict_config is None:
-            exit(0)
+        self._config_path = config_path or None
+        self._config_name = config_name
 
-    @classmethod
-    def merge_dicts(cls, base: dict, overrides: dict):
-        merged = OmegaConf.merge(base, overrides)
-        # cls.get_logger().info(f"Merged config:\n{OmegaConf.to_yaml(merged)}")
-        return merged
+    @staticmethod
+    def merge_dicts(base: dict, overrides: dict):
+        return OmegaConf.merge(base, overrides)
+
+    @staticmethod
+    def instantiate(config, overrides: dict = None):
+        return instantiate(config, **(overrides or {}))
 
     def __set_dict_config(self, dict_config: DictConfig) -> None:
         self._dict_config = dict_config
@@ -106,13 +105,30 @@ class Configurer(ConfigurerBasis[T]):
             print(OmegaConf.to_yaml(dict_config))
             exit(0)
 
-    def on_configure(self) -> T:
+    def __instantiate_config(self):
         dict_config: DictConfig = instantiate(self._dict_config)
         instance = self.config_class(**dict_config)
         return instance
 
+    def __set_and_run(self, dict_config: DictConfig) -> T:
+        self.__set_dict_config(dict_config)
+        return self._main(self._check_config(self.__instantiate_config()))
+
+    def on_configure(self) -> T:
+        hydra_main = hydra.main(self._config_path, self._config_name, None)
+        if self._main is None:
+            hydra_main(self.__set_dict_config)()
+            # NOTE: restoring sys.path may cause issues if using multiprocessing with spawn method
+            # sys.path = syspath
+            if self._dict_config is None:
+                exit(0)
+            return self.__instantiate_config()
+        else:
+            return hydra_main(self.__set_and_run)()
+
 
 OmegaConf.register_new_resolver("merge_cfg", Configurer.merge_dicts)
+OmegaConf.register_new_resolver("instantiate", Configurer.instantiate)
 
 
 if __name__ == "__main__":
