@@ -25,8 +25,8 @@ from pydantic_settings import CliApp
 from typing import List
 from importlib.metadata import version
 from pathlib import Path
-import logging
 from ruamel.yaml import YAML
+import logging
 import cv2
 import subprocess
 import time

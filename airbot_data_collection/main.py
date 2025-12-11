@@ -1,6 +1,10 @@
 import time
-import importlib
 from logging import getLogger
+from importlib.metadata import version
+from collections import deque, defaultdict
+from pprint import pformat
+from setproctitle import setproctitle
+from typing import Dict
 from airbot_data_collection.config import DataCollectionArgs
 from airbot_data_collection.managers.basis import DemonstrateManager
 from airbot_data_collection.state_machine.fsm import (
@@ -9,37 +13,11 @@ from airbot_data_collection.state_machine.fsm import (
     DemonstrateState,
 )
 from airbot_data_collection.basis import PACKAGE_NAME
-from airbot_data_collection.configurers.basis import ConfigurerBasis
-from importlib.metadata import version
-from collections import deque, defaultdict
-from pprint import pformat
-from argparse import ArgumentParser
-from setproctitle import setproctitle
-from typing import Dict
+from mcap_data_loader.configurers.basis import main_argparse
 
 
 def main():
-    parser = ArgumentParser(PACKAGE_NAME, add_help=False)
-    parser.add_argument(
-        "--configurer",
-        "-cfger",
-        default="hydra",
-        help="The configurer (config backend) name or package path",
-    )
-    parser.add_argument(
-        "--main-help", action="store_true", help="Show this help message"
-    )
-    args, _ = parser.parse_known_args()
-    if args.main_help:
-        help_lines = parser.format_help().splitlines()
-        help_lines[0] += " [CONFIGER_OPTIONS...]"
-        print("\n".join(help_lines))
-        exit(0)
-
-    module = importlib.import_module(
-        f"airbot_data_collection.configurers.{args.configurer}_cfger"
-    )
-    configurer: ConfigurerBasis = module.Configurer(DataCollectionArgs)
+    configurer = main_argparse(PACKAGE_NAME)(DataCollectionArgs)
     configurer.parse()
 
     logger = getLogger(PACKAGE_NAME)
