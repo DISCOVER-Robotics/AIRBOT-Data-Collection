@@ -6,7 +6,7 @@ from rosidl_runtime_py import set_message_fields  # noqa: F401
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener
 from tf2_msgs.msg import TFMessage
-from typing import Tuple, Optional, Callable
+from typing import Tuple, Optional, Callable, Dict
 from airbot_data_collection.common.utils.relative_control import Pose
 
 
@@ -163,9 +163,17 @@ def build_short_to_full_msg_map(preferred_packages=("std_msgs", "builtin_interfa
     return mapping
 
 
+def get_fields_and_field_types(msg) -> Dict[str, str]:
+    if not isinstance(msg, type):
+        msg = type(msg)
+    return msg.get_fields_and_field_types()
+
+
 if __name__ == "__main__":
     mapping = build_short_to_full_msg_map()
     print(f"Total messages found: {len(mapping)}")
     from pprint import pprint
 
     pprint(mapping)
+
+    pprint(get_fields_and_field_types(TransformStamped()))

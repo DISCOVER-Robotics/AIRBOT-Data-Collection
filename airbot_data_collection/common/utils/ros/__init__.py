@@ -1,6 +1,6 @@
 import os
 from importlib import import_module
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 
 ROS_VERSION = os.environ.get("ROS_VERSION")
@@ -12,6 +12,7 @@ if ROS_VERSION:
         def set_message_fields(
             msg, values, expand_header_auto=False, expand_time_now=False
         ): ...
+        def get_fields_and_field_types(msg) -> dict: ...
     else:
         module = import_module(
             f"airbot_data_collection.common.utils.ros.ros{ROS_VERSION}"
@@ -19,18 +20,20 @@ if ROS_VERSION:
         build_short_to_full_msg_map = module.build_short_to_full_msg_map
         get_message = module.get_message
         set_message_fields = module.set_message_fields
+        get_fields_and_field_types = module.get_fields_and_field_types
 else:
     raise RuntimeError("ROS_VERSION environment variable not set.")
 
 MSG_MAP: dict = {}
 
 
-def get_message_short(identifier: str, cache: bool = True) -> type:
+def get_message_short(identifier: str, cache: bool = True) -> Optional[type]:
     global MSG_MAP
     if cache and not MSG_MAP:
         MSG_MAP = build_short_to_full_msg_map()
-    full_identifier = MSG_MAP.get(identifier, identifier)
-    return get_message(full_identifier)
+    full_identifier = MSG_MAP.get(identifier)
+    if full_identifier is not None:
+        return get_message(full_identifier)
 
 
 if __name__ == "__main__":
@@ -74,3 +77,5 @@ if __name__ == "__main__":
     print(msg.header.stamp)  # Current time
 
     assert get_message_short("PointStamped") == PointStamped
+
+    pprint(get_fields_and_field_types(PointStamped()))

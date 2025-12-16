@@ -165,3 +165,9 @@ def set_message_fields(
 
     _process_fields(msg, values)
     return setters
+
+
+def get_fields_and_field_types(msg) -> Dict[str, str]:
+    if not isinstance(msg, type):
+        msg = type(msg)
+    return dict(zip(msg.__slots__, msg._slot_types))
