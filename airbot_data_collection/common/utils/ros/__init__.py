@@ -7,8 +7,8 @@ ROS_VERSION = os.environ.get("ROS_VERSION")
 if ROS_VERSION:
     if TYPE_CHECKING:
 
-        def build_short_to_full_msg_map(preferred_packages): ...
-        def get_message(identifier: str): ...
+        def build_short_to_full_msg_map(preferred_packages) -> dict: ...
+        def get_message(identifier: str) -> type: ...
         def set_message_fields(
             msg, values, expand_header_auto=False, expand_time_now=False
         ): ...
@@ -21,6 +21,16 @@ if ROS_VERSION:
         set_message_fields = module.set_message_fields
 else:
     raise RuntimeError("ROS_VERSION environment variable not set.")
+
+MSG_MAP: dict = {}
+
+
+def get_message_short(identifier: str, cache: bool = True) -> type:
+    global MSG_MAP
+    if cache and not MSG_MAP:
+        MSG_MAP = build_short_to_full_msg_map()
+    full_identifier = MSG_MAP.get(identifier, identifier)
+    return get_message(full_identifier)
 
 
 if __name__ == "__main__":
@@ -39,7 +49,7 @@ if __name__ == "__main__":
 
     msg = String()
     set_message_fields(msg, {"data": "Hello"})
-    print(msg.data)  # Hello
+    assert msg.data == "Hello", msg.data
 
     from geometry_msgs.msg import PointStamped
 
@@ -62,3 +72,5 @@ if __name__ == "__main__":
         s()
 
     print(msg.header.stamp)  # Current time
+
+    assert get_message_short("PointStamped") == PointStamped
