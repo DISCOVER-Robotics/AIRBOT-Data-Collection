@@ -1,5 +1,8 @@
 import os
 import rospkg
+import genpy
+import rospy
+from typing import Any, Dict, List, Callable
 from roslib.message import get_message_class as get_message  # noqa: F401
 
 
@@ -45,9 +48,120 @@ def build_short_to_full_msg_map(preferred_packages=("std_msgs", "geometry_msgs")
     return mapping
 
 
-if __name__ == "__main__":
-    mapping = build_short_to_full_msg_map()
-    print(f"Total messages found: {len(mapping)}")
-    from pprint import pprint
+def set_message_fields(
+    msg: Any,
+    values: Dict[str, Any],
+    expand_header_auto: bool = False,
+    expand_time_now: bool = False,
+) -> List[Callable[[], None]]:
+    """
+    Set the fields of a ROS1 message from a dictionary.
 
-    pprint(mapping)
+    :param msg: The ROS1 message instance to populate.
+    :param values: Dictionary mapping field names to values.
+                   Special values:
+                     - 'auto' for std_msgs/Header (if expand_header_auto=True)
+                     - 'now' for time fields (if expand_time_now=True)
+    :param expand_header_auto: If True and a Header field is given value 'auto',
+                               create an empty Header and defer stamp setting.
+    :param expand_time_now: If True and a time field is given value 'now',
+                            defer setting to current time via returned setter.
+    :returns: List of callable setters to assign current time (e.g., for stamp).
+              Call them later with `setter()` to set to rospy.Time.now().
+    """
+    if not isinstance(values, dict):
+        raise TypeError("values must be a dict")
+
+    setters = []
+
+    def _set_field(field_name: str, value: Any, target_obj: Any):
+        if not hasattr(target_obj, field_name):
+            raise AttributeError(
+                f"Message {type(target_obj)} has no field '{field_name}'"
+            )
+
+        current_value = getattr(target_obj, field_name)
+
+        # Handle nested message
+        if isinstance(current_value, genpy.Message):
+            if isinstance(value, dict):
+                # Recurse into nested message
+                _process_fields(current_value, value)
+            elif expand_header_auto and value == "auto":
+                # Special case: Header auto
+                from std_msgs.msg import Header
+
+                if isinstance(current_value, Header):
+                    new_header = Header()
+                    setattr(target_obj, field_name, new_header)
+
+                    # Return a setter for stamp
+                    def make_setter(hdr):
+                        return lambda: setattr(hdr, "stamp", rospy.Time.now())
+
+                    setters.append(make_setter(new_header))
+                else:
+                    raise ValueError(
+                        f"'auto' is only valid for std_msgs/Header, got {type(current_value)}"
+                    )
+            else:
+                raise TypeError(
+                    f"Expected dict or 'auto' for message field '{field_name}', got {type(value)}"
+                )
+        # Handle time-like fields (genpy.Time or rospy.Time)
+        elif isinstance(current_value, (genpy.Time, rospy.Time)):
+            if expand_time_now and value == "now":
+
+                def make_time_setter(obj, attr):
+                    return lambda: setattr(obj, attr, rospy.Time.now())
+
+                setters.append(make_time_setter(target_obj, field_name))
+            else:
+                # Try to convert value to Time
+                try:
+                    if isinstance(value, (genpy.Time, rospy.Time)):
+                        time_val = value
+                    elif isinstance(value, (tuple, list)) and len(value) == 2:
+                        time_val = genpy.Time(*value)
+                    elif isinstance(value, int):
+                        # Assume secs
+                        time_val = genpy.Time(value, 0)
+                    else:
+                        raise ValueError(f"Cannot convert {value} to Time")
+                    setattr(target_obj, field_name, time_val)
+                except Exception as e:
+                    raise TypeError(
+                        f"Cannot assign {value} to time field '{field_name}': {e}"
+                    )
+        # Handle arrays
+        elif isinstance(current_value, list):
+            if not isinstance(value, list):
+                raise TypeError(
+                    f"Expected list for array field '{field_name}', got {type(value)}"
+                )
+            elem_type = None
+            if len(current_value) > 0:
+                elem_type = type(current_value[0])
+            new_list = []
+            for i, item in enumerate(value):
+                if elem_type and issubclass(elem_type, genpy.Message):
+                    if not isinstance(item, dict):
+                        raise TypeError(
+                            f"Array element {i} for message array must be dict"
+                        )
+                    elem = elem_type()
+                    _process_fields(elem, item)
+                    new_list.append(elem)
+                else:
+                    new_list.append(item)
+            setattr(target_obj, field_name, new_list)
+        # Primitive field (int, float, string, bool, etc.)
+        else:
+            setattr(target_obj, field_name, value)
+
+    def _process_fields(obj: Any, field_dict: Dict[str, Any]):
+        for key, val in field_dict.items():
+            _set_field(key, val, obj)
+
+    _process_fields(msg, values)
+    return setters
