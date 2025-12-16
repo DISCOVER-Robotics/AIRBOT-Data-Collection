@@ -14,7 +14,7 @@ from collections import defaultdict
 from airbot_data_collection.basis import ConfigurableBasis
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.common.utils.coordinate import CoordinateConverter
-from airbot_data_collection.common.utils.ros2 import TFPublisher
+from airbot_data_collection.common.utils.ros.ros2 import TFPublisher
 from airbot_data_collection.common.devices.basis import EventValueMode
 
 

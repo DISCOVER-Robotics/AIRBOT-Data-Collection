@@ -1,5 +1,8 @@
 from rclpy.node import Node
 from rclpy.time import Time
+from ament_index_python.resources import get_resources, get_resource
+from rosidl_runtime_py.utilities import get_message  # noqa: F401
+from rosidl_runtime_py import set_message_fields  # noqa: F401
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener
 from tf2_msgs.msg import TFMessage
@@ -122,3 +125,47 @@ class TFDiscover:
         :return: The logger for this node.
         """
         return self._node.get_logger().get_child(self.__class__.__name__)
+
+
+def build_short_to_full_msg_map(preferred_packages=("std_msgs", "builtin_interfaces")):
+    """Build a mapping from short message names to their full paths.
+    Args:
+        preferred_packages (tuple): Packages to prioritize when there are name conflicts.
+    Returns:
+        dict: A mapping from short message names to full paths.
+    """
+    mapping = {}
+
+    packages = list(get_resources("rosidl_interfaces"))
+    ordered_pkgs = [p for p in preferred_packages if p in packages]
+    ordered_pkgs += [p for p in packages if p not in ordered_pkgs]
+
+    for pkg in ordered_pkgs:
+        try:
+            content, _ = get_resource("rosidl_interfaces", pkg)
+        except Exception:
+            continue
+
+        for line in content.splitlines():
+            entry = line.strip()
+            if not entry.startswith("msg/"):
+                continue
+
+            name = entry.split("/")[-1]
+            if name.endswith(".idl"):
+                name = name[:-4]
+            if name.endswith(".msg"):
+                name = name[:-4]
+
+            full_path = f"{pkg}/msg/{name}"
+            mapping.setdefault(name, full_path)
+
+    return mapping
+
+
+if __name__ == "__main__":
+    mapping = build_short_to_full_msg_map()
+    print(f"Total messages found: {len(mapping)}")
+    from pprint import pprint
+
+    pprint(mapping)

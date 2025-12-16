@@ -7,7 +7,7 @@ from airbot_data_collection.common.devices.vr.quest import (
     VRQuestConfig,
     EventValueMode,
 )
-from airbot_data_collection.common.utils.ros2 import TFDiscover
+from airbot_data_collection.common.utils.ros.ros2 import TFDiscover
 from typing import List
 
 

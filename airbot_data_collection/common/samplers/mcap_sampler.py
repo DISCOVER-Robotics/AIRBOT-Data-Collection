@@ -158,7 +158,7 @@ class McapDataSampler(DataSampler):
                 kwargs = {"encoding": "", "frame_id": "airbot"}
             else:
                 kwargs = {}
-            if not len(log_stamps) == len(values):
+            if len(log_stamps) != len(values):
                 raise ValueError(
                     f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
                 )
