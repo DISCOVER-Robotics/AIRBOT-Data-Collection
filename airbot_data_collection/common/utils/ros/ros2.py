@@ -3,11 +3,16 @@ from rclpy.time import Time
 from ament_index_python.resources import get_resources, get_resource
 from rosidl_runtime_py.utilities import get_message  # noqa: F401
 from rosidl_runtime_py import set_message_fields  # noqa: F401
+from builtin_interfaces.msg import Time as TimeMsg
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener
 from tf2_msgs.msg import TFMessage
 from typing import Tuple, Optional, Callable, Dict
-from airbot_data_collection.common.utils.relative_control import Pose
+
+
+Position = Tuple[float, float, float]
+Orientation = Tuple[float, float, float, float]
+Pose = Tuple[Position, Orientation]
 
 
 class TFPublisher(Node):
@@ -167,6 +172,15 @@ def get_fields_and_field_types(msg) -> Dict[str, str]:
     if not isinstance(msg, type):
         msg = type(msg)
     return msg.get_fields_and_field_types()
+
+
+def time_ns_to_stamp(time_ns: int) -> TimeMsg:
+    factor = 1_000_000_000
+    return Time(sec=time_ns // factor, nanosec=time_ns % factor)
+
+
+def stamp_to_time_ns(stamp: TimeMsg) -> int:
+    return stamp.sec * 1_000_000_000 + stamp.nanosec
 
 
 if __name__ == "__main__":

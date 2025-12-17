@@ -4,6 +4,7 @@ import genpy
 import rospy
 from typing import Any, Dict, List, Callable
 from roslib.message import get_message_class as get_message  # noqa: F401
+from genpy import Time
 
 
 def build_short_to_full_msg_map(preferred_packages=("std_msgs", "geometry_msgs")):
@@ -171,3 +172,12 @@ def get_fields_and_field_types(msg) -> Dict[str, str]:
     if not isinstance(msg, type):
         msg = type(msg)
     return dict(zip(msg.__slots__, msg._slot_types))
+
+
+def time_ns_to_stamp(time_ns: int) -> Time:
+    factor = 1_000_000_000
+    return Time(secs=time_ns // factor, nsecs=time_ns % factor)
+
+
+def stamp_to_time_ns(stamp: Time) -> int:
+    return stamp.to_nsec()
