@@ -1,9 +1,57 @@
 import platform
 from enum import Enum
 from typing import List, Dict, Tuple, Optional, Union, Literal
-from pydantic import BaseModel, ConfigDict, NonNegativeInt, PositiveInt, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    NonNegativeInt,
+    PositiveInt,
+    field_validator,
+    Field,
+)
 from collections import defaultdict
 from airbot_data_collection.basis import ConcurrentMode
+
+
+class Intrinsics(BaseModel, frozen=True):
+    """Intrinsic parameters of a camera."""
+
+    distortion_model: str = ""
+    """The distortion model of the camera."""
+    d: List[float] = []
+    """The distortion coefficients."""
+    k: List[float] = Field(default_factory=list, min_length=9, max_length=9)
+    """The intrinsic camera matrix (3x3) stored in a row-major order."""
+    binning_x: NonNegativeInt = 0
+    """The binning factor in the x direction."""
+    binning_y: NonNegativeInt = 0
+    """The binning factor in the y direction."""
+
+
+class RegionOfInterest(BaseModel, frozen=True):
+    """Region of interest in an image."""
+
+    x_offset: NonNegativeInt = 0
+    """The horizontal offset of the region of interest."""
+    y_offset: NonNegativeInt = 0
+    """The vertical offset of the region of interest."""
+    height: NonNegativeInt = 0
+    """The height of the region of interest."""
+    width: NonNegativeInt = 0
+    """The width of the region of interest."""
+    do_rectify: bool = False
+    """Whether to rectify the region of interest."""
+
+
+class Calibration(BaseModel, frozen=True):
+    """Calibration parameters of a camera."""
+
+    r: List[float] = Field([], min_length=9, max_length=9)
+    """The rectification matrix (3x3) stored in a row-major order."""
+    p: List[float] = Field([], min_length=12, max_length=12)
+    """The projection matrix (3x4) stored in a row-major order."""
+    roi: RegionOfInterest = RegionOfInterest()
+    """The region of interest."""
 
 
 class CameraRGBConfig(BaseModel, frozen=True):
@@ -27,6 +75,10 @@ class CameraRGBConfig(BaseModel, frozen=True):
     """The concurrency mode of the camera."""
     blocking: bool = True
     """Whether to block until a frame is available."""
+    intrinsics: Optional[Intrinsics] = None
+    """The intrinsic parameters of the camera."""
+    calibration: Optional[Calibration] = None
+    """The calibration parameters of the camera."""
 
 
 class CameraRGBDConfig(CameraRGBConfig):
@@ -46,37 +98,9 @@ class CameraRGBDConfig(CameraRGBConfig):
         return align_depth
 
 
-class RegionOfInterest(BaseModel, frozen=True):
-    """Region of interest in an image."""
-
-    x_offset: NonNegativeInt = 0
-    """The horizontal offset of the region of interest."""
-    y_offset: NonNegativeInt = 0
-    """The vertical offset of the region of interest."""
-    height: NonNegativeInt = 0
-    """The height of the region of interest."""
-    width: NonNegativeInt = 0
-    """The width of the region of interest."""
-    do_rectify: bool = False
-    """Whether to rectify the region of interest."""
-
-
-class CameraInfo(BaseModel, frozen=True):
+class CameraInfo(Intrinsics, Calibration):
     width: NonNegativeInt
     height: NonNegativeInt
-    distortion_model: str = ""
-    d: List[float] = []
-    k: List[float] = []
-    r: List[float] = []
-    p: List[float] = []
-    binning_x: NonNegativeInt = 0
-    binning_y: NonNegativeInt = 0
-    roi: RegionOfInterest = RegionOfInterest()
-
-    def model_post_init(self, context):
-        assert len(self.k) in {0, 9}, "Camera matrix K must be 3x3"
-        assert len(self.r) in {0, 9}, "Camera matrix R must be 3x3"
-        assert len(self.p) in {0, 12}, "Camera matrix P must be 3x4"
 
 
 class CameraControl(BaseModel, frozen=True):
