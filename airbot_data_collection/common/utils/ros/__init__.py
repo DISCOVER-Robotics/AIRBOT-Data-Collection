@@ -15,6 +15,7 @@ if ROS_VERSION:
         def get_fields_and_field_types(msg) -> Dict[str, str]: ...
         def time_ns_to_stamp(time_ns: int) -> Any: ...
         def stamp_to_time_ns(stamp: Any) -> int: ...
+        def get_datatype_and_msgdef_text(msg) -> tuple: ...
     else:
         module = import_module(
             f"airbot_data_collection.common.utils.ros.ros{ROS_VERSION}"
@@ -25,6 +26,7 @@ if ROS_VERSION:
         get_fields_and_field_types = module.get_fields_and_field_types
         time_ns_to_stamp = module.time_ns_to_stamp
         stamp_to_time_ns = module.stamp_to_time_ns
+        get_datatype_and_msgdef_text = module.get_datatype_and_msgdef_text
 else:
     raise RuntimeError("ROS_VERSION environment variable not set.")
 
@@ -88,3 +90,8 @@ if __name__ == "__main__":
     stamp = time_ns_to_stamp(ns)
     print(stamp)
     assert stamp_to_time_ns(stamp) == ns
+
+    from std_msgs.msg import String
+
+    datatype, msgdef = get_datatype_and_msgdef_text(String)
+    print(datatype, msgdef)

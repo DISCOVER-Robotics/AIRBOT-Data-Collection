@@ -181,3 +181,15 @@ def time_ns_to_stamp(time_ns: int) -> Time:
 
 def stamp_to_time_ns(stamp: Time) -> int:
     return stamp.to_nsec()
+
+
+def get_datatype_and_msgdef_text(msg) -> tuple[str, str]:
+    """Get message datatype and its .msg definition text.
+    Args:
+        msg: ROS message instance or class.
+    Returns:
+        tuple: (datatype string, msg definition string)
+    """
+    if not isinstance(msg, type):
+        msg = type(msg)
+    return msg._type, msg._full_text

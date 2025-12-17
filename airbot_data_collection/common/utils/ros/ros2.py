@@ -2,7 +2,7 @@ from rclpy.node import Node
 from rclpy.time import Time
 from ament_index_python.resources import get_resources, get_resource
 from rosidl_runtime_py.utilities import get_message  # noqa: F401
-from rosidl_runtime_py import set_message_fields  # noqa: F401
+from rosidl_runtime_py import set_message_fields, get_interface_path  # noqa: F401
 from builtin_interfaces.msg import Time as TimeMsg
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener
@@ -181,6 +181,54 @@ def time_ns_to_stamp(time_ns: int) -> TimeMsg:
 
 def stamp_to_time_ns(stamp: TimeMsg) -> int:
     return stamp.sec * 1_000_000_000 + stamp.nanosec
+
+
+DATA_TYPE_AND_MSGDEF_TEXT = {}
+
+
+def get_datatype_and_msgdef_text(msg) -> Tuple[str, str]:
+    """Get message datatype and its .msg definition text.
+    Args:
+        msg: ROS message instance or class.
+    Returns:
+        tuple: (datatype string, msg definition string)
+    """
+    if not isinstance(msg, type):
+        msg_type = type(msg)
+    else:
+        msg_type = msg
+    CACHE = DATA_TYPE_AND_MSGDEF_TEXT
+    if msg_type in CACHE:
+        return CACHE[msg_type]
+
+    # Extract canonical datatype: pkg/msg/Type
+    module_parts = msg_type.__module__.split(".")
+    if len(module_parts) >= 3 and module_parts[-2] == "msg":
+        package = module_parts[-3]
+        msg_name = msg_type.__name__
+        datatype = f"{package}/msg/{msg_name}"
+    else:
+        raise ValueError(f"Cannot determine ROS2 message type from {msg_type}")
+
+    # Load raw definition
+    interface_path = get_interface_path(datatype)
+    with open(interface_path, "r", encoding="utf-8") as f:
+        raw_text = f.read()
+
+    # Remove comments and empty lines
+    clean_lines = []
+    for line in raw_text.splitlines():
+        # Strip leading/trailing whitespace
+        stripped = line.strip()
+        # Skip if empty or starts with '#'
+        if stripped and not stripped.startswith("#"):
+            clean_lines.append(
+                line.rstrip()
+            )  # preserve original indentation (optional)
+
+    clean_text = "\n".join(clean_lines)
+    CACHE[msg_type] = (datatype, clean_text)
+    return datatype, clean_text
 
 
 if __name__ == "__main__":
