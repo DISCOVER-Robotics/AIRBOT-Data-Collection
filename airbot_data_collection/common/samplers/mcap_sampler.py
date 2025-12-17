@@ -71,8 +71,10 @@ class McapDataSamplerConfig(BaseModel, frozen=True):
 
 
 class McapDataSampler(DataSampler):
-    config: McapDataSamplerConfig
     _info: Dict[str, Dict[str, str]]
+
+    def __init__(self, config: McapDataSamplerConfig):
+        self.config = config
 
     def on_configure(self):
         """Configure the mcap data sampler."""
@@ -83,12 +85,15 @@ class McapDataSampler(DataSampler):
         self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
         return True
 
+    def _create_writer(self, path: Path) -> Writer:
+        return Writer(str(path)), True
+
     def compose_path(self, directory: Path, round: int) -> Path:
         path = directory / f"{round}.mcap"
         # unset here to ensure a fresh writer for each file
         # but the writer is finished in save()
         self._mf_writer.unset_writer()
-        self._mf_writer.set_writer(Writer(str(path)), True)
+        self._mf_writer.set_writer(*self._create_writer(path))
         for coder in self._coders.values():
             coder.reset()
         return path
