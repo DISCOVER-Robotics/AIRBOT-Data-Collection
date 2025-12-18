@@ -576,8 +576,7 @@ class GroupedComponentsSystem(System):
 
         def add_info(group_name: str, component: Component, component_name: str, *args):
             prefix = self._get_component_data_prefix(group_name, component_name)
-            for key, value in component.get_info().items():
-                info[self._get_component_data_key(prefix, key)] = value
+            info[self._standardize_component_data_key(prefix)] = component.get_info()
 
         self._fully_process(add_info)
 
@@ -609,9 +608,13 @@ class GroupedComponentsSystem(System):
         return f"{group_name}"
 
     @cache
+    def _standardize_component_data_key(self, key: str) -> str:
+        return ("/" + key).removeprefix("//")
+
+    @cache
     def _get_component_data_key(self, prefix: str, key: str) -> str:
         # TODO: should allow component_name to be empty or the group name to be / ?
-        return f"/{prefix}/{key}".removeprefix("//")
+        return self._standardize_component_data_key(f"{prefix}/{key}")
 
     def on_switch_mode(self, mode):
         self.get_logger().info(f"Switching all leaders to {mode} mode")

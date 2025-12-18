@@ -45,7 +45,7 @@ class MockCamera(Sensor):
         return observation
 
     def get_info(self):
-        return self.config.model_dump()
+        return self.config.model_dump(mode="json")
 
     def shutdown(self) -> bool:
         self.color_image = None

@@ -193,3 +193,15 @@ def get_datatype_and_msgdef_text(msg) -> tuple[str, str]:
     if not isinstance(msg, type):
         msg = type(msg)
     return msg._type, msg._full_text
+
+
+def process_camera_info_dict(cam_info_dict: Dict[str, Any]):
+    """Process camera info dictionary to match ROS1 CameraInfo field names.
+    The keys 'd', 'k', 'r', 'p' are converted to uppercase. And this modifies
+    the input dictionary in-place.
+    Args:
+        cam_info_dict: Original camera info dictionary.
+    """
+    for key in ("d", "k", "r", "p"):
+        if key in cam_info_dict:
+            cam_info_dict[key.upper()] = cam_info_dict.pop(key)

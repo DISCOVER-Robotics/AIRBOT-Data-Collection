@@ -115,10 +115,15 @@ class V4L2Camera(Sensor):
 
     def _init_info(self):
         cam_format = self._capture.get_format()
-        info = CameraInfo(
-            width=cam_format.width,
-            height=cam_format.height,
-        ).model_dump()
+        camera_info = CameraInfo(
+            width=cam_format.width, height=cam_format.height
+        ).model_dump(mode="json")
+        config = self.config
+        if config.intrinsics is not None:
+            camera_info.update(config.intrinsics.model_dump(mode="json"))
+        if config.calibration is not None:
+            camera_info.update(config.calibration.model_dump(mode="json"))
+        info = {"camera_info": camera_info}
         self.device.controls._init_if_needed()
         id_to_name = {}
         for ctrl in self.device.info.controls:

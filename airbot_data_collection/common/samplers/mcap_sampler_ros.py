@@ -83,13 +83,15 @@ class KeyInfo(BaseModel, frozen=True):
         else:
             field_fft = get_fields_and_field_types(field_type)
             self._field_kwords = field_fft.keys()
-            # TODO: support more built-in types
-            if not (set(field_fft.values()) - {"double", "float64", "string"}):
-                self._field_setter = self.seq2field_basic
-            else:
-                raise NotImplementedError(
-                    f"Field setter for {field_type} with {field_fft} not implemented"
-                )
+            for field_t in set(field_fft.values()):
+                for prefix in ("double", "float", "string", "int", "uint", "bool"):
+                    if field_t.startswith(prefix):
+                        break
+                else:
+                    raise NotImplementedError(
+                        f"Field setter for {field_type} with {field_fft} not implemented"
+                    )
+            self._field_setter = self.seq2field_basic
 
     def add_data(self, data: dict, log_time: int):
         msg_dict = self.topic_info.msg_dict

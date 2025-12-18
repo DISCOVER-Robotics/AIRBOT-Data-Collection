@@ -16,6 +16,7 @@ if ROS_VERSION:
         def time_ns_to_stamp(time_ns: int) -> Any: ...
         def stamp_to_time_ns(stamp: Any) -> int: ...
         def get_datatype_and_msgdef_text(msg) -> tuple: ...
+        def process_camera_info_dict(cam_info_dict: Dict[str, Any]): ...
     else:
         module = import_module(
             f"airbot_data_collection.common.utils.ros.ros{ROS_VERSION}"
@@ -27,6 +28,9 @@ if ROS_VERSION:
         time_ns_to_stamp = module.time_ns_to_stamp
         stamp_to_time_ns = module.stamp_to_time_ns
         get_datatype_and_msgdef_text = module.get_datatype_and_msgdef_text
+        process_camera_info_dict = getattr(
+            module, "process_camera_info_dict", lambda x: None
+        )
 else:
     raise RuntimeError("ROS_VERSION environment variable not set.")
 
