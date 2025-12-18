@@ -46,7 +46,9 @@ class RegionOfInterest(BaseModel, frozen=True):
 class Calibration(BaseModel, frozen=True):
     """Calibration parameters of a camera."""
 
-    r: List[float] = Field([], min_length=9, max_length=9)
+    r: List[float] = Field(
+        [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], min_length=9, max_length=9
+    )
     """The rectification matrix (3x3) stored in a row-major order."""
     p: List[float] = Field([], min_length=12, max_length=12)
     """The projection matrix (3x4) stored in a row-major order."""
@@ -96,6 +98,12 @@ class CameraRGBDConfig(CameraRGBConfig):
         if not values.data.get("enable_depth", False):
             return False
         return align_depth
+
+    def model_post_init(self, context):
+        if not (self.enable_color or self.enable_depth):
+            raise ValueError(
+                "At least one of `enable_color` or `enable_depth` must be True."
+            )
 
 
 class CameraInfo(Intrinsics, Calibration):

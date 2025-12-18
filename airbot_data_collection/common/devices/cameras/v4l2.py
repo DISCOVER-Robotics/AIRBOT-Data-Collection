@@ -123,7 +123,7 @@ class V4L2Camera(Sensor):
             camera_info.update(config.intrinsics.model_dump(mode="json"))
         if config.calibration is not None:
             camera_info.update(config.calibration.model_dump(mode="json"))
-        info = {"camera_info": camera_info}
+        color_info = {"camera_info": camera_info}
         self.device.controls._init_if_needed()
         id_to_name = {}
         for ctrl in self.device.info.controls:
@@ -132,20 +132,18 @@ class V4L2Camera(Sensor):
         for key, ctrl in self.device.controls.items():
             ctrl_info[id_to_name[key]] = ctrl.value
         fps = self._capture.get_fps().as_integer_ratio()
-        info.update(
+        color_info.update(
             {"fps": str(fps[0] / fps[1]), "pixel_format": cam_format.pixel_format.value}
         )
-        info.update(ctrl_info)
+        color_info.update(ctrl_info)
         dev_info = self.device.info
-        info.update(
-            {
-                "driver": dev_info.driver,
-                "card": dev_info.card,
-                "bus_info": dev_info.bus_info,
-                "version": dev_info.version,
-            }
-        )
-        self._info = info
+        self._info = {
+            "driver": dev_info.driver,
+            "card": dev_info.card,
+            "bus_info": dev_info.bus_info,
+            "version": dev_info.version,
+            "color": color_info,
+        }
 
     def get_info(self):
         return self._info

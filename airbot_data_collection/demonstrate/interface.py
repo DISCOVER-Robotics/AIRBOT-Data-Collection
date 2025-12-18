@@ -156,7 +156,8 @@ class DemonstrateInterface:
     def capture(self, warm_up: bool = False) -> Dict[str, Any]:
         # TODO: can be called when sampling?
         start = time.perf_counter()
-        data = self._demonstrator.capture_observation()
+        # TODO: configure each action
+        data = self._demonstrator.capture_observation(2)
         self._metrics["durations"]["demonstrate/update/demonstrator"] = (
             time.perf_counter() - start
         )

@@ -1,10 +1,11 @@
 import math
-import traceback
 import numpy as np
 from time import time_ns
-from typing import Union, Optional
+from typing import Union, Optional, Tuple, Dict
+from contextlib import suppress
 from airbot_data_collection.common.devices.cameras.utils import (
     CameraRGBDConfig,
+    CameraInfo,
     find_video_capture_devices,
 )
 from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
@@ -86,93 +87,153 @@ class IntelRealSenseCamera(Sensor):
 
     def __init__(self, config: IntelRealSenseCameraConfig):
         self.config = config
-        self.fps = config.fps
-        self.width = config.width
-        self.height = config.height
         self._rs_pipe = None
         self.logs = {}
+        self._info = {}
 
     def on_configure(self):
         self._connect()
         return True
 
-    def _connect(self):
-        rs_config = RSConfig()
-        if self.config.camera_index:
-            rs_config.enable_device(self.config.camera_index)
+    @staticmethod
+    def intrinsics_to_camera_info(intrinsics) -> CameraInfo:
+        ori_model = str(intrinsics.model).split(".")[-1]
+        distortion_model = {
+            "brown_conrady": "plumb_bob",
+            "kannala_brandt4": "equidistant",
+        }.get(ori_model, ori_model)
 
-        use_full_config = self.fps and self.width and self.height
+        k = [0.0] * 9
+        k[0] = intrinsics.fx  # fx
+        k[2] = intrinsics.ppx  # cx
+        k[4] = intrinsics.fy  # fy
+        k[5] = intrinsics.ppy  # cy
+        k[8] = 1.0
 
-        assert self.config.enable_color, "Now require color to be enabled. "
+        p = [0.0] * 12
+        p[0] = intrinsics.fx  # fx
+        p[2] = intrinsics.ppx  # cx
+        p[5] = intrinsics.fy  # fy
+        p[6] = intrinsics.ppy  # cy
+        p[10] = 1.0
 
+        return CameraInfo(
+            width=intrinsics.width,
+            height=intrinsics.height,
+            distortion_model=distortion_model,
+            d=intrinsics.coeffs,
+            k=k,
+            p=p,
+        )
+
+    @staticmethod
+    def get_camera_info(device) -> Dict[str, str]:
+        info_dict = {}
+        for info_type in dir(RSCameraInfo):
+            if not info_type.startswith("__"):
+                with suppress(Exception):
+                    info_value = getattr(RSCameraInfo, info_type)
+                    if device.supports(info_value):
+                        info_str = device.get_info(info_value)
+                        info_dict[info_type] = info_str
+        return info_dict
+
+    def _process_stream_profiles(self, profile, stream_name):
+        config = self.config
+        stream = profile.get_stream(stream_name)
+        stream_profile = stream.as_video_stream_profile()
+        stream_type = str(stream_name).split(".")[-1]
+        info = (
+            {
+                "color_mode": config.color_mode,
+                "pixel_format": str(config.pixel_format),
+            }
+            if stream_type == "color"
+            else {}
+        )
+        camera_info = self.intrinsics_to_camera_info(
+            stream_profile.get_intrinsics()
+        ).model_dump()
+        info["camera_info"] = camera_info
+        self._info[stream_type] = info
+        actual_fps = stream_profile.fps()
+        actual_width = camera_info["width"]
+        actual_height = camera_info["height"]
+        # Using `math.isclose` since actual fps can be a float (e.g. 29.9 instead of 30)
+        if config.fps is not None and not math.isclose(
+            config.fps, actual_fps, rel_tol=1e-3
+        ):
+            # Using `OSError` since it's a broad that encompasses issues related to device communication
+            raise OSError(
+                f"Can't set {config.fps=} for IntelRealSenseCamera({config.camera_index}). Actual value is {actual_fps}."
+            )
+        if config.width is not None and config.width != actual_width:
+            raise OSError(
+                f"Can't set {config.width=} for IntelRealSenseCamera({config.camera_index}). Actual value is {actual_width}."
+            )
+        if config.height is not None and config.height != actual_height:
+            raise OSError(
+                f"Can't set {config.height=} for IntelRealSenseCamera({config.camera_index}). Actual value is {actual_height}."
+            )
+
+    def _enable_stream(self, rs_config, stream_name, rs_format):
+        config = self.config
+        use_full_config = config.fps and config.width and config.height
         if use_full_config:
             # TODO(rcadene): can we set rgb8 directly?
             rs_config.enable_stream(
-                RSStream.color, self.width, self.height, RSFormat.rgb8, self.fps
+                stream_name, config.width, config.height, rs_format, config.fps
             )
         else:
-            rs_config.enable_stream(RSStream.color)
+            rs_config.enable_stream(stream_name)
 
-        if self.config.enable_depth:
-            if use_full_config:
-                rs_config.enable_stream(
-                    RSStream.depth, self.width, self.height, RSFormat.z16, self.fps
-                )
-            else:
-                rs_config.enable_stream(RSStream.depth)
+    def _connect(self):
+        rs_config = RSConfig()
+        config = self.config
+        if config.camera_index:
+            rs_config.enable_device(config.camera_index)
+
+        if config.enable_color:
+            self._enable_stream(rs_config, RSStream.color, RSFormat.rgb8)
+
+        if config.enable_depth:
+            self._enable_stream(rs_config, RSStream.depth, RSFormat.z16)
 
         self._rs_pipe = RSPipeline()
         try:
             profile = self._rs_pipe.start(rs_config)
-            is_camera_open = True
-        except RuntimeError:
-            is_camera_open = False
-            traceback.print_exc()
+        except RuntimeError as e:
             available_cam_ids = find_camera_indices()
-
-        # If the camera doesn't work, display the camera indices corresponding to
-        # valid cameras.
-        if not is_camera_open:
+            # If the camera doesn't work, display the camera indices corresponding to
+            # valid cameras.
             # Verify that the provided `camera_index` is valid before printing the traceback
-            if self.config.camera_index not in available_cam_ids:
+            if config.camera_index not in available_cam_ids:
                 raise ValueError(
-                    f"`camera_index` is expected to be one of these available cameras {available_cam_ids}, but {self.config.camera_index} is provided instead. "
+                    f"`camera_index` is expected to be one of these available cameras {available_cam_ids}, but {config.camera_index} is provided instead. "
                     "To find the camera index you should use, run `python lerobot/common/devices/cameras/intelrealsense.py`."
-                )
-
+                ) from e
             raise OSError(
-                f"Can't access IntelRealSenseCamera({self.config.camera_index})."
-            )
+                f"Can't access IntelRealSenseCamera({config.camera_index})."
+            ) from e
 
-        if self.config.align_depth:
+        if config.align_depth:
             self.align = RSAlign(RSStream.color)
+        if config.enable_color:
+            self._process_stream_profiles(profile, RSStream.color)
+        if config.enable_depth:
+            self._process_stream_profiles(profile, RSStream.depth)
 
-        color_stream = profile.get_stream(RSStream.color)
-        color_profile = color_stream.as_video_stream_profile()
-        actual_fps = color_profile.fps()
-        actual_width = color_profile.width()
-        actual_height = color_profile.height()
+        device = profile.get_device()
+        self._info.update(self.get_camera_info(device))
 
-        # Using `math.isclose` since actual fps can be a float (e.g. 29.9 instead of 30)
-        if self.fps is not None and not math.isclose(
-            self.fps, actual_fps, rel_tol=1e-3
-        ):
-            # Using `OSError` since it's a broad that encompasses issues related to device communication
+    def _get_frame(self, frames, frame_type: str) -> Tuple[np.ndarray, int]:
+        frame = getattr(frames, f"get_{frame_type}_frame")()
+        stamp = time_ns()
+        if not frame:
             raise OSError(
-                f"Can't set {self.fps=} for IntelRealSenseCamera({self.camera_index}). Actual value is {actual_fps}."
+                f"Can't capture {frame_type} image from {self.config.camera_index}."
             )
-        if self.width is not None and self.width != actual_width:
-            raise OSError(
-                f"Can't set {self.width=} for IntelRealSenseCamera({self.camera_index}). Actual value is {actual_width}."
-            )
-        if self.height is not None and self.height != actual_height:
-            raise OSError(
-                f"Can't set {self.height=} for IntelRealSenseCamera({self.camera_index}). Actual value is {actual_height}."
-            )
-
-        self.fps = round(actual_fps)
-        self.width = round(actual_width)
-        self.height = round(actual_height)
+        return np.asanyarray(frame.get_data()).copy(), stamp
 
     def capture_observation(
         self, timeout: Optional[float] = None
@@ -183,42 +244,32 @@ class IntelRealSenseCamera(Sensor):
         Raises:
             OSError: If the image cannot be captured.
         """
-        frame = self._rs_pipe.wait_for_frames(timeout_ms=5000)
-        if self.config.align_depth:
-            frame = self.align.process(frame)
-        color_frame = frame.get_color_frame()
-        stamp = time_ns()
-        if not color_frame:
-            raise OSError(
-                f"Can't capture color image from IntelRealSenseCamera({self.camera_index})."
+        config = self.config
+        frames = self._rs_pipe.wait_for_frames(
+            timeout_ms=int(timeout * 1000) if timeout is not None else None
+        )
+        if config.align_depth:
+            frames = self.align.process(frames)
+        outputs = {}
+        if config.enable_color:
+            color_image, stamp = self._get_frame(frames, "color")
+            # IntelRealSense uses RGB format as default (red, green, blue).
+            if config.color_mode == "bgr":
+                color_image = color_image[..., ::-1]  # Convert RGB to BGR
+            outputs["color/image_raw"] = {"t": stamp, "data": color_image}
+        if config.enable_depth:
+            depth_map, stamp = self._get_frame(frames, "depth")
+            key = (
+                "aligned_depth_to_color/image_raw"
+                if config.align_depth
+                else "depth/image_rect_raw"
             )
-        color_image = np.asanyarray(color_frame.get_data()).copy()
-        # IntelRealSense uses RGB format as default (red, green, blue).
-        if self.config.color_mode == "bgr":
-            color_image = color_image[..., ::-1]  # Convert RGB to BGR
-
-        outputs = {"color/image_raw": {"t": stamp, "data": color_image}}
-
-        if self.config.enable_depth:
-            depth_frame = frame.get_depth_frame()
-            stamp = time_ns()
-            if not depth_frame:
-                raise OSError(
-                    f"Can't capture depth image from IntelRealSenseCamera({self.config.camera_index})."
-                )
-            depth_map = np.asanyarray(depth_frame.get_data()).copy()
-            if self.config.align_depth:
-                key = "aligned_depth_to_color/image_raw"
-            else:
-                key = "depth/image_rect_raw"
             outputs[key] = {"t": stamp, "data": depth_map}
         return outputs
 
     def get_info(self):
         """Get the camera information."""
-        info = self.config.model_dump()
-        info["serial_number"] = info.pop("camera_index")
-        return info
+        return self._info
 
     def shutdown(self) -> bool:
         self._rs_pipe.stop()

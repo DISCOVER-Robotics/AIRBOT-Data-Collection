@@ -558,6 +558,7 @@ class GroupedComponentsSystem(System):
                     return func(0.0)
             else:
                 func = component.result
+            # TODO: configure this
             for key, value in func(5.0).items():
                 data[self._get_component_data_key(prefix, key)] = value
             # TODO: what about the concurrent wrapper metrics?
