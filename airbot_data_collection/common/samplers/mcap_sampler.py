@@ -130,16 +130,15 @@ class McapDataSampler(DataSampler):
         # Handle system info safely
         # TODO: save system info to attachment?
         system_info = info.pop("system", {})
-        if isinstance(system_info, dict):
-            for key, value in system_info.items():
-                flattened_value = (
-                    flatten(value, "path")
-                    if isinstance(value, Mapping)
-                    else {"value": value}
-                )
-                # Convert all values to strings
-                string_dict = {k: json.dumps(v) for k, v in flattened_value.items()}
-                writer.add_metadata(key, string_dict)
+        for key, value in system_info.items():
+            flattened_value = (
+                flatten(value, "path")
+                if isinstance(value, Mapping)
+                else {"value": value}
+            )
+            # Convert all values to strings
+            string_dict = {k: json.dumps(v) for k, v in flattened_value.items()}
+            writer.add_metadata(key, string_dict)
         writer.add_attachment(
             time_ns(),
             time_ns(),
