@@ -1,4 +1,4 @@
-from airbot_data_collection.common.devices.cameras.utils import CameraRGBDConfig
+from airbot_data_collection.common.devices.cameras.utils import RGBDCameraConfig
 from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
 from airbot_data_collection.basis import force_set_attr
 from typing import Optional
@@ -6,7 +6,7 @@ from time import time_ns
 import numpy as np
 
 
-class MockCameraConfig(CameraRGBDConfig):
+class MockCameraConfig(RGBDCameraConfig):
     """Configuration for a mock camera device used for testing purposes."""
 
     random: bool = False

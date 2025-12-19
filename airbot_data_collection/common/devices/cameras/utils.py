@@ -1,12 +1,16 @@
 import platform
 from enum import Enum
 from typing import List, Dict, Tuple, Optional, Union, Literal
+from typing_extensions import Annotated, Self
 from pydantic import (
     BaseModel,
     ConfigDict,
     NonNegativeInt,
     PositiveInt,
+    ValidationInfo,
+    AfterValidator,
     field_validator,
+    model_validator,
     Field,
 )
 from collections import defaultdict
@@ -46,9 +50,7 @@ class RegionOfInterest(BaseModel, frozen=True):
 class Calibration(BaseModel, frozen=True):
     """Calibration parameters of a camera."""
 
-    r: List[float] = Field(
-        [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0], min_length=9, max_length=9
-    )
+    r: List[float] = Field([], min_length=9, max_length=9)
     """The rectification matrix (3x3) stored in a row-major order."""
     p: List[float] = Field([], min_length=12, max_length=12)
     """The projection matrix (3x4) stored in a row-major order."""
@@ -56,62 +58,153 @@ class Calibration(BaseModel, frozen=True):
     """The region of interest."""
 
 
-class CameraRGBConfig(BaseModel, frozen=True):
-    """Configuration for an RGB camera device."""
+class StreamProfile(BaseModel, frozen=True):
+    """Stream profile of a camera stream."""
 
     model_config = ConfigDict(extra="forbid")
 
+    fps: Optional[PositiveInt] = None
+    """The frame rate of the stream."""
+    width: Optional[PositiveInt] = None
+    """The width of the stream."""
+    height: Optional[PositiveInt] = None
+    """The height of the stream."""
+
+
+class CameraDeviceConfig(StreamProfile):
+    """Base configuration for a camera device.
+    If StreamProfile is set, it will be used for the corresponding item of a stream that is not set.
+    """
+
+    model_config = ConfigDict(
+        validate_by_alias=True, validate_by_name=True, validate_default=True
+    )
+
     camera_index: Optional[Union[int, str]] = None
     """The index of the camera to use. If None, the default camera will be used."""
-    fps: Optional[PositiveInt] = None
-    """The frame rate of the camera."""
-    width: Optional[PositiveInt] = None
-    """The width of the camera image."""
-    height: Optional[PositiveInt] = None
-    """The height of the camera image."""
-    color_mode: Literal["bgr", "rgb"] = "bgr"
-    """The color mode of the camera image."""
-    pixel_format: Optional[Union[str, Enum]] = None
-    """The pixel format of the camera image."""
     concurrent: ConcurrentMode = ConcurrentMode.none
     """The concurrency mode of the camera."""
     blocking: bool = True
     """Whether to block until a frame is available."""
+
+
+class ColorDeviceConfig(CameraDeviceConfig, frozen=True):
+    """Base configuration for an RGB camera device."""
+
+    enable_color: bool = True
+    """Whether to enable color sensing."""
+
+
+class DepthDeviceConfig(CameraDeviceConfig, frozen=True):
+    """Base configuration for a depth camera device."""
+
+    enable_depth: bool = False
+    """Whether to enable depth sensing."""
+
+
+class RGBDDeviceConfig(ColorDeviceConfig, DepthDeviceConfig):
+    """Base configuration for an RGB-D camera device."""
+
+    align_depth: bool = False
+    """Whether to align depth to color."""
+
+    @field_validator("align_depth", mode="after")
+    def check_align_depth(cls, align_depth, info: ValidationInfo):
+        if not info.data.get("enable_depth", False):
+            return False
+        return align_depth
+
+    @model_validator(mode="after")
+    def validate_enable_streams(self) -> Self:
+        if not (self.enable_color or self.enable_depth):
+            raise ValueError(
+                "At least one of `enable_color` or `enable_depth` must be True."
+            )
+        return self
+
+
+class CameraStreamConfig(StreamProfile):
+    """Base configuration for a camera stream."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pixel_format: Optional[Union[str, Enum]] = None
+    """The pixel format of the camera image."""
     intrinsics: Optional[Intrinsics] = None
     """The intrinsic parameters of the camera."""
     calibration: Optional[Calibration] = None
     """The calibration parameters of the camera."""
 
 
-class CameraRGBDConfig(CameraRGBConfig):
+class ColorStreamConfig(CameraStreamConfig):
+    """Configuration for an color camera device."""
+
+    color_mode: Literal["bgr", "rgb"] = "bgr"
+    """The color mode of the camera image."""
+
+
+class DepthStreamConfig(CameraStreamConfig):
+    """Configuration for a depth camera device."""
+
+
+def replace_none(obj, ref, keys: List[str]):
+    for key in keys:
+        if getattr(obj, key) is None:
+            value = ref.get(key) if isinstance(ref, dict) else getattr(ref, key)
+            object.__setattr__(obj, key, value)
+
+
+def validate_stream_config(
+    value: CameraStreamConfig, info: ValidationInfo
+) -> CameraStreamConfig:
+    replace_none(value, info.data, ("fps", "width", "height"))
+    return value
+
+
+class ColorCameraConfig(ColorDeviceConfig):
+    """Configuration for an color camera device."""
+
+    rgb_camera: Annotated[ColorStreamConfig, AfterValidator(validate_stream_config)] = (
+        Field(default_factory=ColorStreamConfig)
+    )
+    """The stream configuration of the color camera."""
+
+    @property
+    def color(self):
+        return self.rgb_camera
+
+
+class DepthCameraConfig(DepthDeviceConfig):
+    """Configuration for a depth camera device."""
+
+    depth_module: Annotated[
+        DepthStreamConfig, AfterValidator(validate_stream_config)
+    ] = Field(default_factory=DepthStreamConfig)
+    """The stream configuration of the depth camera."""
+
+    @property
+    def depth(self):
+        return self.depth_module
+
+
+class RGBDCameraConfig(ColorCameraConfig, DepthCameraConfig, RGBDDeviceConfig):
     """Configuration for an RGB-D camera device."""
-
-    enable_depth: bool = False
-    """Whether to enable depth sensing."""
-    enable_color: bool = True
-    """Whether to enable color sensing."""
-    align_depth: bool = False
-    """Whether to align depth to color."""
-
-    @field_validator("align_depth", mode="after")
-    def check_align_depth(cls, align_depth, values):
-        if not values.data.get("enable_depth", False):
-            return False
-        return align_depth
-
-    def model_post_init(self, context):
-        if not (self.enable_color or self.enable_depth):
-            raise ValueError(
-                "At least one of `enable_color` or `enable_depth` must be True."
-            )
 
 
 class CameraInfo(Intrinsics, Calibration):
+    """Camera information."""
+
     width: NonNegativeInt
+    """The width of the camera image."""
     height: NonNegativeInt
+    """The height of the camera image."""
 
 
 class CameraControl(BaseModel, frozen=True):
+    """Camera control settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
     brightness: NonNegativeInt
     contrast: NonNegativeInt
     saturation: NonNegativeInt
@@ -229,7 +322,10 @@ def get_camera_index_by_bus_info(
 
 
 if __name__ == "__main__":
-    print("RealSense cameras:", find_video_capture_devices(False, "RealSense"))
+    from pprint import pprint
+
+    pprint(RGBDCameraConfig(fps=30, width=640, height=480).model_dump())
+    # print("RealSense cameras:", find_video_capture_devices(False, "RealSense"))
     # print("LRCP cameras:", find_video_capture_devices(False, "LRCP"))
     # print("Webcam cameras:", find_video_capture_devices(False, "Webcam"))
     # print("cam:", find_video_capture_devices(False, "cam"))

@@ -4,12 +4,14 @@ from time import time_ns
 from typing import Union, Optional, Tuple, Dict
 from contextlib import suppress
 from airbot_data_collection.common.devices.cameras.utils import (
-    CameraRGBDConfig,
+    RGBDCameraConfig,
+    CameraStreamConfig,
     CameraInfo,
     find_video_capture_devices,
 )
 from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
 from airbot_data_collection.basis import force_set_attr
+from mcap_data_loader.utils.dict import update_if
 from pyrealsense2 import config as RSConfig  # noqa: N812
 from pyrealsense2 import format as RSFormat  # noqa: N812
 from pyrealsense2 import pipeline as RSPipeline  # noqa: N812
@@ -61,7 +63,7 @@ def find_camera_device_ids(
     return mappings
 
 
-class IntelRealSenseCameraConfig(CameraRGBDConfig):
+class IntelRealSenseCameraConfig(RGBDCameraConfig):
     force_hardware_reset: bool = True
 
     @force_set_attr
@@ -139,23 +141,17 @@ class IntelRealSenseCamera(Sensor):
         return info_dict
 
     def _process_stream_profiles(self, profile, stream_name):
-        config = self.config
         stream = profile.get_stream(stream_name)
         stream_profile = stream.as_video_stream_profile()
         stream_type = str(stream_name).split(".")[-1]
-        info = (
-            {
-                "color_mode": config.color_mode,
-                "pixel_format": str(config.pixel_format),
-            }
-            if stream_type == "color"
-            else {}
-        )
+        config: CameraStreamConfig = getattr(self.config, stream_type)
         camera_info = self.intrinsics_to_camera_info(
             stream_profile.get_intrinsics()
-        ).model_dump()
-        info["camera_info"] = camera_info
-        self._info[stream_type] = info
+        ).model_dump(mode="json")
+        if config.intrinsics is not None:
+            update_if(camera_info, config.intrinsics.model_dump(mode="json"))
+        if config.calibration is not None:
+            update_if(camera_info, config.calibration.model_dump(mode="json"))
         actual_fps = stream_profile.fps()
         actual_width = camera_info["width"]
         actual_height = camera_info["height"]
@@ -175,6 +171,11 @@ class IntelRealSenseCamera(Sensor):
             raise OSError(
                 f"Can't set {config.height=} for IntelRealSenseCamera({config.camera_index}). Actual value is {actual_height}."
             )
+        self._info[stream_type] = {
+            "camera_info": camera_info,
+            "pixel_format": config.pixel_format,
+            "fps": actual_fps,
+        }
 
     def _enable_stream(self, rs_config, stream_name, rs_format):
         config = self.config
@@ -254,7 +255,7 @@ class IntelRealSenseCamera(Sensor):
         if config.enable_color:
             color_image, stamp = self._get_frame(frames, "color")
             # IntelRealSense uses RGB format as default (red, green, blue).
-            if config.color_mode == "bgr":
+            if config.rgb_camera.color_mode == "bgr":
                 color_image = color_image[..., ::-1]  # Convert RGB to BGR
             outputs["color/image_raw"] = {"t": stamp, "data": color_image}
         if config.enable_depth:
