@@ -24,7 +24,7 @@ class Intrinsics(BaseModel, frozen=True):
     """The distortion model of the camera."""
     d: List[float] = []
     """The distortion coefficients."""
-    k: List[float] = Field(default_factory=list, min_length=9, max_length=9)
+    k: List[float] = Field([0.0] * 9, min_length=9, max_length=9)
     """The intrinsic camera matrix (3x3) stored in a row-major order."""
     binning_x: NonNegativeInt = 0
     """The binning factor in the x direction."""
@@ -50,12 +50,27 @@ class RegionOfInterest(BaseModel, frozen=True):
 class Calibration(BaseModel, frozen=True):
     """Calibration parameters of a camera."""
 
-    r: List[float] = Field([], min_length=9, max_length=9)
+    r: List[float] = Field([0.0] * 9, min_length=9, max_length=9)
     """The rectification matrix (3x3) stored in a row-major order."""
-    p: List[float] = Field([], min_length=12, max_length=12)
+    p: List[float] = Field([0.0] * 12, min_length=12, max_length=12)
     """The projection matrix (3x4) stored in a row-major order."""
     roi: RegionOfInterest = RegionOfInterest()
     """The region of interest."""
+
+
+class CameraInfo(Intrinsics, Calibration):
+    """Camera information."""
+
+    width: NonNegativeInt
+    """The width of the camera image."""
+    height: NonNegativeInt
+    """The height of the camera image."""
+
+    @staticmethod
+    def is_meaningful(value: list) -> bool:
+        """Check if the intrinsic or calibration matrix has meaningful values.
+        The inspection was incomplete."""
+        return bool(set(value) - {0.0})
 
 
 class StreamProfile(BaseModel, frozen=True):
@@ -189,15 +204,6 @@ class DepthCameraConfig(DepthDeviceConfig):
 
 class RGBDCameraConfig(ColorCameraConfig, DepthCameraConfig, RGBDDeviceConfig):
     """Configuration for an RGB-D camera device."""
-
-
-class CameraInfo(Intrinsics, Calibration):
-    """Camera information."""
-
-    width: NonNegativeInt
-    """The width of the camera image."""
-    height: NonNegativeInt
-    """The height of the camera image."""
 
 
 class CameraControl(BaseModel, frozen=True):

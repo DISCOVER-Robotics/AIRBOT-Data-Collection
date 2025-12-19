@@ -148,10 +148,12 @@ class IntelRealSenseCamera(Sensor):
         camera_info = self.intrinsics_to_camera_info(
             stream_profile.get_intrinsics()
         ).model_dump(mode="json")
-        if config.intrinsics is not None:
-            update_if(camera_info, config.intrinsics.model_dump(mode="json"))
-        if config.calibration is not None:
-            update_if(camera_info, config.calibration.model_dump(mode="json"))
+        for sub_info in (config.intrinsics, config.calibration):
+            if sub_info is not None:
+                update_if(
+                    camera_info,
+                    sub_info.model_dump(mode="json", exclude_unset=True),
+                )
         actual_fps = stream_profile.fps()
         actual_width = camera_info["width"]
         actual_height = camera_info["height"]
