@@ -11,12 +11,15 @@ from airbot_data_collection.common.utils.ros import (
     get_message_short,
     get_fields_and_field_types,
     time_ns_to_stamp,
+    process_camera_info_dict,
+    set_message_fields,
 )
 from inflection import camelize
 from pydantic import BaseModel
 from functools import cache
 from more_itertools import zip_equal
 from std_msgs.msg import Header
+from sensor_msgs.msg import CameraInfo
 
 
 class MessageDict(TypedDict):
@@ -161,6 +164,33 @@ class McapDataSamplerROS(McapDataSampler):
                 field_type=topic_info.fields_and_field_types[field_name],
             )
 
+    @cache
+    def _get_camera_info(self) -> Dict[str, CameraInfo]:
+        all_camera_info = {}
+        for key, info in self._info.items():
+            if "camera" in key:
+                for stream_type in ("color", "depth"):
+                    stream_cfg = info.get(stream_type, {})
+                    camera_info = stream_cfg.get("camera_info")
+                    process_camera_info_dict(camera_info)
+                    if camera_info:
+                        camera_info["header"] = "auto"
+                        cam_info_msg = CameraInfo()
+                        for setter in set_message_fields(
+                            cam_info_msg, camera_info, True
+                        ):
+                            setter()
+                        all_camera_info[f"{key}/{stream_type}/camera_info"] = (
+                            cam_info_msg
+                        )
+        return all_camera_info
+
+    def save(self, path, data):
+        camera_info = self._get_camera_info()
+        for topic, msg in camera_info.items():
+            self._ros_writer.write_message(topic, msg)
+        return super().save(path, data)
+
 
 if __name__ == "__main__":
     from airbot_data_collection.common.samplers.mcap_sampler import (
@@ -169,6 +199,9 @@ if __name__ == "__main__":
     from pathlib import Path
     import time
     import logging
+    import rospy
+
+    rospy.init_node("mcap_sampler_ros_test")
 
     logging.basicConfig(level=logging.INFO)
 
