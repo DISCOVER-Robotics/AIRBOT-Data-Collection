@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, List, Callable
 from roslib.message import get_message_class as get_message  # noqa: F401
 from genpy import Time
+import time
 
 
 def build_short_to_full_msg_map(preferred_packages: tuple = ()):
@@ -185,7 +186,10 @@ def stamp_to_time_ns(stamp: Time) -> int:
 
 
 def get_current_stamp() -> Time:
-    return rospy.Time.now()
+    if rospy.core.is_initialized():
+        return rospy.Time.now()
+    else:
+        return time_ns_to_stamp(time.time_ns())
 
 
 def get_datatype_and_msgdef_text(msg) -> tuple[str, str]:

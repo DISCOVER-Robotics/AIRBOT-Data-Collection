@@ -173,8 +173,8 @@ class McapDataSamplerROS(McapDataSampler):
                 for stream_type in ("color", "depth"):
                     stream_cfg = info.get(stream_type, {})
                     camera_info = stream_cfg.get("camera_info")
-                    process_camera_info_dict(camera_info)
                     if camera_info:
+                        process_camera_info_dict(camera_info)
                         cam_info_msg = CameraInfo(
                             header=Header(stamp=get_current_stamp())
                         )
