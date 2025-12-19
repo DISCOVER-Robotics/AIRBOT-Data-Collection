@@ -133,7 +133,9 @@ class TFDiscover:
         return self._node.get_logger().get_child(self.__class__.__name__)
 
 
-def build_short_to_full_msg_map(preferred_packages=("std_msgs", "builtin_interfaces")):
+def build_short_to_full_msg_map(
+    preferred_packages: tuple = (),
+):
     """Build a mapping from short message names to their full paths.
     Args:
         preferred_packages (tuple): Packages to prioritize when there are name conflicts.

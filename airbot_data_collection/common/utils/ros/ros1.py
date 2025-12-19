@@ -8,7 +8,7 @@ from roslib.message import get_message_class as get_message  # noqa: F401
 from genpy import Time
 
 
-def build_short_to_full_msg_map(preferred_packages=("std_msgs", "geometry_msgs")):
+def build_short_to_full_msg_map(preferred_packages: tuple = ()):
     """
     Build a mapping from short message names to their full paths in ROS1.
 

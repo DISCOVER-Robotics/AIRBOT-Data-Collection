@@ -41,9 +41,15 @@ MSG_MAP: dict = {}
 
 def get_message_short(identifier: str, cache: bool = True) -> Optional[type]:
     global MSG_MAP
-    if cache and not MSG_MAP:
-        MSG_MAP = build_short_to_full_msg_map()
-    full_identifier = MSG_MAP.get(identifier)
+    if cache:
+        if not MSG_MAP:
+            preferred = ("std_msgs", "geometry_msgs", "sensor_msgs")
+            if ROS_VERSION != "1":
+                preferred += ("builtin_interfaces",)
+            MSG_MAP = build_short_to_full_msg_map(preferred)
+        full_identifier = MSG_MAP.get(identifier)
+    else:
+        full_identifier = build_short_to_full_msg_map(preferred).get(identifier)
     if full_identifier is not None:
         return get_message(full_identifier)
 
