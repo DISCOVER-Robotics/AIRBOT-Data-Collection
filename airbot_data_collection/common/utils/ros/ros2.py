@@ -1,5 +1,6 @@
 from rclpy.node import Node
 from rclpy.time import Time
+from rclpy.clock import Clock, ClockType
 from ament_index_python.resources import get_resources, get_resource
 from rosidl_runtime_py.utilities import get_message  # noqa: F401
 from rosidl_runtime_py import set_message_fields, get_interface_path  # noqa: F401
@@ -181,6 +182,13 @@ def time_ns_to_stamp(time_ns: int) -> TimeMsg:
 
 def stamp_to_time_ns(stamp: TimeMsg) -> int:
     return stamp.sec * 1_000_000_000 + stamp.nanosec
+
+
+_ros_clock = Clock(clock_type=ClockType.ROS_TIME)
+
+
+def get_current_stamp() -> TimeMsg:
+    return _ros_clock.now().to_msg()
 
 
 DATA_TYPE_AND_MSGDEF_TEXT = {}

@@ -13,6 +13,7 @@ from airbot_data_collection.common.utils.ros import (
     time_ns_to_stamp,
     process_camera_info_dict,
     set_message_fields,
+    get_current_stamp,
 )
 from inflection import camelize
 from pydantic import BaseModel
@@ -174,12 +175,10 @@ class McapDataSamplerROS(McapDataSampler):
                     camera_info = stream_cfg.get("camera_info")
                     process_camera_info_dict(camera_info)
                     if camera_info:
-                        camera_info["header"] = "auto"
-                        cam_info_msg = CameraInfo()
-                        for setter in set_message_fields(
-                            cam_info_msg, camera_info, True
-                        ):
-                            setter()
+                        cam_info_msg = CameraInfo(
+                            header=Header(stamp=get_current_stamp())
+                        )
+                        set_message_fields(cam_info_msg, camera_info)
                         all_camera_info[f"{key}/{stream_type}/camera_info"] = (
                             cam_info_msg
                         )

@@ -2,25 +2,57 @@ from airbot_data_collection.common.utils.ros import (
     ROS_VERSION,
     get_datatype_and_msgdef_text,
 )
-from typing import TYPE_CHECKING, Any, Optional, TypeAlias
-from importlib import import_module
+from typing import Any, Optional
 from mcap.writer import Writer as McapWriter
 
 
-if TYPE_CHECKING:
-    from mcap_ros2.writer import Writer
-    # from mcap_ros1.writer import Writer
+if ROS_VERSION == "1":
+    from mcap_ros1.writer import Writer  # noqa: F401
 else:
-    module = import_module(f"mcap_ros{ROS_VERSION}.writer")
-    Writer = module.Writer
+    from io import BufferedWriter
+    from typing import IO, Any, Dict, Optional, Union
+    from mcap.writer import CompressionType
+    from rclpy.serialization import serialize_message
+    from airbot_data_collection.common.utils.ros.ros2 import (
+        get_datatype_and_msgdef_text,
+    )
+    from airbot_data_collection import __version__
+    import time
+    import mcap
 
+    def _library_identifier():
+        mcap_version = getattr(mcap, "__version__", "<=0.0.10")
+        return (
+            f"mcap-ros{ROS_VERSION}-support-OpenGHz {__version__}; mcap {mcap_version}"
+        )
 
-if ROS_VERSION != "1":
+    class Writer:
+        def __init__(
+            self,
+            output: Union[str, IO[Any], BufferedWriter],
+            chunk_size: int = 1024 * 1024,
+            compression: CompressionType = CompressionType.ZSTD,
+            enable_crcs: bool = True,
+        ):
+            self._ros = "ros" + ROS_VERSION
+            self.__writer = McapWriter(
+                output=output,
+                chunk_size=chunk_size,
+                compression=compression,
+                enable_crcs=enable_crcs,
+            )
+            self.__schema_ids: Dict[str, int] = {}
+            self.__channel_ids: Dict[str, int] = {}
+            self.__writer.start(profile=self._ros, library=_library_identifier())
+            self.__finished = False
 
-    class AutoSchemaWriter(Writer):
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-            self.__schema_ids = {}
+        def finish(self):
+            """
+            Finishes writing to the MCAP stream. This must be called before the stream is closed.
+            """
+            if not self.__finished:
+                self.__writer.finish()
+                self.__finished = True
 
         def write_message(
             self,
@@ -30,26 +62,54 @@ if ROS_VERSION != "1":
             publish_time: Optional[int] = None,
             sequence: int = 0,
         ):
-            msg_type = type(message)
+            """
+            Writes a message to the MCAP stream, automatically registering schemas and channels as
+            needed.
+
+            :param topic: The topic of the message.
+            :param message: The message to write.
+            :param log_time: The time at which the message was logged as a nanosecond UNIX timestamp.
+                Will default to the current time if not specified.
+            :param publish_time: The time at which the message was published as a nanosecond UNIX
+                timestamp. Will default to ``log_time`` if not specified.
+            :param sequence: An optional sequence number.
+            """
+            msg_type, msg_def = get_datatype_and_msgdef_text(message)
             if msg_type not in self.__schema_ids:
-                self.__schema_ids[msg_type] = self.register_msgdef(
-                    *get_datatype_and_msgdef_text(msg_type)
+                schema_id = self.__writer.register_schema(
+                    name=msg_type,
+                    data=msg_def.encode(),
+                    encoding=self._ros + "msg",
                 )
-            return super().write_message(
-                self,
-                topic,
-                self.__schema_ids[msg_type],
-                message,
-                log_time,
-                publish_time,
-                sequence,
+                self.__schema_ids[msg_type] = schema_id
+            schema_id = self.__schema_ids[msg_type]
+            if topic not in self.__channel_ids:
+                channel_id = self.__writer.register_channel(
+                    topic=topic,
+                    message_encoding=self._ros,
+                    schema_id=schema_id,
+                )
+                self.__channel_ids[topic] = channel_id
+            channel_id = self.__channel_ids[topic]
+
+            if log_time is None:
+                log_time = time.time_ns()
+            if publish_time is None:
+                publish_time = log_time
+            self.__writer.add_message(
+                channel_id=channel_id,
+                log_time=log_time,
+                publish_time=publish_time,
+                sequence=sequence,
+                data=serialize_message(message),
             )
 
-    Writer: TypeAlias = AutoSchemaWriter
+        def __enter__(self):
+            return self
 
-    def get_mcap_writer(writer: Writer) -> McapWriter:
-        return writer._writer
-else:
+        def __exit__(self, exc_: Any, exc_type_: Any, tb_: Any):
+            self.finish()
 
-    def get_mcap_writer(writer) -> McapWriter:
-        return writer._Writer__writer
+
+def get_mcap_writer(writer) -> McapWriter:
+    return writer._Writer__writer

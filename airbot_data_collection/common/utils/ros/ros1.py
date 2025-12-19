@@ -184,6 +184,10 @@ def stamp_to_time_ns(stamp: Time) -> int:
     return stamp.to_nsec()
 
 
+def get_current_stamp() -> Time:
+    return rospy.Time.now()
+
+
 def get_datatype_and_msgdef_text(msg) -> tuple[str, str]:
     """Get message datatype and its .msg definition text.
     Args:
