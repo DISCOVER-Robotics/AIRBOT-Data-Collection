@@ -16,7 +16,7 @@ from airbot_data_collection.basis import PACKAGE_NAME
 from mcap_data_loader.configurers.basis import main_argparse
 
 
-def main():
+def main() -> int:
     configurer = main_argparse(PACKAGE_NAME)(DataCollectionArgs)
     configurer.parse()
 

@@ -2,6 +2,7 @@ import os
 import rospkg
 import genpy
 import rospy
+import logging
 from typing import Any, Dict, List, Callable
 from roslib.message import get_message_class as get_message  # noqa: F401
 from genpy import Time
@@ -71,7 +72,7 @@ def set_message_fields(
               Call them later with `setter()` to set to rospy.Time.now().
     """
     if not isinstance(values, dict):
-        raise TypeError("values must be a dict")
+        raise TypeError(f"values must be a dict: got {type(values)}")
 
     setters = []
 
@@ -205,3 +206,14 @@ def process_camera_info_dict(cam_info_dict: Dict[str, Any]):
     for key in ("d", "k", "r", "p"):
         if key in cam_info_dict:
             cam_info_dict[key.upper()] = cam_info_dict.pop(key)
+
+
+def init_ros_node_safe(name: str, **kwargs):
+    root_logger = logging.getLogger()
+    prev_level = root_logger.level
+    prev_handlers = root_logger.handlers[:]
+
+    rospy.init_node(name, **kwargs)
+
+    root_logger.setLevel(prev_level)
+    root_logger.handlers = prev_handlers
