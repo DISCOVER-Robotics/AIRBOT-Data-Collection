@@ -8,6 +8,7 @@ from collections import defaultdict
 from functools import partial
 from pathlib import Path
 from functools import cache
+from shutil import rmtree
 from mcap_data_loader.utils.av_coder import AvCoder
 from mcap_data_loader.utils.mcap_utils import McapTool, MediaType
 from mcap_data_loader.serialization.flb import McapFlatBuffersWriter, FlatBuffersSchemas
@@ -68,6 +69,7 @@ class McapDataSamplerConfig(BaseModel, frozen=True):
     save_type: SaveType = SaveType()
     initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
     video_time_base: int = int(1e6)  # μs to avoid save error
+    video_save_to: Literal["mcap", "folder", "both"] = "mcap"
 
 
 class McapDataSampler(DataSampler):
@@ -79,7 +81,7 @@ class McapDataSampler(DataSampler):
     def on_configure(self):
         """Configure the mcap data sampler."""
         self._mf_writer = McapFlatBuffersWriter(self.config.initial_builder_size)
-        self._coders = defaultdict(
+        self._coders: Dict[str, AvCoder] = defaultdict(
             partial(AvCoder, time_base=self.config.video_time_base)
         )
         self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
@@ -87,6 +89,9 @@ class McapDataSampler(DataSampler):
 
     def _create_writer(self, path: Path) -> Writer:
         return Writer(str(path)), True
+
+    def _get_video_dir(self, path: Path) -> Path:
+        return path.parent / path.stem
 
     def compose_path(self, directory: Path, round: int) -> Path:
         path = directory / f"{round}.mcap"
@@ -118,6 +123,9 @@ class McapDataSampler(DataSampler):
         """Save the data to a MCAP file."""
         writer = self._mf_writer.get_writer()
         mcap_tool = McapTool(writer)
+        from pprint import pprint
+
+        pprint(self._info)
         info = self._info.copy()
         # add metadata
         self.add_config_metadata(writer, self.config)
@@ -143,12 +151,33 @@ class McapDataSampler(DataSampler):
             if not self._add_messages(key, values, log_stamps):
                 self.get_logger().warning(f"Unknown data type for key: {key}")
         if self._coders:
+            video_save_to = self.config.video_save_to
+            video_dir = self._get_video_dir(path)
+            video_path = None
             for key, coder in self._coders.items():
-                writer.add_attachment(
-                    time_ns(), time_ns(), key, MediaType.VIDEO_MP4, coder.end()
-                )
+                video_bytes = coder.end()
+                if video_save_to in {"mcap", "both"}:
+                    writer.add_attachment(
+                        time_ns(), time_ns(), key, MediaType.VIDEO_MP4, video_bytes
+                    )
+                if video_save_to in {"folder", "both"}:
+                    video_dir.mkdir(exist_ok=True)
+                    video_path = (
+                        video_dir / f"{key.removeprefix('/').replace('/', '.')}.mp4"
+                    )
+                    with open(video_path, "wb") as f:
+                        f.write(video_bytes)
+            if video_path is not None:
+                self.get_logger().info(f"Saved videos to folder: {video_dir}")
         writer.finish()
         return path
+
+    def remove(self, path):
+        if self.config.video_save_to in {"folder", "both"}:
+            video_dir = self._get_video_dir(path)
+            self.get_logger().info(f"Removing video folder: {video_dir}")
+            rmtree(video_dir, ignore_errors=True)
+        return super().remove(path)
 
     def _add_messages(
         self, key: str, values: List[dict], log_stamps: List[float]
