@@ -32,8 +32,15 @@ demonstrator:
         - "${merge_cfg:${robots}, {port: 50051}}"
         - "${merge_cfg:${robots}, {port: 50052}}"
         - "${merge_cfg:${robots}, {port: 50053}}"
+        # - _target_: airbot_data_collection.common.devices.cameras.mock.MockCamera
         # - _target_: airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera
-        - _target_: airbot_data_collection.common.devices.cameras.mock.MockCamera
+        - _target_: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
+          camera_index: null
+          height: 480
+          width: 640
+          fps: 30
+          enable_depth: true
+          align_depth: true
       roles:
         - l
         - f

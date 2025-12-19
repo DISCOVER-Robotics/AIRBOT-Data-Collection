@@ -69,7 +69,7 @@ class McapDataSamplerConfig(BaseModel, frozen=True):
     save_type: SaveType = SaveType()
     initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
     video_time_base: int = int(1e6)  # μs to avoid save error
-    video_save_to: Literal["mcap", "folder", "both"] = "mcap"
+    video_save_to: Literal["file", "folder", "both"] = "file"
 
 
 class McapDataSampler(DataSampler):
@@ -123,9 +123,6 @@ class McapDataSampler(DataSampler):
         """Save the data to a MCAP file."""
         writer = self._mf_writer.get_writer()
         mcap_tool = McapTool(writer)
-        from pprint import pprint
-
-        pprint(self._info)
         info = self._info.copy()
         # add metadata
         self.add_config_metadata(writer, self.config)
@@ -156,7 +153,7 @@ class McapDataSampler(DataSampler):
             video_path = None
             for key, coder in self._coders.items():
                 video_bytes = coder.end()
-                if video_save_to in {"mcap", "both"}:
+                if video_save_to in {"file", "both"}:
                     writer.add_attachment(
                         time_ns(), time_ns(), key, MediaType.VIDEO_MP4, video_bytes
                     )
