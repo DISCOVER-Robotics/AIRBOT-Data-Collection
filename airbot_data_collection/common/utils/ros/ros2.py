@@ -176,7 +176,7 @@ def get_fields_and_field_types(msg) -> Dict[str, str]:
 
 def time_ns_to_stamp(time_ns: int) -> TimeMsg:
     factor = 1_000_000_000
-    return Time(sec=time_ns // factor, nanosec=time_ns % factor)
+    return TimeMsg(sec=time_ns // factor, nanosec=time_ns % factor)
 
 
 def stamp_to_time_ns(stamp: TimeMsg) -> int:
