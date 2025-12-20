@@ -1,4 +1,5 @@
-from typing import List, Union, Dict, Tuple, Any, Iterable, Optional, Literal
+from typing import List, Union, Dict, Tuple, Any, Optional, Literal, Set
+from collections.abc import Iterable
 from pydantic import PositiveInt, Field
 from time import time_ns, perf_counter
 from collections import defaultdict
@@ -90,14 +91,29 @@ class AIRBOTPlayConfig(SystemConfig):
     def relative_observation(self) -> bool:
         return self.observation[0].reference_mode != ReferenceMode.ABSOLUTE
 
+    @cached_property
+    def joint_fields(self) -> Set[str]:
+        fields = set()
+        prefix = "joint_"
+        for interface in self.observation[0].interfaces:
+            if interface.startswith(prefix):
+                fields.add(interface.removeprefix(prefix))
+        return fields
+
 
 class AIRBOTPlay(System):
-    config: AIRBOTPlayConfig
     interface: AIRBOTArm
     force_switch_mode: bool = False
 
-    def on_configure(self) -> bool:
+    def __init__(self, config: AIRBOTPlayConfig):
+        self.config = config
+        self._joint_names = {
+            "arm": [f"joint{i}" for i in range(1, 7)],
+            "eef": ["arm_eef_gripper_joint"],
+        }
         self._init_args()
+
+    def on_configure(self) -> bool:
         type2mode = {
             JointPositionPlan: RobotMode.PLANNING_POS,
             PosePlan: RobotMode.PLANNING_POS,
@@ -140,6 +156,9 @@ class AIRBOTPlay(System):
                 self._mode2length[mode][component] = type2length[component][cfg_type]
         self._mode_mapping.update(mode_mapping)
         self.action_post_process = self.action_data_to_list
+        self.get_logger().info(
+            f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
+        )
         if self.interface.connect():
             # self.interface.set_speed_profile(self.config.speed_profile)
             self.interface.set_params(
@@ -258,10 +277,7 @@ class AIRBOTPlay(System):
         return self.interface.switch_mode(robot_mode["arm"])
 
     def _init_args(self):
-        self.get_logger().info(
-            f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
-        )
-        self._js_fields = {"position", "velocity", "effort"}
+        self._js_fields = self.config.joint_fields
         self._pose_fields = ("position", "orientation")
         self._post_capture = defaultdict(dict)
         limits: Dict[str, Dict[str, Dict[int, Tuple]]] = {
@@ -340,7 +356,9 @@ class AIRBOTPlay(System):
 
     def _get_joint_state(self, component: str, field: str) -> List[float]:
         if component == "eef" and field == "velocity":
-            return [0.0] * 6
+            return [0.0] * len(self._joint_names[component])
+        if field == "name":
+            return self._joint_names[component]
         else:
             data = getattr(
                 self.interface, f"get_{component.replace('arm', 'joint')}_{field[:3]}"
@@ -362,10 +380,7 @@ class AIRBOTPlay(System):
         return {
             key: list(value) if not isinstance(value, (str, bool)) else value
             for key, value in self.interface.get_product_info().items()
-        } | {
-            "arm/joint_names": [f"joint{i}" for i in range(1, 7)],
-            "eef/joint_names": ["arm_eef_gripper_joint"],
-        }
+        } | {f"{comp}/joint_names": names for comp, names in self._joint_names.items()}
 
     def set_post_capture(self, config: PostCaptureConfig) -> None:
         product_info = self.interface.get_product_info()

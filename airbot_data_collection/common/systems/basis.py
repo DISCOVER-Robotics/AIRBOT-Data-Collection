@@ -136,14 +136,22 @@ class InterfaceType(StrEnum):
     JOINT_POSITION = auto()
     JOINT_VELOCITY = auto()
     JOINT_EFFORT = auto()
+    JOINT_NAME = auto()
     JOINT_KP = auto()
     JOINT_KD = auto()
     POSE = auto()
     TWIST = auto()
 
     @classmethod
-    def joint_states(cls) -> Set[Self]:
-        return {cls.JOINT_POSITION, cls.JOINT_VELOCITY, cls.JOINT_EFFORT}
+    def joint_states(cls, with_name: bool = False) -> Set[Self]:
+        js = {
+            cls.JOINT_POSITION,
+            cls.JOINT_VELOCITY,
+            cls.JOINT_EFFORT,
+        }
+        if with_name:
+            js.add(cls.JOINT_NAME)
+        return js
 
 
 class ReferenceBase(StrEnum):
