@@ -158,6 +158,7 @@ class DemonstrateInterface:
         start = time.perf_counter()
         # TODO: configure each action
         data = self._demonstrator.capture_observation(2)
+        data = self._config.key_remap(self._config.key_merge(data))
         self._metrics["durations"]["demonstrate/update/demonstrator"] = (
             time.perf_counter() - start
         )

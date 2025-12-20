@@ -14,6 +14,12 @@ from airbot_data_collection.common.visualizers.basis import VisualizerBasis
 from airbot_data_collection.common.demonstrators.basis import Demonstrator
 from airbot_data_collection.demonstrate.basis import DemonstrateAction, DemonstrateState
 from airbot_data_collection.state_machine.basis import CallbackEventType
+from mcap_data_loader.utils.dict import (
+    CallableKeyMappingDict,
+    MappingCall,
+    MergeValuesCallType,
+    pass_through,
+)
 from functools import cache
 
 
@@ -151,23 +157,30 @@ SendActionValue = Union[Dict[DemonstrateAction, Any], Dict[DemonstrateState, Any
 
 class DemonstrateConfig(BaseModel, frozen=True):
     dataset: DatasetConfig
+    """configuration for the dataset where the demonstration data will be stored"""
     sample_limit: SampleLimit = SampleLimit()
-    # what the demonstrator to act on
-    # entering a fsm state for each group
-    # if None, no action values will be sent
+    """the limit of the data sampling"""
     send_actions: Dict[CallbackEventType, SendActionValue] = {}
-    # the demonstrator to be used for the demonstration
+    """what the demonstrator to act on entering a fsm state for each group
+    if None, no action values will be sent"""
     demonstrator: ComponentConfig[Demonstrator]
-    # the sampler to be used to collect and save the data
-    # if None, a mock sampler will be used
+    """the demonstrator to be used for the demonstration"""
     sampler: ComponentConfig[DataSampler]
-    # the sampled data will be passed to the visualizers at each update
+    """the data sampler to be used for data collection"""
     visualizers: ComponentsConfig[VisualizerBasis] = ComponentsConfig[VisualizerBasis]()
+    """the visualizers to visualize the sampled data"""
     concurrent: ConcurrentConfig = ConcurrentConfig()
-    # what to do with the data when the demonstration is removed
-    # "permanent": delete the data permanently
-    # "trash": move the data to the "trash" of the OS
+    """the concurrent configuration for different demonstrate actions"""
     remove_mode: Literal["permanent", "trash"] = "permanent"
+    """what to do with the data when the demonstration is removed:
+        "permanent": delete the data permanently
+        "trash": move the data to the "trash" of the OS
+    """
+    key_merge: MergeValuesCallType = pass_through
+    """Merging the data values."""
+    key_remap: MappingCall = CallableKeyMappingDict
+    """Remapping the data keys. It will be cached for efficiency.
+    It will be applied after key_merge."""
 
     def model_post_init(self, context):
         if CallbackEventType.PREPARE_EVENT in self.send_actions:

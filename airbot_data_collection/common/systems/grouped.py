@@ -8,7 +8,7 @@ from pydantic import (
     Field,
 )
 from typing import List, Union, Optional, Any, Dict, Literal, Set
-from collections.abc import Callable, Hashable
+from collections.abc import Callable
 from typing_extensions import Self
 from airbot_data_collection.basis import (
     StrEnum,
@@ -37,12 +37,6 @@ from airbot_data_collection.common.utils.progress import create_handler
 from airbot_data_collection.common.utils.utils import (
     defaultdict_to_dict,
     ensure_equal_length,
-)
-from mcap_data_loader.utils.dict import (
-    CallableKeyMappingDict,
-    MappingCall,
-    MergeValuesCallType,
-    pass_through,
 )
 from logging import getLogger
 from collections import defaultdict, Counter
@@ -316,10 +310,6 @@ class GroupedComponentsSystemConfig(BaseModel, frozen=True):
     """the auto control configuration"""
     post_capture: Dict[str, PostCaptureConfig] = {}
     """the post capture config for each group leader"""
-    key_remap: MappingCall = Field(default_factory=CallableKeyMappingDict)
-    """Remapping the data keys. It will be cached for efficiency."""
-    key_merge: MergeValuesCallType = pass_through
-    """Merging the data values."""
 
     @field_validator("auto_control", mode="after")
     def validate_auto_control(cls, v: AutoControlConfig, info: ValidationInfo):
@@ -511,7 +501,6 @@ class GroupedComponentsSystem(System):
         self._handler.register_callback(
             "stop", lambda: self.get_logger().info("Stopping following")
         )
-        self._key_remap = self.config.key_remap
         return self._init_all_components()
 
     def _init_all_components(self) -> bool:
@@ -586,7 +575,7 @@ class GroupedComponentsSystem(System):
             )
 
         self._fully_process(add_data)
-        return self.config.key_merge(data)
+        return data
 
     def get_info(self):
         info = {}
@@ -631,7 +620,7 @@ class GroupedComponentsSystem(System):
     @cache
     def _get_component_data_key(self, prefix: str, key: str) -> str:
         # TODO: should allow component_name to be empty or the group name to be / ?
-        return self._key_remap(self._standardize_component_data_key(f"{prefix}/{key}"))
+        return self._standardize_component_data_key(f"{prefix}/{key}")
 
     def on_switch_mode(self, mode):
         self.get_logger().info(f"Switching all leaders to {mode} mode")

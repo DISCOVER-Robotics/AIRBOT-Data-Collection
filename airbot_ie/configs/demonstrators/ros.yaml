@@ -3,10 +3,20 @@
 defaults:
   - post_capture@demonstrator.instance: "4"
   - /robots: airbot_play_with_name
-  # - /key_remap@demonstrator.instance.key_remap: example
+  # - /key_remap: example
   - /key_remap@sampler.instance.key_remap: example
 
 remap_module: mcap_data_loader.utils.key
+key_merge:
+  method:
+    _target_: mcap_data_loader.utils.basic.merge_data_stamped
+    d_method:
+      _target_: mcap_data_loader.utils.basic.sum_auto_start
+  pred:
+    _target_: mcap_data_loader.utils.dict.PredReplaceTo
+    targets: [arm]
+    sources:
+      - [eef]
 # ros1_init:
 #   _target_: airbot_data_collection.common.utils.ros.ros1.init_ros_node_safe
 #   name: airbot_data_collection_node
@@ -22,16 +32,6 @@ demonstrator:
   name: grouped
   instance:
     _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
-    key_merge:
-      method:
-        _target_: mcap_data_loader.utils.basic.merge_data_stamped
-        d_method:
-          _target_: mcap_data_loader.utils.basic.sum_auto_start
-      pred:
-        _target_: mcap_data_loader.utils.dict.PredReplaceTo
-        targets: [arm]
-        sources:
-          - [eef]
     auto_control:
       # groups: []
       rates: [100]
