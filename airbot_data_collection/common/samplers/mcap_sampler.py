@@ -1,6 +1,6 @@
 import json
-from pydantic import BaseModel, PositiveInt, ConfigDict
-from typing import Literal, Dict, Union, List
+from pydantic import PositiveInt
+from typing import Literal, Dict, List
 from collections.abc import Mapping
 from mcap.writer import Writer
 from flatten_dict import flatten
@@ -13,64 +13,18 @@ from shutil import rmtree
 from mcap_data_loader.utils.av_coder import AvCoder
 from mcap_data_loader.utils.mcap_utils import McapTool, MediaType
 from mcap_data_loader.serialization.flb import McapFlatBuffersWriter, FlatBuffersSchemas
-from airbot_data_collection.common.samplers.basis import DataSampler
-from airbot_data_collection import __version__ as collector_version
+from airbot_data_collection.common.samplers.basis import DataSampler, DataSamplerConfig
 
 
-class Subtask(BaseModel, frozen=True):
-    # Skill template with placeholders like "pick {A} from {B}"
-    skill: str
-    # English description of the subtask
-    description: str
-    # Chinese description of the subtask
-    description_zh: str
+class McapDataSamplerConfig(DataSamplerConfig):
+    """Configuration for MCAP data sampler."""
 
-
-class TaskInfo(BaseModel, frozen=True):
-    model_config = ConfigDict(extra="forbid")
-
-    # Name of the task, used for identification, logging, and reporting.
-    task_name: str = ""
-    task_description: str = ""
-    task_description_zh: str = ""
-    # Unique identifier for the task, used for tracking and management.
-    task_id: Union[str, int] = ""
-    # Identifier for the station where the task is performed, useful for multi-station setups.
-    station: str = ""
-    # ID of the operator performing the task, useful for logging and accountability.
-    operator: str = ""
-    # Skill(s) being demonstrated or performed during the task
-    skill: Union[str, List[str]] = ""
-    # Object(s) involved in the task
-    object: Union[str, List[str]] = ""
-    # Scene or environment description for the task
-    scene: str = ""
-    # List of subtasks that make up this task
-    subtasks: List[Subtask] = []
-
-
-class SaveType(BaseModel, frozen=True):
-    model_config = ConfigDict(extra="forbid")
-
-    color: Literal["raw", "jpeg", "h264"] = "h264"
-    depth: Literal["raw"] = "raw"
-
-
-class Version(BaseModel, frozen=True):
-    model_config = ConfigDict(extra="forbid")
-    collector: str = collector_version
-    data_schema: str = "0.0.1"
-
-
-class McapDataSamplerConfig(BaseModel, frozen=True):
-    model_config = ConfigDict(extra="forbid")
-
-    task_info: TaskInfo = TaskInfo()
-    version: Version = Version()
-    save_type: SaveType = SaveType()
     initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
+    """Initial size of the FlatBuffers builder."""
     video_time_base: int = int(1e6)  # μs to avoid save error
+    """Time base for video encoding (in microseconds)."""
     video_save_to: Literal["file", "folder", "both"] = "file"
+    """Where to save the video data: 'file' for MCAP attachment, 'folder' for separate folder, 'both' for both."""
 
 
 class McapDataSampler(DataSampler):
@@ -129,6 +83,7 @@ class McapDataSampler(DataSampler):
         self.add_config_metadata(writer, self.config)
         # Handle system info safely
         # TODO: save system info to attachment?
+        # TODO: should remap info keys?
         system_info = info.pop("system", {})
         for key, value in system_info.items():
             flattened_value = (
@@ -157,6 +112,7 @@ class McapDataSampler(DataSampler):
             video_dir = self._get_video_dir(path)
             video_path = None
             for key, coder in self._coders.items():
+                key = self.config.key_remap(key)
                 video_bytes = coder.end()
                 if video_save_to in {"file", "both"}:
                     writer.add_attachment(
@@ -198,6 +154,7 @@ class McapDataSampler(DataSampler):
                 raise ValueError(
                     f"Log stamps length ({len(log_stamps)}) must match data values length ({len(values)})."
                 )
+            key = self.config.key_remap(key)
             _ = [
                 self._mf_writer.add_message(
                     schema_type, key, value["data"], value["t"], log_stamps[i], **kwargs
@@ -235,7 +192,7 @@ class McapDataSampler(DataSampler):
 
     @classmethod
     def add_config_metadata(cls, writer: Writer, config: McapDataSamplerConfig):
-        config_dict = config.model_dump()
+        config_dict = config.model_dump(mode="json")
         config_dict.pop("initial_builder_size")
         for key, value in config_dict.items():
             # Convert all values in dict to strings for MCAP metadata

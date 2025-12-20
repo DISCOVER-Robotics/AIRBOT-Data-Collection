@@ -132,6 +132,7 @@ class McapDataSamplerROS(McapDataSampler):
     def update(self, data):
         data = super().update(data)
         for topic, msg_data in KeyInfo.finish_add().items():
+            topic = self.config.key_remap(topic)
             self._ros_writer.write_message(
                 topic=topic,
                 message=msg_data["msg"],
@@ -187,6 +188,7 @@ class McapDataSamplerROS(McapDataSampler):
     def save(self, path, data):
         camera_info = self._get_camera_info()
         for topic, msg in camera_info.items():
+            topic = self.config.key_remap(topic)
             self._ros_writer.write_message(topic, msg)
         return super().save(path, data)
 

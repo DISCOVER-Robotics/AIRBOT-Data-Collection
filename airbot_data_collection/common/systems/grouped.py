@@ -2,10 +2,13 @@ from pydantic import (
     BaseModel,
     NonNegativeFloat,
     ConfigDict,
+    ValidationInfo,
+    field_validator,
     model_validator,
     Field,
 )
-from typing import List, Union, Optional, Any, Dict, Callable, Literal, Set
+from typing import List, Union, Optional, Any, Dict, Literal, Set
+from collections.abc import Callable, Hashable
 from typing_extensions import Self
 from airbot_data_collection.basis import (
     StrEnum,
@@ -35,6 +38,7 @@ from airbot_data_collection.common.utils.utils import (
     defaultdict_to_dict,
     ensure_equal_length,
 )
+from mcap_data_loader.utils.dict import CallableKeyMappingDict, MappingCall
 from logging import getLogger
 from collections import defaultdict, Counter
 from functools import cached_property, cache
@@ -301,30 +305,34 @@ class GroupedComponentsSystemConfig(BaseModel, frozen=True):
     # pickling issues with dynamically created generic types
     components: SystemSensorComponentGroupsConfig
     """the components in groups"""
-    auto_control: AutoControlConfig = Field(default_factory=AutoControlConfig)
+    auto_control: AutoControlConfig = Field(
+        default_factory=AutoControlConfig, validate_default=True
+    )
     """the auto control configuration"""
     post_capture: Dict[str, PostCaptureConfig] = {}
     """the post capture config for each group leader"""
+    key_remap: MappingCall = CallableKeyMappingDict()
+    """Remapping the data keys. It will be cached for efficiency."""
 
-    def model_post_init(self, context):
-        with ForceSetAttr(self.auto_control):
-            if self.auto_control.groups is None:
-                self.auto_control.groups = self.components.unique_groups
-            if {ComponentRole.l, ComponentRole.f} - set(self.components.roles):
-                if self.auto_control.groups:
-                    getLogger(self.__class__.__name__).warning(
+    @field_validator("auto_control", mode="after")
+    def validate_auto_control(cls, v: AutoControlConfig, info: ValidationInfo):
+        with ForceSetAttr(v):
+            values = info.data
+            if v.groups is None:
+                components: SystemSensorComponentGroupsConfig = values["components"]
+                v.groups = components.unique_groups
+            if {ComponentRole.l, ComponentRole.f} - set(components.roles):
+                if v.groups:
+                    getLogger(cls.__name__).warning(
                         "No leader and follower role found in the components, "
                         "clear auto_control.groups."
                     )
-                    self.auto_control.groups = []
-            auto_groups = self.auto_control.groups
+                    v.groups = []
+            auto_groups = v.groups
             if auto_groups:
-                self.auto_control.rates = ensure_equal_length(
-                    auto_groups, self.auto_control.rates
-                )
-                self.auto_control.modes = ensure_equal_length(
-                    auto_groups, self.auto_control.modes
-                )
+                v.rates = ensure_equal_length(auto_groups, v.rates)
+                v.modes = ensure_equal_length(auto_groups, v.modes)
+        return v
 
 
 class ComponentGroupManager:
@@ -496,6 +504,7 @@ class GroupedComponentsSystem(System):
         self._handler.register_callback(
             "stop", lambda: self.get_logger().info("Stopping following")
         )
+        self._key_remap = self.config.key_remap
         return self._init_all_components()
 
     def _init_all_components(self) -> bool:
@@ -558,7 +567,7 @@ class GroupedComponentsSystem(System):
                     return func(0.0)
             else:
                 func = component.result
-            # TODO: configure this
+            # TODO: configure the timeout
             for key, value in func(5.0).items():
                 data[self._get_component_data_key(prefix, key)] = value
             # TODO: what about the concurrent wrapper metrics?
@@ -577,7 +586,7 @@ class GroupedComponentsSystem(System):
 
         def add_info(group_name: str, component: Component, component_name: str, *args):
             prefix = self._get_component_data_prefix(group_name, component_name)
-            info[self._standardize_component_data_key(prefix)] = component.get_info()
+            info[self._get_component_data_key(prefix, "")] = component.get_info()
 
         self._fully_process(add_info)
 
@@ -610,12 +619,12 @@ class GroupedComponentsSystem(System):
 
     @cache
     def _standardize_component_data_key(self, key: str) -> str:
-        return ("/" + key).removeprefix("//")
+        return ("/" + key).removeprefix("//").removesuffix("/")
 
     @cache
     def _get_component_data_key(self, prefix: str, key: str) -> str:
         # TODO: should allow component_name to be empty or the group name to be / ?
-        return self._standardize_component_data_key(f"{prefix}/{key}")
+        return self._key_remap(self._standardize_component_data_key(f"{prefix}/{key}"))
 
     def on_switch_mode(self, mode):
         self.get_logger().info(f"Switching all leaders to {mode} mode")

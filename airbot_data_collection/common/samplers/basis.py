@@ -1,7 +1,76 @@
 from abc import abstractmethod
 from typing import Any, Dict, Optional
-from airbot_data_collection.basis import ConfigurableBasis
 from pathlib import Path
+from pydantic import BaseModel, ConfigDict
+from typing import Literal, Union, List
+from airbot_data_collection.basis import ConfigurableBasis
+from airbot_data_collection import __version__ as collector_version
+from mcap_data_loader.utils.dict import CallableKeyMappingDict, MappingCall
+
+
+class Subtask(BaseModel, frozen=True):
+    skill: str
+    """Skill template with placeholders like "pick {A} from {B}"."""
+    description: str
+    """English description of the subtask."""
+    description_zh: str
+    """Chinese description of the subtask."""
+
+
+class TaskInfo(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
+    task_name: str = ""
+    """Name of the task being performed. Used for identification and logging."""
+    task_description: str = ""
+    """Detailed description of the task in English."""
+    task_description_zh: str = ""
+    """Detailed description of the task in Chinese."""
+    task_id: Union[str, int] = ""
+    """Unique identifier for the task, used for tracking and management."""
+    station: str = ""
+    """Identifier for the station where the task is performed, useful for multi-station setups."""
+    operator: str = ""
+    """ID of the operator performing the task, useful for logging and accountability."""
+    skill: Union[str, List[str]] = ""
+    """Skill(s) being demonstrated or performed during the task."""
+    object: Union[str, List[str]] = ""
+    """Object(s) involved in the task."""
+    scene: str = ""
+    """Scene or environment description for the task."""
+    subtasks: List[Subtask] = []
+    """List of subtasks that compose the main task."""
+
+
+class SaveType(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
+    color: Literal["raw", "jpeg", "h264"] = "h264"
+    """Color image saving type."""
+    depth: Literal["raw"] = "raw"
+    """Depth image saving type."""
+
+
+class Version(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
+    collector: str = collector_version
+    """Version of the data collection codebase."""
+    data_schema: str = "0.0.1"
+    """Version of the data schema used for organizing and storing collected data."""
+
+
+class DataSamplerConfig(BaseModel, frozen=True):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Version = Version()
+    """Version information for the data collection."""
+    task_info: TaskInfo = TaskInfo()
+    """Task information for the data collection."""
+    save_type: SaveType = SaveType()
+    """Data saving types for different modalities."""
+    key_remap: MappingCall[str] = CallableKeyMappingDict()
+    """Key remapping for data fields."""
 
 
 class DataSampler(ConfigurableBasis):

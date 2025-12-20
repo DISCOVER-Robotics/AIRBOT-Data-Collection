@@ -1,9 +1,5 @@
 from typing import Union, Optional
-from airbot_data_collection.common.systems.basis import (
-    Sensor,
-    System,
-    SystemMode,
-)
+from airbot_data_collection.common.systems.basis import Sensor, System, SystemMode
 from airbot_data_collection.common.demonstrators.basis import Demonstrator
 from airbot_data_collection.demonstrate.configs import DemonstrateAction
 from airbot_data_collection.common.systems.grouped import (

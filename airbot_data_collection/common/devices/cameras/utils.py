@@ -91,9 +91,7 @@ class CameraDeviceConfig(StreamProfile):
     If StreamProfile is set, it will be used for the corresponding item of a stream that is not set.
     """
 
-    model_config = ConfigDict(
-        validate_by_alias=True, validate_by_name=True, validate_default=True
-    )
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
 
     camera_index: Optional[Union[int, str]] = None
     """The index of the camera to use. If None, the default camera will be used."""
@@ -180,7 +178,7 @@ class ColorCameraConfig(ColorDeviceConfig):
     """Configuration for an color camera device."""
 
     rgb_camera: Annotated[ColorStreamConfig, AfterValidator(validate_stream_config)] = (
-        Field(default_factory=ColorStreamConfig)
+        Field(default_factory=ColorStreamConfig, validate_default=True)
     )
     """The stream configuration of the color camera."""
 
@@ -194,7 +192,7 @@ class DepthCameraConfig(DepthDeviceConfig):
 
     depth_module: Annotated[
         DepthStreamConfig, AfterValidator(validate_stream_config)
-    ] = Field(default_factory=DepthStreamConfig)
+    ] = Field(default_factory=DepthStreamConfig, validate_default=True)
     """The stream configuration of the depth camera."""
 
     @property
