@@ -38,7 +38,12 @@ from airbot_data_collection.common.utils.utils import (
     defaultdict_to_dict,
     ensure_equal_length,
 )
-from mcap_data_loader.utils.dict import CallableKeyMappingDict, MappingCall
+from mcap_data_loader.utils.dict import (
+    CallableKeyMappingDict,
+    MappingCall,
+    MergeValuesCallType,
+    pass_through,
+)
 from logging import getLogger
 from collections import defaultdict, Counter
 from functools import cached_property, cache
@@ -311,8 +316,10 @@ class GroupedComponentsSystemConfig(BaseModel, frozen=True):
     """the auto control configuration"""
     post_capture: Dict[str, PostCaptureConfig] = {}
     """the post capture config for each group leader"""
-    key_remap: MappingCall = CallableKeyMappingDict()
+    key_remap: MappingCall = Field(default_factory=CallableKeyMappingDict)
     """Remapping the data keys. It will be cached for efficiency."""
+    key_merge: MergeValuesCallType = pass_through
+    """Merging the data values."""
 
     @field_validator("auto_control", mode="after")
     def validate_auto_control(cls, v: AutoControlConfig, info: ValidationInfo):
@@ -579,7 +586,7 @@ class GroupedComponentsSystem(System):
             )
 
         self._fully_process(add_data)
-        return data
+        return self.config.key_merge(data)
 
     def get_info(self):
         info = {}
