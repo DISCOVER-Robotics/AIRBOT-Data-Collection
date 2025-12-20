@@ -105,4 +105,4 @@ send_actions:
         - [0, 0, 0, 0, 0, 0, 0]
 
 dataset:
-  directory: test
+  directory: ros
