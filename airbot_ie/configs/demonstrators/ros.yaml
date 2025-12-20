@@ -1,0 +1,108 @@
+# @package _global_
+
+defaults:
+  - post_capture@demonstrator.instance: "4"
+  - /robots: airbot_play_with_name
+  # - /key_remap@demonstrator.instance.key_remap: example
+  - /key_remap@sampler.instance.key_remap: example
+
+remap_module: mcap_data_loader.utils.key
+# ros1_init:
+#   _target_: airbot_data_collection.common.utils.ros.ros1.init_ros_node_safe
+#   name: airbot_data_collection_node
+robot_cls: airbot_ie.robots.airbot_play_mock.AIRBOTPlay
+
+sampler:
+  name: airbot_mcap_sampler
+  instance:
+    _target_: airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS
+    video_save_to: folder
+
+demonstrator:
+  name: grouped
+  instance:
+    _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
+    key_merge:
+      method:
+        _target_: mcap_data_loader.utils.basic.merge_data_stamped
+        d_method:
+          _target_: mcap_data_loader.utils.basic.sum_auto_start
+      pred:
+        _target_: mcap_data_loader.utils.dict.PredReplaceTo
+        targets: [arm]
+        sources:
+          - [eef]
+    auto_control:
+      # groups: []
+      rates: [100]
+      modes: [process]
+    components:
+      groups:
+        - left
+        - left
+        - right
+        - right
+        - camera
+      names:
+        - leader
+        - follower
+        - leader
+        - follower
+        - camera_env
+      instances:
+        - "${merge_cfg:${robots}, {port: 50050}}"
+        - "${merge_cfg:${robots}, {port: 50051}}"
+        - "${merge_cfg:${robots}, {port: 50052}}"
+        - "${merge_cfg:${robots}, {port: 50053}}"
+        # - _target_: airbot_data_collection.common.devices.cameras.mock.MockCamera
+        - _target_: airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera
+          # - _target_: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
+          camera_index: null
+          height: 480
+          width: 640
+          fps: 30
+          # enable_depth: true
+          # align_depth: true
+        # rgb_camera:
+        #   intrinsics:
+        #     distortion_model: plumb_bob
+        #     d: [0.0, 0.0, 0.0, 0.0, 0.0]
+        #     k: [615.0, 0.0, 320.0, 0.0, 615.0, 240.0, 0.0, 0.0, 1.0]
+        #     binning_x: 0
+        #     binning_y: 0
+        #   calibration:
+        #     r: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+        #     p: [615.0, 0.0, 320.0, 0.0, 0.0, 615.0, 240.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+        #     roi:
+        #       x_offset: 0
+        #       y_offset: 0
+        #       height: 0
+        #       width: 0
+        #       do_rectify: false
+        # depth_module:
+        #   intrinsics:
+        #     distortion_model: plumb_bob
+        #   calibration:
+        #     r: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+      roles:
+        - l
+        - f
+        - l
+        - f
+        - o
+
+action_class: airbot_data_collection.common.systems.grouped.GroupsSendActionConfig
+
+send_actions:
+  after_state_change:
+    active:
+      _target_: ${action_class}
+      groups:
+        - left
+        - right
+      action_values:
+        - [0, 0, 0, 0, 0, 0, 0]
+        - [0, 0, 0, 0, 0, 0, 0]
+
+dataset:
+  directory: test

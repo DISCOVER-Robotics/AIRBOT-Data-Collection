@@ -8,9 +8,9 @@ _args_:
     func:
       _target_: toolz.compose_left
       _args_:
-        # # joint_state -> joint_states
-        # - _target_: ${remap_module}.add_prefix_suffix
-        #   suffix: s
+        # joint_state -> joint_states
+        - _target_: ${remap_module}.add_prefix_suffix
+          suffix: s
         # left/leader/arm -> arm_left_leader
         - _target_: ${remap_module}.reorder_key
           from_indices: [0, 1, 2]
