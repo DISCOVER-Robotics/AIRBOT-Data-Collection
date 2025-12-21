@@ -18,10 +18,9 @@ key_merge:
 # ros1_init:
 #   _target_: airbot_data_collection.common.utils.ros.ros1.init_ros_node_safe
 #   name: airbot_data_collection_node
-robot_cls: airbot_ie.robots.airbot_play_mock.AIRBOTPlay
 
 sampler:
-  name: airbot_mcap_sampler
+  name: airbot_mcap_sampler_ros
   instance:
     _target_: airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS
     video_save_to: folder

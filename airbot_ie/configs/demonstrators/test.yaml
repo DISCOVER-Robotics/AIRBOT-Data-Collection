@@ -4,8 +4,6 @@ defaults:
   - post_capture@demonstrator.instance: "4"
   - /robots: airbot_play_mock
 
-robot_cls: airbot_ie.robots.airbot_play_mock.AIRBOTPlay
-
 demonstrator:
   name: grouped
   instance:
