@@ -10,8 +10,6 @@ remap_module: mcap_data_loader.utils.key
 key_merge:
   method:
     _target_: mcap_data_loader.utils.basic.merge_data_stamped
-    d_method:
-      _target_: mcap_data_loader.utils.basic.sum_auto_start
   pred:
     _target_: mcap_data_loader.utils.dict.PredReplaceTo
     targets: [arm]
