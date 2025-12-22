@@ -1,4 +1,4 @@
-# AIRBOT Play 遥操作指南
+# AIRBOT Play/PTK/TOK 遥操作指南
 
 初次使用请参考 [初次点亮 AIRBOT Play](http://docs.qiuzhi.tech/5.1.6/airbot-play/quick-start/running.html) 熟悉机械臂的基本使用。
 
