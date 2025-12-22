@@ -87,17 +87,20 @@ python3 scripts/multi_capture.py 2 4 6 -ff MJPEG MJPEG MJPEG
 其中`2 4 6`指定了相机的ID号，可通过`ls /dev/video*`命令查看并做相应修改，一般来说使用偶数的ID，奇数的ID不可用。
 `-ff`后面的参数指定了每个相机的视频流格式，一般使用`MJPEG`。
 
-!!! warning "显示异常"
-    - 如果出现某个相机显示的图像是纯黑，且帧率异常，一个可能的原因是因为错误地启用了电脑自身的摄像头，
-    并且电脑有硬件相机屏蔽的开关（通常在电脑右侧边），此时可将尝试其他的相机ID，包括尝试ID为0的情况，因为
-    有些设备的电脑内置摄像头ID未必为0。
-    - 如果出现无法同时开启多个相机，请尝试将相机尽可能分散到电脑的不同USB口中（充分利用Type-C口），尽量不要再一个拓展坞上
-    连接多个相机。如果仍然无法同时开启，考虑使用如下命令临时修改uvc内核模块配置：
-    `sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000 quirks=0x80`，然后重新尝试。
-    如果上述修改后仍然无效，可以考虑调整每个相机的视频流格式，默认为`MJPEG`，可尝试将不同相机改为`YUYV`，特别是不同
-    型号的相机混用的情况下，可能型号1的相机设置为`MJPEG`，型号2的相机设置为`YUYV`的情况下才能同时使用。
-    如果上述修改有效，最后可以考虑执行如下命令永久调整uvc内核配置：`echo "options uvcvideo nodrop=1 timeout=5000 quirks=0x80" | sudo tee -a /etc/modprobe.d/uvcvideo.conf >/dev/null`
-    - RealSense相机也会占用`/dev/video`号，因此当与USB相机一起连接到电脑上时需要注意区分
+#### 常见问题处理
+
+- 如果出现某个相机显示的图像是纯黑，且帧率异常，一个可能的原因是因为错误地启用了电脑自身的摄像头，
+并且电脑有硬件相机屏蔽的开关（通常在电脑右侧边），此时可将尝试其他的相机ID，包括尝试ID为0的情况，因为
+有些设备的电脑内置摄像头ID未必为0。
+- 如果出现无法同时开启多个相机，请尝试将相机尽可能分散到电脑的不同USB口中（充分利用Type-C口），尽量不要再一个拓展坞上
+连接多个相机。如果仍然无法同时开启，考虑使用如下命令临时修改uvc内核模块配置：
+`sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000 quirks=0x80`，然后重新尝试。
+如果上述修改后仍然无效，可以考虑调整每个相机的视频流格式，默认为`MJPEG`，可尝试将不同相机改为`YUYV`，特别是不同
+型号的相机混用的情况下，可能型号1的相机设置为`MJPEG`，型号2的相机设置为`YUYV`的情况下才能同时使用。
+如果上述修改有效，最后可以考虑执行如下命令永久调整uvc内核配置：`echo "options uvcvideo nodrop=1 timeout=5000 quirks=0x80" | sudo tee -a /etc/modprobe.d/uvcvideo.conf >/dev/null`
+- RealSense相机也会占用`/dev/video`号，因此当与USB相机一起连接到电脑上时需要注意区分。
+
+#### RealSense相机支持
 
 对于Intel-RealSense相机，可以运行`$SHELL install/install_realsense.sh`安装相关依赖，并执行如下命令查看已连接相机的序列号：
 
