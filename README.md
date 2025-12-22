@@ -216,7 +216,7 @@ airdc -h
 
 视保存的数据格式不同，可使用不同工具进行数据可视化。部分数据可视化说明链接如下：
 
-- [Foxglove]()
+- [Foxglove](docs/visualize/foxglove.md)
 - [AIRBOT MCAP Data Viewer](docs/visualize/airbot.md)
 
 ## 性能测试
