@@ -120,7 +120,7 @@ python3 airbot_data_collection/common/devices/cameras/intelrealsense.py
 
 部分机器人相关配置说明链接如下：
 
-- [AIRBOT Play](docs/configure/airbot_play.md)
+- [AIRBOT Play/PTK/TOK](docs/configure/airbot_play.md)
 
 部分自定义数据格式说明链接如下：
 
@@ -130,7 +130,7 @@ python3 airbot_data_collection/common/devices/cameras/intelrealsense.py
 
 请根据实际机器人的使用方式进行启动。部分机器人遥操作说明链接如下：
 
-- [AIRBOT Play](docs/teleop/airbot_play.md)
+- [AIRBOT Play/PTK/TOK](docs/teleop/airbot_play.md)
 
 ## 数据采集流程
 
