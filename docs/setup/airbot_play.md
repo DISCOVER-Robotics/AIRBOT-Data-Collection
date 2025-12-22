@@ -55,12 +55,12 @@ ip l |grep can_
 如果输出中包含绑定命令中`--target`后指定的全部名称，则绑定成功，例如双臂控双臂情况下应能看到：
 `can_left_lead`, `can_left`, `can_right_lead`, `can_right`。
 
-!!! info "重新绑定"
+### 重新绑定
 
-    由于各种原因需要重新对设备进行绑定时，需首先执行如下命令清除之前的绑定配置：
+由于各种原因需要重新对设备进行绑定时，需首先执行如下命令清除之前的绑定配置：
 
-    ```bash
-    sudo bind_airbot_device rm
-    ```
+```bash
+sudo bind_airbot_device rm
+```
 
-    然后再重新按顺序连接设备后再次执行绑定命令即可。
+然后再重新按顺序连接设备后再次执行绑定命令即可。
