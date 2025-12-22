@@ -1,21 +1,306 @@
-# Installation
+# AIRDC: Collecting Multimodal Data For Your Robots
+
+<div align="center">
+
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+</div>
+
+## 系统环境配置
+
+### 环境要求
+为确保本项目正常运行，请确认您的系统环境满足以下要求：
+
+- **Python** `>= 3.9`（推荐使用 Python 3.10，其他版本未经完整测试）
+
+- **操作系统**
+  - 支持：Linux（含Docker容器；推荐使用Ubuntu，其他系统未经测试）
+  - 不支持：Windows，macOS
+  - 未测试：Windows Subsystem for Linux (WSL)
+
+- **系统架构**
+  - x86_64（64 位 Intel/AMD）
+  - ARM64（如 NVIDIA Jetson等）
+
+- **依赖工具**
+  - `POSIX shell`（用于运行一键安装脚本等，如`sh`等）
+  - （可选）虚拟环境管理工具，如 `conda`、`venv`等
+
+- **其他**
+  - 至少 2 GB 可用内存
+  - 磁盘空间：视采集数据量而定
+
+注意，系统环境主要受限于所使用的具体后端，如机器人 SDK 和相机驱动等，请确保这些后端软件的系统要求也得到满足。
+
+### 虚拟环境
+建议创建独立的Python虚拟环境进行数据采集环境安装，以满足Python版本要求同时避免与其他项目的依赖冲突。以`conda`为例，可执行如下命令创建并激活虚拟环境：
 
 ```bash
-sudo apt install ./airbot-configure_5.1.6_all.deb -y
 conda create -n airbot_data python=3.10 && conda activate airbot_data
-pip install airbot_py-5.1.6-py3-none-any.whl -i https://mirrors.huaweicloud.com/repository/pypi/simple
-bash install.sh
-# for some airbot scripts
-export PYTHONPATH="$(pwd):$PYTHONPATH"
-# for mcap cli
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install mcap
 ```
 
-# Development
+### ROBOT SDK
+
+!!! warning "环境要求"
+
+    请使用上述创建的Python虚拟环境（如果使用的话）进行后续依赖安装！
+
+数据采集程序依赖于机器人的基本软件环境，请自行安装并配置好对应机器人的驱动程序和Python SDK。部分机器人软件安装参考链接如下：
+
+- [AIRBOT Play](docs/robot_sdk/airbot_play.md)
+
+### 数据采集
+
+!!! warning "环境要求"
+
+    - 请使用上述安装好机器人相关软件的`Python`环境进行后续依赖安装！
+    - 一键安装脚本默认分别使用`apt`和`pip`进行系统和`Python`依赖安装，如果使用其他包管理工具，请手动安装对应依赖，或者修改安装脚本后再执行。对于前者，也可以在执行安装脚本时传入安装命令作为参数，例如`$SHELL ./install.sh sudo yum install -y`。
 
 ```bash
-pip install pre-commit
-pre-commit run --all-files
-pre-commit install
+git clone https://github.com/DISCOVER-Robotics/AIRBOT-Data-Collection.git -b develop data-collection
+cd data-collection
+conda activate airbot_data
+$SHELL install/install.sh
 ```
+
+`$SHELL`一般可简单用`bash`代替（下同）。安装结束后终端可能有红色报错提示部分依赖问题，一般可忽略，进行后续操作即可。
+
+<a id="cam_info"></a>
+### 相机信息
+
+可以通过如下命令查看已连接相机的信息：
+
+```bash
+python3 scripts/list_cameras.py
+```
+
+在终端输出中可以看到每个相机的名称、设备路径（含ID）、USB端口（总线）信息、支持的图像格式和对应的分辨率和帧率，以及设备总数等信息。
+
+### 相机检查
+
+连接所需的全部相机，对于USB相机，可以执行如下命令进行检查：
+
+```bash
+python3 scripts/multi_capture.py 2 4 6 -ff MJPEG MJPEG MJPEG
+```
+
+其中`2 4 6`指定了相机的ID号，可通过`ls /dev/video*`命令查看并做相应修改，一般来说使用偶数的ID，奇数的ID不可用。
+`-ff`后面的参数指定了每个相机的视频流格式，一般使用`MJPEG`。
+
+!!! warning "显示异常"
+    - 如果出现某个相机显示的图像是纯黑，且帧率异常，一个可能的原因是因为错误地启用了电脑自身的摄像头，
+    并且电脑有硬件相机屏蔽的开关（通常在电脑右侧边），此时可将尝试其他的相机ID，包括尝试ID为0的情况，因为
+    有些设备的电脑内置摄像头ID未必为0。
+    - 如果出现无法同时开启多个相机，请尝试将相机尽可能分散到电脑的不同USB口中（充分利用Type-C口），尽量不要再一个拓展坞上
+    连接多个相机。如果仍然无法同时开启，考虑使用如下命令临时修改uvc内核模块配置：
+    `sudo rmmod uvcvideo && sudo modprobe uvcvideo nodrop=1 timeout=5000 quirks=0x80`，然后重新尝试。
+    如果上述修改后仍然无效，可以考虑调整每个相机的视频流格式，默认为`MJPEG`，可尝试将不同相机改为`YUYV`，特别是不同
+    型号的相机混用的情况下，可能型号1的相机设置为`MJPEG`，型号2的相机设置为`YUYV`的情况下才能同时使用。
+    如果上述修改有效，最后可以考虑执行如下命令永久调整uvc内核配置：`echo "options uvcvideo nodrop=1 timeout=5000 quirks=0x80" | sudo tee -a /etc/modprobe.d/uvcvideo.conf >/dev/null`
+    - RealSense相机也会占用`/dev/video`号，因此当与USB相机一起连接到电脑上时需要注意区分
+
+对于Intel-RealSense相机，可以运行`$SHELL install/install_realsense.sh`安装相关依赖，并执行如下命令查看已连接相机的序列号：
+
+```bash
+python3 airbot_data_collection/common/devices/cameras/intelrealsense.py
+```
+
+## 数据采集配置
+
+数据采集程序默认基于`Hydra`框架进行配置，支持通过`yaml`文件配置默认参数以及通过命令行对参数进行覆写。若需更换其他配置框架，请参考[配置框架自定义](docs/configure/cfger.md)。
+
+数据采集的配置选项主要包括示教器/遥操系统（Demonstrator）、采样器（Sampler）、管理器（Manager）、可视化器（Visualizer）、状态机（FSM）以及其他基本配置（如logging、数据保存路径等）。
+
+由于配置参数较多，因此提供了默认配置文件夹`airbot_ie`，一般可在此基础上进行修改。该配置主要使用：
+
+- 示教器：使用`grouped demonstrator`分组指定leader、follower和observer三种角色将分散的设备进行组合，完成遥操控制和数据采集。
+- 采样器：使用`mcap sampler`将episode数据保存为基于`FlatBuffers`的`.mcap`格式文件。
+- 管理器：使用`keyboard manager`结合`self manager`通过键盘进行数据采集的流程控制。
+- 可视化器：使用`OpenCV visualizer`进行数据的实时显示和监控。
+
+部分机器人相关配置说明链接如下：
+
+- [AIRBOT Play](docs/configure/airbot_play.md)
+
+部分自定义数据格式说明链接如下：
+
+- [ROS](docs/configure/ros.md)：以常见ROS格式要求为例说明如何配置自定义采样器、设置相机信息、合并数据和名称重映射等。
+
+## 启动遥操作
+
+请根据实际机器人的使用方式进行启动。部分机器人遥操作说明链接如下：
+
+- [AIRBOT Play](docs/teleop/airbot_play.md)
+
+## 数据采集流程
+
+### 运行数据采集程序
+
+完成前述准备工作后，可执行如下命令运行数据采集程序（终端在`data-collection`目录）：
+
+```bash
+airdc
+```
+
+上述命令将使用默认配置文件中的配置。此外，也可以在命令行中重新制定配置文件，或对配置文件中的参数进行覆写，例如：
+
+```bash
+airdc --path airbot_ie/configs/config.yaml dataset.directory=example
+```
+
+其中`--path`指定了配置文件路径（这里就是默认路径），`dataset.directory=example`指定了数据保存目录为`data`目录下的`example`文件夹。
+
+如果需要调整其他配置，可以继续增加其他命令行参数即可（用空格隔开）。其它常用参数如下：
+
+- `update_rate`: 数据采集频率。数据采集时按此频率将全部组件的观测数据添加到采样器中
+- `sample_limit.start_round`: 数据采集的起始轮数。如果已经采集有数据，请对应修改，避免覆盖已有数据。默认设置为`-1`，自动根据保存目录下已采集的数据文件数量自动确定起始轮数（不会自动判断文件序号，因此如果文件编号不连续，会导致起始轮数判断错误）。
+- `sample_limit.size`: 采样帧数的上限。一方面，有些算法程序要求采集的数据帧数一致，另一方面，可以避免忘记停止采集而导致采集数据量过大内存溢出。默认设置为1000
+
+更多可覆盖命令行参数及其当前值可通过如下命令查看：
+
+```bash
+airdc -h
+```
+
+如果需要在`headless`模式下运行，即不显示 GUI 窗口，可在命令中增加`visualizers.names="[]"`参数。
+
+!!! warning "常见问题处理"
+
+    - 键盘屏蔽：机械臂测试程序和数据采集程序启动后都会全局读取键盘上的所有按键输入，如果需要其它键盘操作，可先按`F2`暂时关闭数据采集程序的键盘响应，否则容易发生异常。后续可再按`F2`恢复键盘响应。
+    - 错误一般由命令行参数配置修改不当引起。所以请仔细检查配置是否与实际设备的连接情况一致。
+    - 如果报错信息中出现`opencv`字样，首先检查卸载`opencv-headless`后重装`opencv-python`的操作有没有正常进行，检查对应相机的帧率是否正确匹配对应相机，并将连接到电脑的相机数据线重新拔掉后查看电脑内置相机的`camera_index`，最后按顺序连接相机。
+    - 当实际采集频率低于设定值时，程序默认会以警告级别打印超时提示，可以通过命令行或者配置文件中设置`log_jitter`为`false`来关闭该提示，保持终端整洁。
+
+然后可以使用键盘进行数据采集的流程控制，键盘使用说明在可在终端打印中上滚看到，或者按键盘`i`键重新打印。
+
+### 数据采集建议
+
+为了保证数据采集的质量，有如下建议：
+
+**示教**
+
+1. 运动过程平稳流畅自然，没有明显加速、停顿、抖动等速度突变情况；
+2. 数据采集轨迹分布应具有一定的随机性，但请注意动作分布差异不要过大；
+3. 夹爪开合的动作应比较明显，即张开时尽量张开，关闭时尽量关闭，保证主动臂和从动臂编码器返回明确的开合值；
+4. 每个动作之间有一定停顿；
+5. 在操作物体时应考虑模型预测可能出现的偏差，不要出现仅夹住物体边缘的情况；
+
+<p align="center">
+    <img src="docs/assets/image-4.png" width="300">
+    <img src="docs/assets/image-5.png" width="300">
+</p>
+
+**相机**
+
+1. 采集图像清晰，相机对焦点正常，画面无卡顿、模糊、抽帧等问题；
+2. 环境相机中保证操作物体全程位于画面中（杯子等较大物体允许有几帧不整体入镜）；
+3. 环境相机注意操作角度，避免位于夹爪遮挡小物体的角度，如下图所示；
+4. 臂上相机应保证可以看到操作物体和夹爪的开合特征；
+5. 环境相机视野中，示教臂不可入镜（因推理时不存在），执行臂在任务开始时可不必须入镜，但在操作物体时要求可以看到夹爪与物体的交互；
+6. 相机视野应考虑改变物体摆放位置后，物体仍位于相机视野中，且物体的初始摆放位置应尽量位于相机视野中央；
+
+<p align="center">
+    <img src="docs/assets/image-6.png" width="300">
+    <img src="docs/assets/image-7.png" width="300">
+</p>
+
+### 数据采集操作
+
+1. 按空格键开始数据采集
+2. 完成任务后按`s`键保存, 等待保存完毕后, 再次按下空格键开始采集
+3. 若在采集过程中, 发现本次操作有不符合采集要求时，主观认为是无效数据，则按`q`键放弃当前采集，然后重新按空格键开始采集
+4. 若数据已经保存，发现采集的数据不符合要求，则可按`r`键删除本次采集的数据，然后按空格键重新采集
+5. 所有数据采集完毕后, 按`ESC`键退出采集程序
+
+## 数据可视化
+
+打开`data_viewer`文件夹，双击其中的`index.html`文件在浏览器中打开：
+
+<p align="center">
+    <img src="docs/assets/image-10.png">
+</p>
+
+然后点击左上角的蓝色浏览图标：
+
+<p align="center">
+    <img src="docs/assets/image-11.png" width="300">
+</p>
+
+在新出现的小窗体中选中需要查看的`mcap`格式数据文件，然后点击`OK`：
+
+<p align="center">
+    <img src="docs/assets/image-12.png" width="300">
+</p>
+
+然后在右侧浮窗中选中要查看的数据文件（底色变蓝）：
+
+<p align="center">
+    <img src="docs/assets/image-13.png" width="400">
+</p>
+
+然后点击左侧的`+`号选择要可视化的数据类型（图表或视频）：
+
+<p align="center">
+    <img src="docs/assets/image-14.png" width="180">
+</p>
+
+选择后右侧会增加一栏窗口，右键该窗口：
+
+<p align="center">
+    <img src="docs/assets/image-15.png" width="420">
+</p>
+
+选择蓝色的设置按钮，然后可以在`Topic`栏中筛选要显示的数据名称，然后点击`OK`/`确定`：
+
+<p align="center">
+    <img src="docs/assets/image-16.png" width="400">
+</p>
+
+选择完毕后点击下图所示窗口上方的播放控制按钮对数据进行动态可视化：
+
+<p align="center">
+    <img src="docs/assets/image-17.png" width="400">
+</p>
+
+可视化效果如下图所示：
+
+<p align="center">
+    <img src="docs/assets/image-18.png" width="800">
+</p>
+
+## 性能测试
+
+| 主机                 | 相机                      | 设定帧率 (fps) | 实际帧率 (fps)                        |
+| -------------------- | ------------------------- | -------------- | ------------------------------------- |
+| **联想拯救者 Y7000** | 1环境+1 Realsense（720P） | 30             | 24.86～24.88                          |
+|                      |                           | 20             | 19.95～20.03                          |
+|                      | 1环境+2 Realsense（720P） | 30             | 24.84～24.88                          |
+|                      |                           | 20             | 19.93～20.03                          |
+|                      | 1环境+1 手部（480）       | 30             | 24.86～24.89                          |
+|                      |                           | 20             | 19.97~30                              |
+|                      | 1环境+2 手部（480）       | 30             | 24.84～24.88                          |
+|                      |                           | 20             | 19.95~20                              |
+| **AGX**              | 1环境+1 Realsense（720P） | 30             | 24.3～24.89<br>启用深度：22.98～23.45 |
+|                      |                           | 20             | 18.46~18.90<br>启用深度：15.02-18.32  |
+|                      | 1环境+2 Realsense（720P） | 30             | 可能无法同时启动                      |
+|                      |                           | 20             | —                                     |
+|                      | 1环境+1 手部（480）       | 30             | 24.86～24.88                          |
+|                      |                           | 20             | 19.95～20.03                          |
+|                      | 1环境+2 手部（480）       | 30             | 可能无法同时启动                      |
+|                      |                           | 20             | —                                     |
+| **NX**               | 1环境+1 Realsense（720P） | 30             | 5.12~6.12<br>启用深度：3.45-6.02      |
+|                      |                           | 20             | 6.20~8.95<br>启用深度：3.02-5.98      |
+|                      | 1环境+2 Realsense（720P） | 30             | 可能无法同时启动                      |
+|                      |                           | 20             | —                                     |
+|                      | 1环境+1 手部（480）       | 30             | 13.03～14.77                          |
+|                      |                           | 20             | 11.71～12.47                          |
+|                      | 1环境+2 手部（480）       | 30             | 可能无法同时启动                      |
+|                      |                           | 20             | —                                     |
+
+说明：
+
+- 测试时同时运行了单臂（1手部相机或1 Realsense搭配下）/双臂（2手部相机或2 Realsense搭配下）的控制服务和遥操作控制程序
+
+- 环境（相机）型号为`USB 2.0 Camera: LRCP  V1080P`(1080P, 30Hz)，手部（相机）型号为`Integrated_Webcam_HD: Integrate`（720P, 25Hz），Realsense型号为`D435i`(USB3.0)
+
+- 测试结果仅供参考，请以实际使用效果为准

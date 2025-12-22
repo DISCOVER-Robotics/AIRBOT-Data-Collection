@@ -24,7 +24,7 @@ from typing import Dict, Callable, Optional, Union
 ImageType = Union[np.ndarray, bytes]
 
 
-def prepare_cv2_imshow(logger: Optional[logging.Logger] = None):
+def prepare_cv2_imshow(logger: Optional[logging.Logger] = None) -> bool:
     """Prepare OpenCV imshow for displaying images before import pynput.
     Otherwise, the imshow will block and not show the image.
     """
@@ -43,8 +43,13 @@ def prepare_cv2_imshow(logger: Optional[logging.Logger] = None):
         cv2.destroyWindow(name)
         cv2.waitKey(1)
 
-    show_image("Prepared image")
-
+    try:
+        show_image("Prepared image")
+    except Exception as e:
+        logger.warning(
+            f"cv2.imshow preparation failed. You can ignore this when in `headless` mode: {e}"
+        )
+        return False
     logger.info("cv2.imshow is ready")
     return True
 
