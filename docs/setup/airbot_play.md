@@ -1,4 +1,4 @@
-# AIRBOT Play 安装指南
+# AIRBOT Play/PTK/TOK 安装指南
 
 ## Python SDK
 
@@ -8,8 +8,7 @@
 - **AIRBOT Play Python SDK** : >= 5.1.4
 - **AIRBOT Play Pro Python SDK** : >= 5.1.4
 
-[点击这里查看如何安装 AIRBOT Play 驱动程序 和 Python SDK](http://docs.qiuzhi.tech/0.2.7/airbot-play/quick-start/software-setup.html)
-
+安装说明： [AIRBOT Play 驱动程序 和 Python SDK](http://docs.qiuzhi.tech/0.2.7/airbot-play/quick-start/software-setup.html)
 
 ## 机械臂绑定
 
