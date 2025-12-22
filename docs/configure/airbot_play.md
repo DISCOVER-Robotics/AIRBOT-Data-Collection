@@ -1,4 +1,4 @@
-# AIRBOT Play数据采集配置指南
+# AIRBOT Play/PTK/TOK 数据采集配置指南
 
 <a id="auto_config"></a>
 ## 自动配置
