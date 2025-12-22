@@ -39,7 +39,7 @@
 conda create -n airbot_data python=3.10 && conda activate airbot_data
 ```
 
-### ROBOT SDK
+### 机器人 Setup
 
 !!! warning "环境要求"
 
@@ -47,7 +47,7 @@ conda create -n airbot_data python=3.10 && conda activate airbot_data
 
 数据采集程序依赖于机器人的基本软件环境，请自行安装并配置好对应机器人的驱动程序和Python SDK。部分机器人软件安装参考链接如下：
 
-- [AIRBOT Play](docs/robot_sdk/airbot_play.md)
+- [AIRBOT Play](docs/setup/airbot_play.md)
 
 ### 数据采集
 
