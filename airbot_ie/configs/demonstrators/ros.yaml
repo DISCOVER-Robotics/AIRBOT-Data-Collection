@@ -30,7 +30,7 @@ demonstrator:
   instance:
     _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
     auto_control:
-      # groups: []
+      groups: []
       rates: [100]
       modes: [process]
     components:
@@ -88,18 +88,18 @@ demonstrator:
         - f
         - o
 
-action_class: airbot_data_collection.common.systems.grouped.GroupsSendActionConfig
+# action_class: airbot_data_collection.common.systems.grouped.GroupsSendActionConfig
 
-send_actions:
-  after_state_change:
-    active:
-      _target_: ${action_class}
-      groups:
-        - left
-        - right
-      action_values:
-        - [0, 0, 0, 0, 0, 0, 0]
-        - [0, 0, 0, 0, 0, 0, 0]
+# send_actions:
+#   after_state_change:
+#     active:
+#       _target_: ${action_class}
+#       groups:
+#         - left
+#         - right
+#       action_values:
+#         - [0, 0, 0, 0, 0, 0, 0]
+#         - [0, 0, 0, 0, 0, 0, 0]
 
 dataset:
   directory: ros

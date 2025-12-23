@@ -315,8 +315,8 @@ class GroupedComponentsSystemConfig(BaseModel, frozen=True):
     def validate_auto_control(cls, v: AutoControlConfig, info: ValidationInfo):
         with ForceSetAttr(v):
             values = info.data
+            components: SystemSensorComponentGroupsConfig = values["components"]
             if v.groups is None:
-                components: SystemSensorComponentGroupsConfig = values["components"]
                 v.groups = components.unique_groups
             if {ComponentRole.l, ComponentRole.f} - set(components.roles):
                 if v.groups:
