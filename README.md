@@ -126,6 +126,10 @@ python3 airbot_data_collection/common/devices/cameras/intelrealsense.py
 
 - [AIRBOT Play/PTK/TOK](docs/configure/airbot_play.md)
 
+部分配置调整说明链接如下：
+
+- [常见配置调整](docs/configure/common.md)
+
 部分自定义数据格式说明链接如下：
 
 - [ROS](docs/configure/ros.md)：以常见ROS格式要求为例说明如何配置自定义采样器、设置相机信息、合并数据和名称重映射等。
