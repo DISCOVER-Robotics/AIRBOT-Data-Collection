@@ -117,7 +117,7 @@ python3 airbot_data_collection/common/devices/cameras/intelrealsense.py
 由于配置参数较多，因此提供了默认配置文件夹`airbot_ie`，一般可在此基础上进行修改。该配置主要使用：
 
 - 示教器：使用`grouped demonstrator`分组指定leader、follower和observer三种角色将分散的设备进行组合，完成遥操控制和数据采集。
-- 采样器：使用`mcap sampler`将episode数据保存为基于`FlatBuffers`的`.mcap`格式文件。
+- 采样器：使用`mcap sampler`将episode数据保存为基于`FlatBuffers` Schema的`.mcap`格式文件。
 - 管理器：使用`keyboard manager`结合`self manager`通过键盘进行数据采集的流程控制。
 - 可视化器：使用`OpenCV visualizer`进行数据的实时显示和监控。
 

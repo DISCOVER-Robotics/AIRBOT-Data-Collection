@@ -10,14 +10,16 @@
 
 运行如下程序进行自动绑定：
 ```bash
-python3 airbot_ie/scripts/setup.py --ic <bus_id> --ii <can_id>
+python3 airbot_ie/scripts/setup.py --ic <bus_id> --ii <can_id> --rcd <ref_config_dir> --rcn <ref_config_name>
 ```
 
 参数说明：
 
-- `--ic`：指定要忽略的相机的USB端口号（注意不是相机设备号/设备路径，查看方式参见[相机信息](../../README.md#cam_info)），通常用于忽略笔记本电脑内置相机，如果有其他需要忽略的相机，可以继续添加总线号（用英文逗号隔开）。如果不需要忽略相机，请去掉该参数。
-
+- `--ic`：指定要忽略的相机的USB端口号（注意不是相机设备号/设备路径，查看方式参见[相机信息](../../README.md#cam_info)），通常用于忽略笔记本电脑内置相机，如果有其他需要忽略的相机，可以继续添加总线号（用英文逗号隔开，下同）。如果不需要忽略相机，请去掉该参数。
 - `--ii`：指定要忽略的CAN名称，通常用于忽略非机械臂的其他在用的CAN设备。如果不需要忽略，请去掉该参数。
+- `--rcd`：参考配置文件夹路径，默认值为`airbot_ie/configs/demonstrators`。
+- `--rcn`：参考配置文件名称，默认值为`airbot_play`（后缀可省略）。
+
 
 启动后，该程序会要求输入密码，这是为了获取设备的序列号便于匹配不同设备。
 而后会自动检测设备所连接的所有相机并通过图形窗口实时显示图像，图像上方标题的格式为：`名称-ID-USB端口信息或序列号`，如果未曾配置过
@@ -32,7 +34,7 @@ python3 airbot_ie/scripts/setup.py --ic <bus_id> --ii <can_id>
 - 任务差异化：不同任务一般需要手动对配置文件中的参数进行修改，特别是`airbot_ie/configs/basis.yaml`中`task_info`中的任务名称等，这些信息将可能在后续用作区分不同类型数据，以及可能用作模型的`prompt`。
 - 动作回调：支持配置在数据采集状态变化时自动执行指定动作，例如在每次开始采集前自动将机械臂臂重置到初始位姿等，可参考`airbot_ie/configs/demonstrators/test.yaml`中的`send_actions`字段进行配置（注意不要直接在`test.yaml`中修改，这是无效的）。
 - 深度数据：默认情况下深度相机不采集深度数据（体积较大），如果需要采集，可参考`airbot_ie/configs/demonstrators/realsense.yaml`中的参数，在`setup.yaml`的相机配置中添加`enable_depth`和`align_depth`字段并设置为`true`。点云数据不支持也不建议直接采集，请自行通过后处理从深度图像中生成。
-- 自动遥操作：默认情况下，需要手动启动机械臂的遥操作控制，见[启动遥操作](#teleop)，若要开启自动遥操作控制需调整`demonstrator.auto_control`下的字段：
+- 自动遥操作：默认情况下，需要手动启动机械臂的遥操作控制，见[启动遥操作](../teleop/airbot_play.md)，若要开启自动遥操作控制需调整`demonstrator.auto_control`下的字段：
     - `groups`字段设置为`null`（注意不是列表`[null]`）；
     - 增加`modes`字段并设置为列表`[process]`（`process`表示以子进程的方式启动控制程序）；
     - 增加`rates`字段并设置为列表`[100]`（`100`是默认的遥操控制频率）。
