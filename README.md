@@ -55,9 +55,10 @@ conda create -n airbot_data python=3.10 && conda activate airbot_data
 
     - 请使用上述安装好机器人相关软件的`Python`环境进行后续依赖安装！
     - 一键安装脚本默认分别使用`apt`和`pip`进行系统和`Python`依赖安装，如果使用其他包管理工具，请手动安装对应依赖，或者修改安装脚本后再执行。对于前者，也可以在执行安装脚本时传入安装命令作为参数，例如`$SHELL ./install.sh sudo yum install -y`。
+    - 仓库clone注意指定分支/标签/提交号，以保证版本一致性。若不指定则默认使用`main`分支，是最新的稳定版本。`develop`分支为最新开发版本，可能存在不稳定情况。如需固定版本，请使用对应的标签或提交号。
 
 ```bash
-git clone https://github.com/DISCOVER-Robotics/AIRBOT-Data-Collection.git -b develop data-collection
+git clone https://github.com/DISCOVER-Robotics/AIRBOT-Data-Collection.git -b <tag/commit/branch> data-collection
 cd data-collection
 conda activate airbot_data
 $SHELL install/install.sh
