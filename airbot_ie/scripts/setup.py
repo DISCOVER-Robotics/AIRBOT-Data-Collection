@@ -73,6 +73,9 @@ def check_can_interfaces(expected_interfaces: list[str]) -> bool:
         return False
 
 
+cur_dir = Path(__file__).parent.resolve()
+
+
 class SetupConfig(BaseModelWithFieldAliases):
     """Configuration for the setup script of airbot data collection."""
 
@@ -91,6 +94,16 @@ class SetupConfig(BaseModelWithFieldAliases):
         validation_alias="ii",
         description="Ignore CAN interfaces by their names.",
     )
+    ref_cfg_dir: Path = Field(
+        "airbot_ie/configs/demonstrators/",
+        validation_alias="rcd",
+        description="Directory containing the base configuration files.",
+    )
+    ref_cfg_name: Path = Field(
+        "airbot_play",
+        validation_alias="rcn",
+        description="Name of the base configuration file.",
+    )
 
 
 args = CliApp.run(SetupConfig)
@@ -101,7 +114,10 @@ logger.info(f"Hardware uuid: {hw_uuid}")
 
 """Process Configs"""
 
-cur_dir = Path(__file__).parent.resolve()
+ref_cfg_path = args.ref_cfg_dir / args.ref_cfg_name.with_suffix(".yaml")
+if not ref_cfg_path.exists():
+    raise FileNotFoundError(f"Base config file not found: {ref_cfg_path.absolute()}")
+
 station_config_path = cur_dir / "station_config.yaml"
 station_config = yaml.load(open(station_config_path))
 NAME_CHOICES = station_config["choices"]
@@ -379,20 +395,18 @@ while True:
             "groups": groups,
         }
         logger.info(f"Components: {pformat(components)}")
-
-        defaults_dir = cur_dir.parent / "configs/demonstrators"
-        input_file_path = f"{defaults_dir}/airbot_play.yaml"
-        with open(input_file_path) as f:
+        ref_cfg_dir = ref_cfg_path.parent
+        with open(ref_cfg_path) as f:
             config: dict = yaml.load(f)
             param_dict: dict = config["demonstrator"]["instance"]
             param_dict["components"] = components
             config["defaults"].append(
                 {"post_capture@demonstrator.instance": str(can_num)}
             )
-        post_capture_path = f"{defaults_dir}/post_capture/{can_num}.yaml"
+        post_capture_path = f"{ref_cfg_dir}/post_capture/{can_num}.yaml"
         with open(post_capture_path) as f:
             param_dict.update(yaml.load(f))
-        with open(defaults_dir / "setup.yaml", "w") as f:
+        with open(ref_cfg_dir / "setup.yaml", "w") as f:
             yaml.dump(config, f)
         logger.info(Bcolors.green("Setup completed successfully."))
         break
