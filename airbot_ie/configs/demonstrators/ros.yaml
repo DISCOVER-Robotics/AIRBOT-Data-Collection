@@ -1,7 +1,6 @@
 # @package _global_
 
 defaults:
-  - post_capture@demonstrator.instance: "4"
   - /robots: airbot_play_with_name
   # - /key_remap: example
   - /key_remap@sampler.instance.key_remap: example
