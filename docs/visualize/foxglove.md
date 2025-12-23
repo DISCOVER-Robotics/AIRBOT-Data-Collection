@@ -1,6 +1,14 @@
 # Foxglove 可视化使用说明
 
-网页链接：https://app.foxglove.dev/361de8be/dashboard
+网页链接：https://app.foxglove.dev/361de8be/dashboard。
+
+## 支持类型
+
+支持查看各种MCAP格式的数据：
+
+- 消息数据：支持`FlatBuffers`、`ROS`等多种Schema的消息数据查看
+- 附件数据：不支持直接在线查看，但可以下载后本地查看
+- 元信息数据：支持查看MCAP文件中的元信息
 
 ## 话题信息
 
