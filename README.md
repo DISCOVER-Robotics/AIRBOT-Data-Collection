@@ -58,7 +58,7 @@ conda create -n airbot_data python=3.10 && conda activate airbot_data
     - 仓库clone注意指定分支/标签，以保证版本一致性。若不指定则默认使用`main`分支，是最新的稳定版本。`develop`分支为最新开发版本，可能存在不稳定情况。如需固定版本，请指定特定标签。
 
 ```bash
-git clone https://github.com/DISCOVER-Robotics/AIRBOT-Data-Collection.git --depth 1 -b <tag/commit/branch> data-collection
+git clone https://github.com/DISCOVER-Robotics/AIRBOT-Data-Collection.git --depth 1 -b <tag/branch> data-collection
 cd data-collection
 conda activate airbot_data
 $SHELL install/install.sh
