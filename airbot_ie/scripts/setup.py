@@ -145,7 +145,7 @@ bus_name_mapping: dict = BUS_NAME_MAPPINGS[can_num][hw_uuid]
 target_cans = CAN_NAME_MAPPINGS[can_num]
 name_choices = NAME_CHOICES[can_num]
 
-if target_cans != can_itfs:
+if set(target_cans) != set(can_itfs):
     logger.info(
         Bcolors.cyan(
             f"Binding CAN group {can_itfs} to target interfaces {target_cans}..."
