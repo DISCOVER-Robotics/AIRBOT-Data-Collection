@@ -5,10 +5,10 @@ from mcap_data_loader.serialization.flb import (
 from airbot_data_collection.common.samplers.mcap_sampler import (
     McapDataSampler,
     McapDataSamplerConfig,
-    TaskInfo,
     McapTool,
     MediaType,
 )
+from airbot_data_collection.common.samplers.basis import TaskInfo
 from mcap.writer import Writer
 from pydantic import BaseModel
 from pydantic_settings import CliApp
