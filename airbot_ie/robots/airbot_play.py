@@ -68,6 +68,10 @@ class AIRBOTPlayConfig(SystemConfig):
             interfaces=InterfaceType.joint_states() | {InterfaceType.POSE}
         )
     ]
+    joint_names: List[List[str]] = [
+        [f"joint{i}" for i in range(1, 7)],
+        ["arm_eef_gripper_joint"],
+    ]
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
@@ -107,10 +111,7 @@ class AIRBOTPlay(System):
 
     def __init__(self, config: AIRBOTPlayConfig):
         self.config = config
-        self._joint_names = {
-            "arm": [f"joint{i}" for i in range(1, 7)],
-            "eef": ["arm_eef_gripper_joint"],
-        }
+        self._joint_names = dict(zip(self.config.components, self.config.joint_names))
         self._init_args()
 
     def on_configure(self) -> bool:

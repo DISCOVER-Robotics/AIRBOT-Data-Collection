@@ -7,3 +7,14 @@ observation:
       - joint_effort
       - joint_name
       # - pose
+# custom joint names to override the default ones
+joint_names:
+  - [
+      "shoulder_pan",
+      "shoulder_lift",
+      "elbow_flex",
+      "wrist_flex",
+      "wrist_roll",
+      "gripper",
+    ]
+  - ["gripper_finger"]
