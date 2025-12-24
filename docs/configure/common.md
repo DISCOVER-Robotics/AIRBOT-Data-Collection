@@ -16,7 +16,7 @@
 默认情况下深度相机不采集深度数据（体积较大），如果需要采集，可参考`configs/demonstrators/realsense.yaml`中的参数，在相应相机配置字段下添加`enable_depth`和`align_depth`字段并设置为`true`。点云数据不支持也不建议直接采集，请自行结合相机参数信息从深度图像中生成。
 
 ### 非阻塞取图
-普通USB相机（V4L2 Camera）目前支持非阻塞取图模式，可在相机配置中增加`blocking`字段并设置为`false`，这样可以避免因相机帧率不足影响整体数据采集频率，不过会导致相机数据中出现重复帧（目前暂不支持异步不等长采集）。
+相机支持非阻塞取图模式，可在相机配置中增加`blocking`字段并设置为`false`，这样可以避免因相机帧率不足影响整体数据采集频率，不过会导致相机数据中出现重复帧（目前暂不支持异步不等长采集）。
 
 ### RealSense可选配置
 RealSense相机的分辨率和帧率等配置受USB口是否为USB3.0影响，可通过安装使用`rs-enumerate-devices`命令查看相机支持的分辨率和帧率，并在配置文件中进行相应修改。
@@ -55,8 +55,25 @@ rgb_camera:
 
 ## 采样器
 
-- ROS-MCAP采样器：将`configs/basis.yaml`中sampler类型调整为：`airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS`。这样保存的MCAP的消息格式与ROS录制的Bag文件兼容。
-- 独立保存视频文件：在configs/basis.yaml中为sampler增加配置：`video_save_to: folder`，这样视频数据将不保存到mcap文件中，而是独立保存为.mp4文件到文件夹中。
+### 采样器类型
+
+除了默认采样器，还支持：
+
+- ROS-MCAP采样器：`airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS`。其保存的MCAP的消息格式与ROS录制的Bag文件兼容。
+
+### 独立保存视频文件
+为sampler增加配置：`video_save_to: folder`，这样视频数据将不保存到mcap文件中，而是独立保存为.mp4文件到文件夹中。
+
+### 视频编码参数
+
+为sampler增加配置`av_coder`，常用字段如下：
+
+- `non_monotonic_mode`用于设置非单调递增的视频帧的处理方式，可选值如下：
+  - `adjust`：调整时间戳以保证单调递增（增加一个微小量）。默认值。
+  - `drop`：丢弃。适用于对视频数据的异步非等长采集场景。
+  - `raise`：抛出异常
+  - `none`：不做处理，可能导致一些视频编解码问题。
+- `non_monotonic_log`用于控制是否打印非单调递增的日志信息，默认值为`true`。
 
 ## 数据合并
 

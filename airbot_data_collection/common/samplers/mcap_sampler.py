@@ -10,7 +10,7 @@ from functools import partial
 from pathlib import Path
 from functools import cache
 from shutil import rmtree
-from mcap_data_loader.utils.av_coder import AvCoder
+from mcap_data_loader.utils.av_coder import AvCoder, AvCoderConfig
 from mcap_data_loader.utils.mcap_utils import McapTool, MediaType
 from mcap_data_loader.serialization.flb import McapFlatBuffersWriter, FlatBuffersSchemas
 from airbot_data_collection.common.samplers.basis import DataSampler, DataSamplerConfig
@@ -21,10 +21,10 @@ class McapDataSamplerConfig(DataSamplerConfig):
 
     initial_builder_size: PositiveInt = 1024 * 1024  # 1 MB
     """Initial size of the FlatBuffers builder."""
-    video_time_base: int = int(1e6)  # μs to avoid save error
-    """Time base for video encoding (in microseconds)."""
     video_save_to: Literal["file", "folder", "both"] = "file"
     """Where to save the video data: 'file' for MCAP attachment, 'folder' for separate folder, 'both' for both."""
+    av_coder: AvCoderConfig = AvCoderConfig()
+    """Configuration for the AV coder."""
 
 
 class McapDataSampler(DataSampler):
@@ -37,9 +37,9 @@ class McapDataSampler(DataSampler):
         """Configure the mcap data sampler."""
         self._mf_writer = McapFlatBuffersWriter(self.config.initial_builder_size)
         self._coders: Dict[str, AvCoder] = defaultdict(
-            partial(AvCoder, time_base=self.config.video_time_base)
+            partial(AvCoder, config=self.config.av_coder)
         )
-        self._frame_stamp_factor = int(1e9 / self.config.video_time_base)
+        self._frame_stamp_factor = int(1e9 / self.config.av_coder.time_base)
         return True
 
     def _create_writer(self, path: Path) -> Writer:

@@ -1,6 +1,7 @@
 import math
 import numpy as np
-from time import time_ns
+from threading import Thread
+from time import time_ns, sleep, perf_counter
 from typing import Union, Optional, Tuple, Dict
 from contextlib import suppress
 from airbot_data_collection.common.devices.cameras.utils import (
@@ -92,9 +93,21 @@ class IntelRealSenseCamera(Sensor):
         self._rs_pipe = None
         self.logs = {}
         self._info = {}
+        self._cur_obs = None
+        self._is_running = True
+        self._cap_thread = None
 
     def on_configure(self):
         self._connect()
+        if not self.config.blocking:
+            self._cap_thread = Thread(target=self._capture_loop, daemon=True)
+            self._cap_thread.start()
+            self._capture_call = self._capture_non_blocking
+            self.get_logger().info("Waiting for the first observation...")
+            while self._cur_obs is None:
+                sleep(0.1)
+        else:
+            self._capture_call = self._capture_blocking
         return True
 
     @staticmethod
@@ -247,6 +260,11 @@ class IntelRealSenseCamera(Sensor):
         Raises:
             OSError: If the image cannot be captured.
         """
+        return self._capture_call(timeout)
+
+    def _capture_blocking(
+        self, timeout: Optional[float] = None
+    ) -> DictDataStamped[np.ndarray]:
         config = self.config
         frames = self._rs_pipe.wait_for_frames(
             timeout_ms=int(timeout * 1000) if timeout is not None else None
@@ -270,13 +288,29 @@ class IntelRealSenseCamera(Sensor):
             outputs[key] = {"t": stamp, "data": depth_map}
         return outputs
 
+    def _capture_non_blocking(self, timeout=None) -> DictDataStamped[np.ndarray]:
+        return self._cur_obs
+
+    def _capture_loop(self):
+        rate = max(self.config.rgb_camera.fps, self.config.depth_module.fps)
+        period = 1.0 / rate
+        while self._is_running:
+            start = perf_counter()
+            self._cur_obs = self._capture_blocking(3.0)
+            elapsed = perf_counter() - start
+            sleep_duration = max(0.0, period - elapsed)
+            sleep(sleep_duration)
+        self.get_logger().info("Capture thread stopped.")
+
     def get_info(self):
         """Get the camera information."""
         return self._info
 
     def shutdown(self) -> bool:
+        self._is_running = False
+        if self._cap_thread is not None:
+            self._cap_thread.join(timeout=3.0)
         self._rs_pipe.stop()
-        self._rs_pipe = None
         return True
 
 

@@ -23,6 +23,9 @@ sampler:
   instance:
     _target_: airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS
     video_save_to: folder
+    # av_coder:
+    #   non_monotonic_mode: drop
+    #   non_monotonic_log: false
 
 demonstrator:
   name: grouped
@@ -52,13 +55,14 @@ demonstrator:
         - "${merge_cfg:${robots}, {port: 50053}}"
         # - _target_: airbot_data_collection.common.devices.cameras.mock.MockCamera
         - _target_: airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera
-          # - _target_: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
-          camera_index: null
-          height: 480
-          width: 640
-          fps: 30
+        # - _target_: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
+          # camera_index: null
+          # height: 480
+          # width: 640
+          # fps: 30
           # enable_depth: true
           # align_depth: true
+          # blocking: false
         # rgb_camera:
         #   intrinsics:
         #     distortion_model: plumb_bob
