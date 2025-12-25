@@ -117,7 +117,12 @@ class KeyInfo(BaseModel, frozen=True):
                     header=Header(stamp=time_ns_to_stamp(msg_dict["t"])),
                     **{info.msg_name_snake: msg},
                 )
-            data[topic] = {"msg": msg, "log_time": msg_dict["log_time"]}
+            # TODO: use a tuple for better perf?
+            data[topic] = {
+                "message": msg,
+                "log_time": msg_dict["log_time"],
+                "publish_time": msg_dict["t"],
+            }
             info.msg_dict["value"] = {}
         return data
 
@@ -133,15 +138,7 @@ class McapDataSamplerROS(McapDataSampler):
         data = super().update(data)
         for topic, msg_data in KeyInfo.finish_add().items():
             topic = self.config.key_remap(topic)
-            # print(msg_data["msg"])
-            self._ros_writer.write_message(
-                topic=topic,
-                message=msg_data["msg"],
-                log_time=msg_data["log_time"],
-                # set publish_time the same as log_time since
-                # the messages are not published
-                publish_time=msg_data["log_time"],
-            )
+            self._ros_writer.write_message(topic, **msg_data)
         return data
 
     def _add_messages(self, key, values, log_stamps):
