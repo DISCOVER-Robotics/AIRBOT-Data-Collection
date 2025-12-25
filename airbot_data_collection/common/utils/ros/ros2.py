@@ -4,11 +4,12 @@ from rclpy.clock import Clock, ClockType
 from ament_index_python.resources import get_resources, get_resource
 from rosidl_runtime_py.utilities import get_message  # noqa: F401
 from rosidl_runtime_py import set_message_fields, get_interface_path  # noqa: F401
+from rosidl_adapter.parser import parse_message_file, Field
 from builtin_interfaces.msg import Time as TimeMsg
 from geometry_msgs.msg import TransformStamped
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener
 from tf2_msgs.msg import TFMessage
-from typing import Tuple, Optional, Callable, Dict
+from typing import Tuple, Optional, Callable, Dict, Set
 
 
 Position = Tuple[float, float, float]
@@ -196,6 +197,38 @@ def get_current_stamp() -> TimeMsg:
 DATA_TYPE_AND_MSGDEF_TEXT = {}
 
 
+def get_full_definition(
+    package_name: str, interface_name: str, seen_interfaces: Optional[Set[str]] = None
+):
+    if seen_interfaces is None:
+        seen_interfaces = set()
+
+    interface_key = f"{package_name}/msg/{interface_name}"
+    if interface_key in seen_interfaces:
+        return ""
+    seen_interfaces.add(interface_key)
+
+    msg_path = get_interface_path(interface_key)
+
+    with open(msg_path, "r", encoding="utf-8") as f:
+        main_content = f.read().strip()
+
+    parsed_msg = parse_message_file(package_name, msg_path)
+
+    sub_definitions = []
+    field: Field
+    for field in parsed_msg.fields:
+        if not field.type.is_primitive_type():
+            dep_pkg = field.type.pkg_name
+            dep_msg = field.type.type
+            dep_def = get_full_definition(dep_pkg, dep_msg, seen_interfaces)
+            if dep_def:
+                header = f"\n\n{'=' * 80}\nMSG: {dep_pkg}/{dep_msg}\n"
+                sub_definitions.append(header + dep_def)
+
+    return main_content + "".join(sub_definitions)
+
+
 def get_datatype_and_msgdef_text(msg) -> Tuple[str, str]:
     """Get message datatype and its .msg definition text.
     Args:
@@ -204,41 +237,25 @@ def get_datatype_and_msgdef_text(msg) -> Tuple[str, str]:
         tuple: (datatype string, msg definition string)
     """
     if not isinstance(msg, type):
-        msg_type = type(msg)
+        msg_cls = type(msg)
     else:
-        msg_type = msg
+        msg_cls = msg
     CACHE = DATA_TYPE_AND_MSGDEF_TEXT
-    if msg_type in CACHE:
-        return CACHE[msg_type]
+    if msg_cls in CACHE:
+        return CACHE[msg_cls]
 
     # Extract canonical datatype: pkg/msg/Type
-    module_parts = msg_type.__module__.split(".")
+    module_parts = msg_cls.__module__.split(".")
     if len(module_parts) >= 3 and module_parts[-2] == "msg":
         package = module_parts[-3]
-        msg_name = msg_type.__name__
-        datatype = f"{package}/msg/{msg_name}"
+        msg_name = msg_cls.__name__
+        msg_type = f"{package}/msg/{msg_name}"
     else:
-        raise ValueError(f"Cannot determine ROS2 message type from {msg_type}")
+        raise ValueError(f"Cannot determine ROS2 message type from {msg_cls}")
 
-    # Load raw definition
-    interface_path = get_interface_path(datatype)
-    with open(interface_path, "r", encoding="utf-8") as f:
-        raw_text = f.read()
-
-    # Remove comments and empty lines
-    clean_lines = []
-    for line in raw_text.splitlines():
-        # Strip leading/trailing whitespace
-        stripped = line.strip()
-        # Skip if empty or starts with '#'
-        if stripped and not stripped.startswith("#"):
-            clean_lines.append(
-                line.rstrip()
-            )  # preserve original indentation (optional)
-
-    clean_text = "\n".join(clean_lines)
-    CACHE[msg_type] = (datatype, clean_text)
-    return datatype, clean_text
+    clean_text = get_full_definition(package, msg_name)
+    CACHE[msg_cls] = (msg_type, clean_text)
+    return msg_type, clean_text
 
 
 if __name__ == "__main__":

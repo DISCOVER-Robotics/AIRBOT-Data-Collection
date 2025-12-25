@@ -41,6 +41,7 @@ else:
             self._message_encoding = {"2": MessageEncoding.CDR}.get(
                 ROS_VERSION
             ) or getattr(MessageEncoding, ros_upper)
+            self._metadata = {"offered_qos_profiles": "[]", "topic_type_hash": ""}
             self.__writer = McapWriter(
                 output=output,
                 chunk_size=chunk_size,
@@ -89,7 +90,7 @@ else:
             schema_id = self.__schema_ids[msg_type]
             if topic not in self.__channel_ids:
                 channel_id = self.__writer.register_channel(
-                    topic, self._message_encoding, schema_id
+                    topic, self._message_encoding, schema_id, self._metadata
                 )
                 self.__channel_ids[topic] = channel_id
             channel_id = self.__channel_ids[topic]
