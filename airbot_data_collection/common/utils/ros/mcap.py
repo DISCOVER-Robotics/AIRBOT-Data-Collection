@@ -4,6 +4,7 @@ from airbot_data_collection.common.utils.ros import (
 )
 from typing import Any, Optional
 from mcap.writer import Writer as McapWriter
+from mcap.well_known import SchemaEncoding, MessageEncoding
 
 
 if ROS_VERSION == "1":
@@ -35,6 +36,11 @@ else:
             enable_crcs: bool = True,
         ):
             self._ros = "ros" + ROS_VERSION
+            ros_upper = self._ros.upper()
+            self._schema_encoding = getattr(SchemaEncoding, ros_upper)
+            self._message_encoding = {"2": MessageEncoding.CDR}.get(
+                ROS_VERSION, getattr(MessageEncoding, ros_upper)
+            )
             self.__writer = McapWriter(
                 output=output,
                 chunk_size=chunk_size,
@@ -77,17 +83,13 @@ else:
             msg_type, msg_def = get_datatype_and_msgdef_text(message)
             if msg_type not in self.__schema_ids:
                 schema_id = self.__writer.register_schema(
-                    name=msg_type,
-                    data=msg_def.encode(),
-                    encoding=self._ros + "msg",
+                    msg_type, self._schema_encoding, msg_def.encode()
                 )
                 self.__schema_ids[msg_type] = schema_id
             schema_id = self.__schema_ids[msg_type]
             if topic not in self.__channel_ids:
                 channel_id = self.__writer.register_channel(
-                    topic=topic,
-                    message_encoding=self._ros,
-                    schema_id=schema_id,
+                    topic, self._message_encoding, schema_id
                 )
                 self.__channel_ids[topic] = channel_id
             channel_id = self.__channel_ids[topic]
