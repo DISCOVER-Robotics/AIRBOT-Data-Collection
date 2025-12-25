@@ -4,10 +4,12 @@ from airbot_data_collection.common.utils.transformations import (
     quaternion_from_matrix,
     translation_from_matrix,
 )
+from functools import wraps
+from typing import Sequence, Tuple, List
 import numpy as np
 
 
-def pose2matrix(position, orientation):
+def pose2matrix(position: Sequence[float], orientation: Sequence[float]) -> np.ndarray:
     """Convert position and orientation to a 4x4 transformation matrix.
 
     Args:
@@ -20,7 +22,7 @@ def pose2matrix(position, orientation):
     return compose_matrix(translate=position, angles=euler_from_quaternion(orientation))
 
 
-def matrix2pose(matrix):
+def matrix2pose(matrix: Sequence[float]) -> Tuple[np.ndarray, np.ndarray]:
     """Convert a 4x4 transformation matrix to position and orientation.
 
     Args:
@@ -35,7 +37,12 @@ def matrix2pose(matrix):
     return position, orientation
 
 
-def tf_between_poses(position_a, orientation_a, position_b, orientation_b):
+def tf_between_poses(
+    position_a: Sequence[float],
+    orientation_a: Sequence[float],
+    position_b: Sequence[float],
+    orientation_b: Sequence[float],
+) -> np.ndarray:
     """Compute the transformation matrix from pose A to pose B.
 
     Args:
@@ -55,10 +62,8 @@ def tf_between_poses(position_a, orientation_a, position_b, orientation_b):
 
 
 def apply_tf_to_pose(
-    position: np.ndarray,
-    orientation: np.ndarray,
-    tf_matrix: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+    position: Sequence[float], orientation: Sequence[float], tf_matrix: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     """Apply a transformation matrix to a pose.
 
     Args:
@@ -78,11 +83,11 @@ def apply_tf_to_pose(
 
 
 def apply_rela_pose_to_pose(
-    position: np.ndarray,
-    orientation: np.ndarray,
-    rela_position: np.ndarray,
-    rela_orientation: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
+    position: Sequence[float],
+    orientation: Sequence[float],
+    rela_position: Sequence[float],
+    rela_orientation: Sequence[float],
+) -> Tuple[np.ndarray, np.ndarray]:
     """Apply a relative pose to a pose.
 
     Args:
@@ -100,6 +105,31 @@ def apply_rela_pose_to_pose(
     return apply_tf_to_pose(position, orientation, rela_pose_matrix)
 
 
+def array_pose_to_list(
+    position: np.ndarray, orientation: np.ndarray
+) -> Tuple[List[float], List[float]]:
+    """Convert position and orientation arrays to a single list.
+
+    Args:
+        position (np.ndarray): A 1D array of 3 elements representing the position (x, y, z).
+        orientation (np.ndarray): A 1D array of 4 elements representing the orientation as a quaternion (x, y, z, w).
+
+    Returns:
+        list: A list containing the position and orientation elements.
+    """
+    return position.tolist(), orientation.tolist()
+
+
+def array_pose_to_list_wrapper(func, **p_kwargs):
+    """A decorator to convert array pose outputs of a function to list pose."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return array_pose_to_list(*func(*args, **kwargs, **p_kwargs))
+
+    return wrapper
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -115,6 +145,9 @@ if __name__ == "__main__":
 
     tf_ab = tf_between_poses(pos_a, qat_a, pos_b, qat_b)
     new_pos_b, new_qat_b = apply_tf_to_pose(pos_a, qat_a, tf_ab)
+    new_pos_b_list, new_qat_b_list = array_pose_to_list_wrapper(
+        apply_tf_to_pose, tf_matrix=tf_ab
+    )(new_pos_b, new_qat_b)
 
     assert np.allclose(new_pos_b, pos_b)
     assert np.allclose(new_qat_b, qat_b)
