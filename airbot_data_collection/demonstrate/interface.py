@@ -191,6 +191,7 @@ class DemonstrateInterface:
             return False
         else:
             start = time.perf_counter()
+            # TODO: Should use a .copy() to avoid the data being updated in-place within the demonstrator, which could lead to data overwriting issues during asynchronous updating?
             data = self.capture()
             data.update({"log_stamps": time.time_ns()})
 

@@ -259,3 +259,8 @@ airdc -h
 - 环境（相机）型号为`USB 2.0 Camera: LRCP  V1080P`(1080P, 30Hz)，手部（相机）型号为`Integrated_Webcam_HD: Integrate`（720P, 25Hz），Realsense型号为`D435i`(USB3.0)
 
 - 测试结果仅供参考，请以实际使用效果为准
+
+
+## 常见问题
+
+请参考[常见问题](docs/troubleshooting/faq.md)页面。
