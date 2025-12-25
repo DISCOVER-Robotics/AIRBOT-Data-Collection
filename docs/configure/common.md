@@ -59,10 +59,12 @@ rgb_camera:
 
 除了默认采样器，还支持：
 
-- ROS-MCAP采样器：`airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS`。其保存的MCAP的消息格式与ROS录制的Bag文件兼容。
+- ROS-MCAP采样器：`airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS`。该采样器会根据`ROS_VERSION`环境变量选择相应版本的后端。各后端说明如下：
+  - ROS1：尽管ROS1本身不支持MCAP格式，但是其保存的MCAP文件可以支持`Foxglove`可视化以及通过`mcap-ros1-support`包读取。使用虚拟环境时，通常需额外安装以下依赖：`pip install rospkg catkin_pkg empy`。 <!-- codespell:ignore empy -->
+  - ROS2：其保存的MCAP的消息格式与录制的Bag文件兼容。但需注意虚拟环境的Python版本需与ROS2版本对应的Python版本匹配。
 
 ### 独立保存视频文件
-为sampler增加配置：`video_save_to: folder`，这样视频数据将不保存到mcap文件中，而是独立保存为.mp4文件到文件夹中。
+为sampler增加配置：`video_save_to: folder`，这样视频数据将不保存到mcap文件中，而是独立保存为`.mp4`文件到文件夹中。
 
 ### 视频编码参数
 
