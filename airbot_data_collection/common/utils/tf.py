@@ -77,6 +77,29 @@ def apply_tf_to_pose(
     return new_position, new_orientation
 
 
+def apply_rela_pose_to_pose(
+    position: np.ndarray,
+    orientation: np.ndarray,
+    rela_position: np.ndarray,
+    rela_orientation: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Apply a relative pose to a pose.
+
+    Args:
+        position (np.ndarray): A 1D array of 3 elements representing the position (x, y, z).
+        orientation (np.ndarray): A 1D array of 4 elements representing the orientation as a quaternion (x, y, z, w).
+        rela_position (np.ndarray): A 1D array of 3 elements representing the relative position (x, y, z).
+        rela_orientation (np.ndarray): A 1D array of 4 elements representing the relative orientation as a quaternion (x, y, z, w).
+
+    Returns:
+        tuple: A tuple containing:
+            - new_position (np.ndarray): A 1D array of 3 elements representing the new position.
+            - new_orientation (np.ndarray): A 1D array of 4 elements representing the new orientation as a quaternion (x, y, z, w).
+    """
+    rela_pose_matrix = pose2matrix(rela_position, rela_orientation)
+    return apply_tf_to_pose(position, orientation, rela_pose_matrix)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -95,4 +118,12 @@ if __name__ == "__main__":
 
     assert np.allclose(new_pos_b, pos_b)
     assert np.allclose(new_qat_b, qat_b)
+
+    rela_pose_b = matrix2pose(tf_ab)
+    assert np.allclose(pose2matrix(*rela_pose_b), tf_ab)
+
+    new_pos_b2, new_qat_b2 = apply_rela_pose_to_pose(pos_a, qat_a, *rela_pose_b)
+    assert np.allclose(new_pos_b2, pos_b)
+    assert np.allclose(new_qat_b2, qat_b)
+
     print("All tests passed.")
