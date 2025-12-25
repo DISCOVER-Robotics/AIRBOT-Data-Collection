@@ -39,8 +39,8 @@ else:
             ros_upper = self._ros.upper()
             self._schema_encoding = getattr(SchemaEncoding, ros_upper)
             self._message_encoding = {"2": MessageEncoding.CDR}.get(
-                ROS_VERSION, getattr(MessageEncoding, ros_upper)
-            )
+                ROS_VERSION
+            ) or getattr(MessageEncoding, ros_upper)
             self.__writer = McapWriter(
                 output=output,
                 chunk_size=chunk_size,
