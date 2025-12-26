@@ -36,12 +36,9 @@ def prepare_cv2_imshow(logger: Optional[logging.Logger] = None) -> bool:
     image = np.zeros((480, 640, 3), np.uint8)
 
     def show_image(name):
-        logger.info(f"Showing {name}")
         cv2.imshow(name, image)
         cv2.waitKey(1)
-        logger.info(f"{name} is ready")
         cv2.destroyWindow(name)
-        cv2.waitKey(1)
 
     try:
         show_image("Prepared image")
