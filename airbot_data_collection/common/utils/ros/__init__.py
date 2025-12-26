@@ -1,40 +1,71 @@
 import os
+import sys
+import logging
 from importlib import import_module
 from typing import TYPE_CHECKING, Optional, Dict, Any
+from pathlib import Path
+from contextlib import suppress
 
 
-ROS_VERSION = os.environ.get("ROS_VERSION")
-if ROS_VERSION:
-    if TYPE_CHECKING:
+logger = logging.getLogger("ros_utils")
 
-        def build_short_to_full_msg_map(preferred_packages) -> dict: ...
-        def get_message(identifier: str) -> type: ...
-        def set_message_fields(
-            msg, values, expand_header_auto=False, expand_time_now=False
-        ) -> list: ...
-        def get_fields_and_field_types(msg) -> Dict[str, str]: ...
-        def time_ns_to_stamp(time_ns: int) -> Any: ...
-        def stamp_to_time_ns(stamp: Any) -> int: ...
-        def get_datatype_and_msgdef_text(msg) -> tuple: ...
-        def process_camera_info_dict(cam_info_dict: Dict[str, Any]): ...
-        def get_current_stamp() -> Any: ...
-    else:
-        module = import_module(
-            f"airbot_data_collection.common.utils.ros.ros{ROS_VERSION}"
-        )
-        build_short_to_full_msg_map = module.build_short_to_full_msg_map
-        get_message = module.get_message
-        set_message_fields = module.set_message_fields
-        get_fields_and_field_types = module.get_fields_and_field_types
-        time_ns_to_stamp = module.time_ns_to_stamp
-        stamp_to_time_ns = module.stamp_to_time_ns
-        get_datatype_and_msgdef_text = module.get_datatype_and_msgdef_text
-        process_camera_info_dict = getattr(
-            module, "process_camera_info_dict", lambda x: None
-        )
-        get_current_stamp = module.get_current_stamp
+
+def find_ros_distro(path: str) -> Optional[str]:
+    path_obj = Path(path)
+
+    parts = path_obj.parts
+    with suppress(ValueError, IndexError):
+        ros_index = parts.index("ros")
+        return parts[ros_index + 1]
+
+
+# The Python path may contain multiple versions of ROS,
+# causing subsequent program processing errors.
+ROS_DISTRO = os.environ["ROS_DISTRO"]
+ros_paths = []
+for path in sys.path.copy():
+    if path.endswith("site-packages") or path.endswith("dist-packages"):
+        ros_distro = find_ros_distro(path)
+        if ros_distro is not None:
+            if ros_distro != ROS_DISTRO:
+                logger.warning(f"Removing {path} from sys.path for ROS distro mismatch")
+                sys.path.remove(path)
+            else:
+                ros_paths.append(path)
+logger.info(f"Using ROS distro: {ROS_DISTRO} with path: {ros_paths}")
+if len(ros_paths) == 0:
+    raise ImportError("No ROS paths found")
+elif len(ros_paths) > 1:
+    logger.warning("Multiple ROS paths found")
+
+ROS_VERSION = os.environ["ROS_VERSION"]
+if TYPE_CHECKING:
+
+    def build_short_to_full_msg_map(preferred_packages) -> dict: ...
+    def get_message(identifier: str) -> type: ...
+    def set_message_fields(
+        msg, values, expand_header_auto=False, expand_time_now=False
+    ) -> list: ...
+    def get_fields_and_field_types(msg) -> Dict[str, str]: ...
+    def time_ns_to_stamp(time_ns: int) -> Any: ...
+    def stamp_to_time_ns(stamp: Any) -> int: ...
+    def get_datatype_and_msgdef_text(msg) -> tuple: ...
+    def process_camera_info_dict(cam_info_dict: Dict[str, Any]): ...
+    def get_current_stamp() -> Any: ...
 else:
-    raise RuntimeError("ROS_VERSION environment variable not set.")
+    module = import_module(f"airbot_data_collection.common.utils.ros.ros{ROS_VERSION}")
+    build_short_to_full_msg_map = module.build_short_to_full_msg_map
+    get_message = module.get_message
+    set_message_fields = module.set_message_fields
+    get_fields_and_field_types = module.get_fields_and_field_types
+    time_ns_to_stamp = module.time_ns_to_stamp
+    stamp_to_time_ns = module.stamp_to_time_ns
+    get_datatype_and_msgdef_text = module.get_datatype_and_msgdef_text
+    process_camera_info_dict = getattr(
+        module, "process_camera_info_dict", lambda x: None
+    )
+    get_current_stamp = module.get_current_stamp
+
 
 MSG_MAP: dict = {}
 
@@ -55,6 +86,10 @@ def get_message_short(identifier: str, cache: bool = True) -> Optional[type]:
 
 
 if __name__ == "__main__":
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+
     # if ROS_VERSION == "1":
     #     import rospy
 
@@ -98,12 +133,14 @@ if __name__ == "__main__":
 
     # pprint(get_fields_and_field_types(PointStamped()))
 
-    ns = 156789123456789
-    stamp = time_ns_to_stamp(ns)
-    print(stamp)
-    assert stamp_to_time_ns(stamp) == ns
+    # ns = 156789123456789
+    # stamp = time_ns_to_stamp(ns)
+    # print(stamp)
+    # assert stamp_to_time_ns(stamp) == ns
 
-    from std_msgs.msg import String
+    # from std_msgs.msg import String
 
-    datatype, msgdef = get_datatype_and_msgdef_text(String)
-    print(datatype, msgdef)
+    # datatype, msgdef = get_datatype_and_msgdef_text(String)
+    # print(datatype, msgdef)
+
+    pass
