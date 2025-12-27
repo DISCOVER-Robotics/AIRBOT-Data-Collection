@@ -380,7 +380,8 @@ class AIRBOTPlay(System):
         if config.pose_observation:
             start = perf_counter()
             pose = self.interface.get_end_pose()
-            prefix = "arm/pose"
+            # TODO: arm/pose?
+            prefix = "eef/pose"
             # print(f"Raw pose: {pose}")
             pose = self._post_capture.get(prefix, lambda *args: args)(*pose)
             # print(f"Post processed pose: {pose}")
@@ -440,7 +441,7 @@ class AIRBOTPlay(System):
         default_range = self._get_default(arm_type, eef_type, self._default_range)
         default_transf = {}
         if config is None or config.transform is None or config.transform:
-            default_transf["arm/pose"] = self._tf_buffer.lookup_transform(
+            default_transf["eef/pose"] = self._tf_buffer.lookup_transform(
                 self._get_tf_key(info["product_type"], info["eef_types"][0]),
                 self._get_tf_key(arm_type, eef_type),
             )
