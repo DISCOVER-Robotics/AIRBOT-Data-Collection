@@ -61,7 +61,7 @@ rgb_camera:
 
 ### 观测后处理
 
-支持对采集到的`leader`观测数据进行后处理配置，例如对关节位置数据进行范围限制，或对位姿数据进行坐标变换等。可通过在`demonstrator.post_capture`字段下增加对应的配置实现，具体可参考`configs/demonstrators/post_capture`目录下的配置示例。将整个字段设置为`null`表示对所有`leader`组件启用内置的默认自动后处理。
+支持对采集到的`leader`观测数据进行后处理配置，例如对关节位置数据进行范围限制，或对位姿数据进行坐标变换等。可通过在`demonstrator.post_capture`字段下增加对应的配置实现，具体可参考`configs/demonstrators/post_capture`目录下的配置示例。将整个字段设置为`null`表示对所有`leader`组件启用内置的默认自动后处理。同理，将某个组的`leader`名称对应的值设置为`null`表示对该组启用默认后处理。此外，`transform`参数也支持设置为`null`，表示使用内置的默认坐标变换处理。
 
 ## 可视化器
 

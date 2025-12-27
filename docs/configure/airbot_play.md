@@ -31,4 +31,4 @@ python3 airbot_ie/scripts/setup.py --ic <bus_id> --ii <can_id> --rcd <ref_config
 
 常见的配置调整说明请参考[常见配置调整](../configure/common.md)。
 
-注意：配置文件的生成基于给定的参考配置文件，主要是覆写了`demonstrator.instance`字段下的`components`参数以及增加了`post_capture`参数（默认值位于`airbot_ie/configs/demonstrators/post_capture`，主要用于将示教器的控制范围映射到执行器的范围内），因此为防止重新生成配置后覆盖，建议不要仅修改`setup.yaml`，而是同步修改上述参考配置文件，这样重新生成配置时不会丢失修改。
+注意：配置文件的生成基于给定的参考配置文件，主要是覆写了`demonstrator.instance`字段下的`components`参数，为防止重新生成配置后覆盖，建议不要仅修改`setup.yaml`，而是同步修改上述参考配置文件，这样重新生成配置时不会丢失修改。

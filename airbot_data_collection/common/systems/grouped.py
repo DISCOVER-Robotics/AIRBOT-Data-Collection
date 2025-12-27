@@ -305,7 +305,7 @@ class GroupedComponentsSystemConfig(BaseModel, frozen=True):
     post_capture: Optional[Dict[str, Optional[PostCaptureConfig]]] = Field(
         None, validate_default=True
     )
-    """the post capture config for each group leader;
+    """the post capture config (value) for the leader of each group (key);
     if None, all group that has leaders will be set to a None post capture
     which means auto processing in the leaders."""
 
