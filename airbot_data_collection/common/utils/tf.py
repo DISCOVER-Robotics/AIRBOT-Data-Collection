@@ -38,6 +38,60 @@ def pose2matrix(position: Sequence[float], orientation: Sequence[float]) -> np.n
     return compose_matrix(translate=position, angles=euler_from_quaternion(orientation))
 
 
+def position2matrix(position: Sequence[float]) -> np.ndarray:
+    """Convert position to a 4x4 transformation matrix with no rotation.
+
+    Args:
+        position (list or np.ndarray): A list or array of 3 elements representing the position (x, y, z).
+
+    Returns:
+        np.ndarray: A 4x4 transformation matrix.
+    """
+    return pose2matrix(position, [0, 0, 0, 1])
+
+
+def is_matrix(input_data: Sequence[float]) -> bool:
+    """Check if the input data is a 4x4 transformation matrix.
+
+    Args:
+        input_data (list or np.ndarray): The input data to check.
+    Returns:
+        bool: True if the input data is a 4x4 matrix, False otherwise.
+    """
+    return np.asanyarray(input_data).shape == (4, 4)
+
+
+def to_matrix(pos_ori: Sequence[float]) -> np.ndarray:
+    """Convert a combined position and orientation list to a 4x4 transformation matrix.
+
+    Args:
+        pos_ori (list or np.ndarray): A list or array representing position and orientation.
+            - If length is 2: treated as (position, orientation).
+            - If length is 7: treated as (x, y, z, qx, qy, qz, qw).
+            - If length is 3: treated as position only (no rotation).
+            - If length is 4: treated as orientation only (no translation) or a 4x4 transformation matrix.
+    Returns:
+        np.ndarray: A 4x4 transformation matrix.
+    Raises:
+        ValueError: If the length of pos_ori is not 2, 3, 4, or 7.
+    """
+    if len(pos_ori) == 2:
+        return pose2matrix(*pos_ori)
+    elif len(pos_ori) == 7:
+        return pose2matrix(pos_ori[:3], pos_ori[3:])
+    elif len(pos_ori) == 3:
+        return position2matrix(pos_ori)
+    elif len(pos_ori) == 4:
+        arr = np.asanyarray(pos_ori)
+        if is_matrix(arr):
+            return arr
+        return pose2matrix([0, 0, 0], pos_ori)
+    else:
+        raise ValueError(
+            f"Invalid length of pos_ori: {len(pos_ori)}. Expected 2, 3, 4, or 7."
+        )
+
+
 def matrix2pose(matrix: Sequence[float]) -> Tuple[np.ndarray, np.ndarray]:
     """Convert a 4x4 transformation matrix to position and orientation.
 
