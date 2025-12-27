@@ -333,13 +333,13 @@ class AIRBOTPlay(System):
             "play_pro": {"arm/joint_state/position": {0: [-2.74, 2.74]}},
         }
         iden_rela_pose = ((0, 0, 0), (0, 0, 0, 1))
-        z_pos = lambda z: (0, 0, z)  # noqa: E731
+        x_pos = lambda x: (x, 0, 0)  # noqa: E731
         tf_dict = {
             "play": {
-                "none": z_pos(0.0864995),
-                "G2": z_pos(0.2466995),
-                "old_G2": z_pos(0.2466995),
-                "E2B": z_pos(0.1488995),
+                "none": x_pos(0.0864995),
+                "G2": x_pos(0.2466995),
+                "old_G2": x_pos(0.2466995),
+                "E2B": x_pos(0.1488995),
             },
         }
         tf_list = [("replay.PE2", "play.E2B", iden_rela_pose)]
