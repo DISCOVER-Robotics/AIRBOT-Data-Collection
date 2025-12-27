@@ -25,7 +25,6 @@ class IterablePlayer(System):
 
     def on_configure(self) -> bool:
         interface: IterableDatasetABC = self.interface
-        interface.load()
         if self.config.cache:
             self._stream = seekable(interface)
         else:
@@ -33,7 +32,7 @@ class IterablePlayer(System):
         return True
 
     def _create_interface(self, class_type: IterableDatasetABC):
-        self.interface = class_type(self.config.source)
+        return class_type(self.config.source)
 
     def send_action(self, action: int):
         """Set the stream position to the action index."""

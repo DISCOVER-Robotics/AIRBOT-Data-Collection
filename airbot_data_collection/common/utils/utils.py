@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from collections import defaultdict
+from functools import wraps
 import os
 import sys
 import locale
@@ -76,3 +77,13 @@ def ensure_equal_length(ref: list, value: list, one_copy: bool = True):
     if len(ref) != len(value):
         raise ValueError(f"Length mismatch: {len(ref)} vs {len(value)}")
     return value
+
+
+def unpacking(func):
+    """Decorator to unpack arguments from a single list or tuple"""
+
+    @wraps(func)
+    def wrapper(args):
+        return func(*args)
+
+    return wrapper

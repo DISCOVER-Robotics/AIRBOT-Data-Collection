@@ -10,11 +10,9 @@ from airbot_data_collection.common.systems.basis import (
     SystemConfig,
     InterfaceType,
     ReferenceMode,
-    ActionConfig,
     ActionConfigs,
     ObservationConfig,
     SystemMode,
-    PostCaptureConfig,
 )
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.common.utils.coordinate import CoordinateTools
@@ -123,7 +121,9 @@ class AIRBOTPlay(System):
 
     def on_configure(self) -> bool:
         self._init_args()
+        # mapping action config type to robot mode and function
         type2mode = {
+            # NOTE: PLANNING_POS can be used for both joint and cartesian planning
             JointPositionPlan: RobotMode.PLANNING_POS,
             PosePlan: RobotMode.PLANNING_POS,
             JointPositionServo: RobotMode.SERVO_JOINT_POS,
@@ -143,6 +143,7 @@ class AIRBOTPlay(System):
                 JointPositionPlan: self.interface.move_eef_pos,
             },
         }
+        # mapping action config type to action length
         type2length = {
             "arm": {
                 JointPositionServo: 6,
@@ -151,23 +152,30 @@ class AIRBOTPlay(System):
                 PoseServo: 0,
                 PosePlan: 0,
             },
-            "eef": {JointPositionServo: 1, JointPositionPlan: 1},
+            "eef": {
+                JointPositionServo: 1,
+                JointPositionPlan: 1,
+                PoseServo: 0,
+                PosePlan: 0,
+            },
         }
+        # mapping the system mode to robot mode
         self._mode_mapping = {SystemMode.PASSIVE: RobotMode.GRAVITY_COMP}
         mode_mapping = defaultdict(dict)
         self._mode2func = defaultdict(dict)
         self._mode2length = defaultdict(dict)
-        for component, mode_act_cfg in zip(self.config.components, self.config.action):
+        config = self.config
+        for component, mode_act_cfg in zip(config.components, config.action):
             for mode, act_cfg in mode_act_cfg.items():
                 cfg_type = type(act_cfg)
                 mode_mapping[mode][component] = type2mode[cfg_type]
                 self._mode2func[mode][component] = type2func[component][cfg_type]
                 self._mode2length[mode][component] = type2length[component][cfg_type]
         self._mode_mapping.update(mode_mapping)
+        # print(f"mode_mapping: {self._mode_mapping}")
+        # set action post process function TODO: configure this?
         self.action_post_process = self.action_data_to_list
-        self.get_logger().info(
-            f"Connecting AIRBOT at {self.config.url}:{self.config.port}"
-        )
+        self.get_logger().info(f"Connecting AIRBOT at {config.url}:{config.port}")
         if self.interface.connect():
             # self.interface.set_speed_profile(self.config.speed_profile)
             self.interface.set_params(
@@ -184,7 +192,7 @@ class AIRBOTPlay(System):
             info = self.interface.get_product_info()
             self.get_logger().info(f"Robot info: {info}")
             info["arm_types"] = [info["product_type"]]
-            for component in self.config.components:
+            for component in config.components:
                 if info[f"{component}_types"][0] == "none":
                     self.get_logger().error(
                         f"Component {component} is not available. "
@@ -202,30 +210,35 @@ class AIRBOTPlay(System):
         self, mode: SystemMode, action_keys: Tuple[str]
     ) -> Dict[ComponentType, List[str]]:
         matched_keys = defaultdict(list)
-        key_words = {}
+        key_ends = {}
         for index, component in enumerate(self.config.components):
+            # get the expected keys for each component
             act_cfg = self.config.action[index][mode]
             act_type = type(act_cfg)
             if issubclass(act_type, JointControlBasis):
                 fields = ["position"]
                 if act_type is JointMIT:
                     fields.extend(["velocity", "effort", "kp", "kd"])
-                key_words[component] = [
+                key_ends[component] = [
                     f"{component}/joint_state/{field}" for field in fields
                 ]
-            elif act_type is PoseControlBasis:
-                key_words[component] = [
+            elif issubclass(act_type, PoseControlBasis):
+                key_ends[component] = [
                     f"{component}/pose/position",
                     f"{component}/pose/orientation",
                 ]
             else:
                 raise ValueError(f"Unsupported action type: {act_type}")
-        for component, key_words in key_words.items():
-            for key_word in key_words:
+        # print(f"Expected action key ends: {key_ends}")
+        for component, key_ends in key_ends.items():
+            for key_end in key_ends:
+                # NOTE: eef pose should map to arm component
+                replace = "eef" if "pose" in key_end else component
                 for key in action_keys:
-                    if key.endswith(key_word):
+                    if key.replace(replace, component).endswith(key_end):
                         matched_keys[component].append(key)
                         break
+        # print(f"Matched action keys: {matched_keys}")
         return dict(matched_keys)
 
     @staticmethod
@@ -264,6 +277,7 @@ class AIRBOTPlay(System):
                         target.extend(self.action_post_process(action[key]))
                 else:
                     target = [self.action_post_process(action[key]) for key in keys]
+                    # TODO: is this always correct?
                     if len(target) == 1:
                         target = target[0]
                 component_func[component](target)
@@ -280,6 +294,7 @@ class AIRBOTPlay(System):
                 cnt += length or 1
 
     def on_switch_mode(self, mode: SystemMode) -> bool:
+        # TODO: there
         robot_mode = self._mode_mapping[mode]
         if isinstance(robot_mode, RobotMode):
             robot_mode = {comp: robot_mode for comp in self.config.components}
@@ -481,54 +496,3 @@ class AIRBOTPlay(System):
                 else lambda *args: args
             )
         # self.get_logger().info(f"Post capture config set: {self._post_capture}")
-
-
-if __name__ == "__main__":
-    from pprint import pprint
-    from airbot_data_collection.utils import init_logging
-    from airbot_data_collection.common.utils.transformations import (
-        quaternion_from_euler,
-    )
-    import logging
-
-    init_logging(logging.INFO)
-
-    relative_action = True
-    delta_action = False
-
-    player = AIRBOTPlay(
-        AIRBOTPlayConfig(action=[ActionConfig(interfaces=[InterfaceType.POSE])])
-    )
-    assert player.configure()
-    current_pose = player.capture_observation()["arm/pose"]["data"]
-    pprint(current_pose)
-
-    player.switch_mode(SystemMode.RESETTING)
-    delta_y = 0.1
-    delta_pitch = -np.pi / 6
-    if relative_action:
-        target_pos = [0, delta_y, 0]
-        target_ori = list(quaternion_from_euler(0, delta_pitch, 0))
-    else:
-        target_pos = current_pose["position"]
-        target_ori = current_pose["orientation"]
-        target_pos[1] += delta_y
-    player.send_action(target_pos + target_ori + [0.0])
-    input("Press Enter to continue...")
-    player.switch_mode(SystemMode.SAMPLING)
-    steps = 10
-    step_z = delta_y / steps
-    step_pitch = delta_pitch / steps
-    for i in range(steps):
-        if relative_action and delta_action:
-            target_pos[1] = -step_z
-            target_ori[1] = -step_pitch
-        else:
-            target_pos[1] -= step_z
-            if relative_action:
-                target_pitch = delta_pitch - (i + 1) * step_pitch
-                print(f"{target_pitch=}")
-                target_ori = list(quaternion_from_euler(0, target_pitch, 0))
-        player.send_action(target_pos + target_ori + [0.07 / steps * (i + 1)])
-        input("Press Enter to continue...")
-    assert player.shutdown()

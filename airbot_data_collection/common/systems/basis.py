@@ -203,9 +203,11 @@ class ActionConfig(CommonConfig):
     """Configuration for the control system of the robot."""
 
     flatten: bool = False
+    """Whether to flatten the action dictionary into a single list."""
 
     @property
     def interfaces(self) -> Set[InterfaceType]:
+        """No interfaces by default. The subclasses can override this property."""
         return {}
 
 
@@ -222,6 +224,9 @@ class ObservationConfig(CommonConfig):
 
 
 ActionConfigs = List[Dict[SystemMode, ActionConfig]]
+"""Type alias for action configurations for each component.
+Each component has a dictionary mapping SystemMode to ActionConfig.
+"""
 
 
 class SystemConfig(BaseModel, frozen=True):
@@ -230,14 +235,17 @@ class SystemConfig(BaseModel, frozen=True):
     model_config = ConfigDict(validate_default=True, extra="forbid")
 
     components: List[str] = []
+    """List of components in the system."""
     action: ActionConfigs = []
+    """Action configurations for each component."""
     observation: List[ObservationConfig] = []
+    """Observation configurations for each component."""
 
     @field_validator("action", "observation", mode="after")
     def extend_list(cls, v, info: ValidationInfo) -> List[Any]:
-        """Ensure the field is always a list."""
+        """Ensure the field list is always the same length as components."""
         if len(v) == 1:
-            v *= len(info.data["components"])
+            v *= len(info.data.get("components", []))
         return v
 
     @cached_property

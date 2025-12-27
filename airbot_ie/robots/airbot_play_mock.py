@@ -46,25 +46,25 @@ class AIRBOTArmMock:
         assert isinstance(joint_pos, list)
         assert len(joint_pos) == 6, joint_pos
 
-    def servo_eef_pos(self, eef_pos, speed_profile=None):
-        self.get_logger().debug(f"servo eef pos: {eef_pos}")
+    def servo_eef_pos(self, eef_pos, speed_profile=None, log="servo eef pos"):
+        self.get_logger().debug(f"{log}: {eef_pos}")
         assert len(eef_pos) == 1, eef_pos
         assert isinstance(eef_pos, list), eef_pos
 
     def move_eef_pos(self, eef_pos, speed_profile=None):
-        self.get_logger().debug(f"move eef pos: {eef_pos}")
-        self.servo_eef_pos(eef_pos, speed_profile)
+        self.servo_eef_pos(eef_pos, speed_profile, "move eef pos")
 
     def move_to_joint_pos(self, joint_pos, speed_profile=None):
-        self.get_logger().debug(f"move_to_joint_pos: {joint_pos}")
-        self.servo_joint_pos(joint_pos, speed_profile)
+        self.servo_joint_pos(joint_pos, speed_profile, "move_to_joint_pos")
 
-    def move_to_cart_pose(self, position, orientation, speed_profile=None):
+    def move_to_cart_pose(self, pose, speed_profile=None, log="move to cart pose"):
+        position, orientation = pose
         assert isinstance(position, list)
         assert isinstance(orientation, list)
         assert len(position) == 3
         assert len(orientation) == 4
         assert speed_profile is None
+        self.get_logger().debug(f"{log}: {pose}")
 
     def mit_joint_integrated_control(self, joint_pos, joint_vel, joint_eff, kp, kd):
         assert isinstance(joint_pos, list)
@@ -78,8 +78,8 @@ class AIRBOTArmMock:
         assert len(kp) == 6
         assert len(kd) == 6
 
-    def servo_cart_pose(self, position, orientation, speed_profile=None):
-        self.move_to_cart_pose(position, orientation, speed_profile)
+    def servo_cart_pose(self, pose, speed_profile=None):
+        self.move_to_cart_pose(pose, speed_profile, "servo cart pose")
 
     def get_product_info(self):
         return {"product_type": "replay", "eef_types": ["PE2"]}
@@ -106,6 +106,7 @@ class AIRBOTPlayConfig(AIRBOTPlayConfigReal):
 
     product_type: str = "replay"
     eef_types: List[str] = ["PE2"]
+    log_level: int = logging.DEBUG
 
 
 class AIRBOTPlay(AIRBOTPlayReal):
@@ -121,6 +122,7 @@ class AIRBOTPlay(AIRBOTPlayReal):
             "product_type": self.config.product_type,
             "eef_types": self.config.eef_types,
         }
+        self.interface.get_logger().setLevel(self.config.log_level)
         return super().on_configure()
 
 

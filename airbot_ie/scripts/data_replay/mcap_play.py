@@ -1,29 +1,43 @@
+"""AIRBOT Play MCAP data replay."""
+
 from airbot_data_collection.common.systems.mcap_player import (
     McapPlayer,
     McapPlayerConfig,
     McapDatasetConfig,
 )
-from airbot_ie.robots.airbot_play import AIRBOTPlay, AIRBOTPlayConfig
+# from airbot_ie.robots.airbot_play import AIRBOTPlay, AIRBOTPlayConfig
 
-# from airbot_ie.robots.airbot_play_mock import AIRBOTPlay, AIRBOTPlayConfig
-from airbot_data_collection.common.systems.basis import SystemMode
-from typing import Optional, List
+from airbot_ie.robots.airbot_play_mock import AIRBOTPlay, AIRBOTPlayConfig
+from airbot_data_collection.common.systems.basis import SystemMode, ActionConfigs
+from typing import List
+from pprint import pformat
+import logging
 
 
 class AIRBOTPlayMcapDataReplay:
-    def __init__(self, file_path: str, topics: Optional[List[str]], ip: str):
+    def __init__(
+        self,
+        file_path: str,
+        topics: List[str],
+        url: str,
+        action_cfg: ActionConfigs,
+    ):
         components = ["arm", "eef"]
-        self.topics = topics or [
-            f"/follow/{component}/joint_state/position" for component in components
-        ]
+        self.topics = topics
         self.config = McapPlayerConfig(
-            source=McapDatasetConfig(
-                data_root=file_path,
-                topics=self.topics,
-            )
+            source=McapDatasetConfig(data_root=file_path, topics=self.topics)
         )
         self._mcap_player = McapPlayer(self.config)
-        self._robot = AIRBOTPlay(AIRBOTPlayConfig(ip=ip, components=components))
+        if "log_level" in AIRBOTPlayConfig.model_fields:
+            kwargs = {"log_level": logging.DEBUG}
+        else:
+            kwargs = {}
+
+        self._robot = AIRBOTPlay(
+            AIRBOTPlayConfig(
+                url=url, components=components, action=action_cfg, **kwargs
+            )
+        )
 
     def configure(self) -> bool:
         return self._mcap_player.configure() and self._robot.configure()
@@ -37,7 +51,7 @@ class AIRBOTPlayMcapDataReplay:
 
     def update(self) -> bool:
         if obs := self._mcap_player.capture_observation():
-            print(obs)
+            self.get_logger().info(f"\n{pformat(obs)}")
             self._robot.send_action(obs)
             # input("Press Enter to continue...")
             return True
@@ -47,6 +61,9 @@ class AIRBOTPlayMcapDataReplay:
     def shutdown(self) -> bool:
         return self._mcap_player.shutdown() and self._robot.shutdown()
 
+    def get_logger(self) -> logging.Logger:
+        return logging.getLogger(self.__class__.__name__)
+
 
 if __name__ == "__main__":
     import argparse
@@ -54,8 +71,14 @@ if __name__ == "__main__":
     from logging import getLogger
     from itertools import count
     from airbot_data_collection.utils import init_logging
+    from airbot_data_collection.common.configs.control import (
+        PosePlan,
+        PoseServo,
+        JointPositionPlan,
+        JointPositionServo,
+    )
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("file_path", type=str)
     parser.add_argument("-f", "--fps", type=int, default=20)
     parser.add_argument("-ip", "--ip", type=str, default="localhost")
@@ -65,8 +88,32 @@ if __name__ == "__main__":
 
     init_logging()
     logger = getLogger("AIRBOTPlayMcapDataReplay")
-
-    airbot_replay = AIRBOTPlayMcapDataReplay(args.file_path, None, args.ip)
+    # 1 - 1
+    topics = [
+        "/lead/eef/pose/position",
+        "/lead/eef/pose/orientation",
+        "/lead/eef/joint_state/position",
+    ]
+    # 2 - 2
+    topics = [f"/left{topic}" for topic in topics]
+    airbot_replay = AIRBOTPlayMcapDataReplay(
+        args.file_path,
+        topics,
+        args.ip,
+        [
+            {SystemMode.RESETTING: PosePlan(), SystemMode.SAMPLING: PoseServo()},
+            {
+                SystemMode.RESETTING: JointPositionPlan(),
+                SystemMode.SAMPLING: JointPositionServo(),
+            },
+        ],
+        # [
+        #     {
+        #         SystemMode.RESETTING: JointPositionPlan,
+        #         SystemMode.SAMPLING: JointPositionServo,
+        #     },
+        # ],
+    )
     assert airbot_replay.configure()
     assert airbot_replay.reset()
     logger.info("Press Enter to start replay...")
@@ -83,6 +130,7 @@ if __name__ == "__main__":
             else:
                 logger.info("Replay finished.")
                 break
+            input("Press Enter to continue to next step...")
     except KeyboardInterrupt:
         pass
     logger.info("Shutting down...")
