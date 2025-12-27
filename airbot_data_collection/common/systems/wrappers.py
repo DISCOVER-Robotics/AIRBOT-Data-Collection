@@ -16,31 +16,45 @@ from numpy import uint64
 from setproctitle import setproctitle
 
 
+InterfaceType = Union[Sensor, System]
+
+
 class ConcurrentWrapperConfig(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    interface: Union[Sensor, System]
-    mode: ConcurrentMode = ConcurrentMode.process
+    """The config for the concurrent wrapper."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    interface: InterfaceType
+    """the interface instance to be wrapped"""
+    concurrent: ConcurrentMode = ConcurrentMode.process
+    """the concurrent mode"""
 
 
 class SensorConcurrentWrapper(Sensor):
     """A wrapper for sensors to run in a separate thread or process."""
 
-    config: ConcurrentWrapperConfig
+    def __init__(self, config: ConcurrentWrapperConfig):
+        self._concurrent = config.concurrent
+        self._interface = config.interface
+
+    # def __call__(self, interface: InterfaceType):
+    #     self._interface = interface
+    #     return self
 
     def on_configure(self) -> bool:
         # TODO: use protocol instead of inheriting Sensor?
-        if self.config.mode is not ConcurrentMode.process:
+        if self._concurrent is not ConcurrentMode.process:
             raise NotImplementedError(
                 "Only process mode is supported for SensorConcurrentWrapper."
             )
-        self._rpc = EventRpcManager(EventRpcManager.get_args(self.config.mode))
+        self._rpc = EventRpcManager(EventRpcManager.get_args(self._concurrent))
         spawn_ctx = get_context("spawn")
         parent, child = spawn_ctx.Pipe()
         self._smm = SharedMemoryManager(ctx=spawn_ctx)
         self._smm.start()
-        self._concurrent = EventRpcManager.get_concurrent_cls(self.config.mode)(
+        self._concurrent = EventRpcManager.get_concurrent_cls(self._concurrent)(
             target=self._concurrent_loop,
-            args=(self.config.interface, child, self._rpc.server),
+            args=(self._interface, child, self._rpc.server),
             name=f"{self.__class__.__name__}Concurrent",
         )
         self._concurrent.start()
@@ -128,23 +142,70 @@ class SensorConcurrentWrapper(Sensor):
 
 
 def concurrent_wrapper(
-    interface_cls: Type[Sensor], config_cls: Optional[Type[BaseModel]] = None
+    interface_cls: Type[InterfaceType], config_cls: Optional[Type[BaseModel]] = None
 ):
-    class ConcurrentWrappedClass(SensorConcurrentWrapper):
-        def __init__(
-            self,
-            config: Optional[BaseModel] = None,
-            _concurrent=ConcurrentMode.process,
-            **kwargs,
-        ):
-            super().__init__(
-                ConcurrentWrapperConfig(
-                    interface=interface_cls(config=config or config_cls, **kwargs),
-                    mode=_concurrent,
-                )
-            )
+    config_cls = config_cls or interface_cls.resolve_config_type()
+    field_name = "concurrent_wrapped"
+    if config_cls is None:
+        ConfigWithConcurrent = ConcurrentWrapperConfig
+    else:
+        if field_name not in config_cls.model_fields:
 
-    return ConcurrentWrappedClass
+            class ConfigWithConcurrent(config_cls):
+                concurrent_wrapped: ConcurrentMode = ConcurrentMode.process
+                """the wrapped concurrent mode"""
+        else:
+            # TODO: use logging instead of raising error?
+            raise ValueError(
+                f"The config class {config_cls.__name__} already has a field named '{field_name}'."
+            )
+            ConfigWithConcurrent = config_cls
+
+    class ConcurrentWrappedClass(SensorConcurrentWrapper):
+        """A concurrent wrapper class for the given interface class."""
+
+        def __init__(self, config: ConfigWithConcurrent):
+            self._concurrent = config.concurrent_wrapped
+            """
+            Interface configurations may include a `concurrent` parameter, typically used in conjunction with a `blocking` parameter to implement asynchronous, non-blocking reads. The former is a necessary condition for non-blocking, but asynchronous does not equal non-blocking. Blocking essentially ensures that data timestamps are not duplicated, while asynchronous operation determines how timestamps are updated. Even in asynchronous mode, blocking can still occur if the data timestamp has not been updated.
+
+            When using asynchronous mode directly with an interface, using a child process is reasonable to maximize asynchronous loop speed and avoid interference from other threads in the current process. However, when combined with a wrapper, if the wrapper itself is an independent process, the child process mode within the interface becomes unnecessary. Even so, forced exceptions should not be added here, as there may be other thread contention or other considerations within the interface. At most, a warning message might be issued. Similarly, other combinations of inner and outer threads may also have certain considerations. For example, if both the wrapper and the inner thread are threads, it seems somewhat redundant, but if the interface involves I/O-intensive operations, the inner thread is sometimes necessary.
+
+            In summary, adding additional checks and logs is not currently being considered.
+            """
+            # TODO:
+            # inner_con = self.__get_inner_con(config)
+            # if inner_con is self._concurrent:
+            #     self.get_logger().warning(
+            #         f"The inner concurrent {inner_con} is ignored in favor of the wrapped one {self._concurrent}."
+            #     )
+            # elif (
+            #     self._concurrent is ConcurrentMode.thread
+            #     and inner_con is ConcurrentMode.process
+            # ):
+            #     self.get_logger().warning(
+            #         f"The inner concurrent {inner_con} is more powerful than the wrapped one {self._concurrent}."
+            #     )
+            # NOTE: use the original config to avoid errors caused by local
+            # classes defined inside functions being unable to be pickled
+            config_cls_dict = dict(config)
+            config_cls_dict.pop(field_name)
+            self._interface = interface_cls(config_cls(**config_cls_dict))
+
+        # @classmethod
+        # def __get_inner_con(cls, config):
+        #     return getattr(config, "concurrent", None)
+
+        # def __new__(cls, config: ConfigWithConcurrent):
+        #     if config.concurrent_wrapped is ConcurrentMode.thread:
+        #         with ForceSetAttr(config):
+        #             if cls.__get_inner_con(config) is not None:
+        #                 cls.get_logger().warning(f"Use the inner concurrent ")
+        #                 config.concurrent = ConcurrentMode.thread
+        #                 return interface_cls(config)
+        #     return super().__new__(cls, config)
+
+    return ConcurrentWrappedClass, ConfigWithConcurrent
 
 
 if __name__ == "__main__":
@@ -164,8 +225,9 @@ if __name__ == "__main__":
     # con_mock_cam = concurrent_wrapper(MockCamera)(
     #     MockCameraConfig(random=True), concurrent=ConcurrentMode.process
     # )
-    con_mock_cam = concurrent_wrapper(MockCamera, MockCameraConfig)(
-        _concurrent=ConcurrentMode.process, random=True
+    cls_wrapped, cfg_wrapped = concurrent_wrapper(MockCamera, MockCameraConfig)
+    con_mock_cam = cls_wrapped(
+        cfg_wrapped(random=True, concurrent_wrapped=ConcurrentMode.process)
     )
     assert con_mock_cam.configure()
     con_mock_cam.get_logger().info("Successfully configured")
