@@ -1,12 +1,4 @@
-from pydantic import (
-    BaseModel,
-    NonNegativeFloat,
-    ConfigDict,
-    ValidationInfo,
-    field_validator,
-    model_validator,
-    Field,
-)
+from pydantic import BaseModel, NonNegativeFloat, ConfigDict, model_validator, Field
 from typing import List, Union, Optional, Any, Dict, Literal, Set
 from collections.abc import Callable
 from typing_extensions import Self
@@ -77,16 +69,13 @@ class ComponentGroupsConfig(ComponentsConfig[T], frozen=True):
     some roles, e.g. ignoring the followers
     """
 
-    def model_post_init(self, context):
-        super().model_post_init(context)
+    @model_validator(mode="after")
+    def validate_final(self):
         group_num = len(self.groups)
         if len(self.names) != group_num:
             raise ValueError("groups and names must have the same length")
         if len(self.roles) != group_num:
             raise ValueError("roles must have the same length as names")
-
-        # check if each group has one and only one leader robot
-        # and no less than one follower
         group_role_cnt = defaultdict(Counter)
         for index, group_name in enumerate(self.groups):
             group_role_cnt[group_name][self.roles[index]] += 1
@@ -107,6 +96,7 @@ class ComponentGroupsConfig(ComponentsConfig[T], frozen=True):
                     getattr(self, field).pop(index)
             else:
                 index += 1
+        return self
 
     def deep_copy_with_ignoring(self, roles: Set[ComponentRole]):
         """Create a copy of the configuration with the specified roles ignored."""
@@ -119,6 +109,10 @@ class ComponentGroupsConfig(ComponentsConfig[T], frozen=True):
         cp_model_dict["ignore_roles"] = roles
         new_model = self.__class__(**cp_model_dict)
         return new_model
+
+    def group_has_role(self, group: str, role: ComponentRole) -> bool:
+        """Check if a group has the specified role."""
+        return role in self.grouped_instance[group]
 
     @model_validator(mode="after")
     def check_unique_names(self):
@@ -308,19 +302,22 @@ class GroupedComponentsSystemConfig(BaseModel, frozen=True):
         default_factory=AutoControlConfig, validate_default=True
     )
     """the auto control configuration"""
-    post_capture: Dict[str, PostCaptureConfig] = {}
-    """the post capture config for each group leader"""
+    post_capture: Optional[Dict[str, Optional[PostCaptureConfig]]] = Field(
+        None, validate_default=True
+    )
+    """the post capture config for each group leader;
+    if None, all group that has leaders will be set to a None post capture
+    which means auto processing in the leaders."""
 
-    @field_validator("auto_control", mode="after")
-    def validate_auto_control(cls, v: AutoControlConfig, info: ValidationInfo):
-        with ForceSetAttr(v):
-            values = info.data
-            components: SystemSensorComponentGroupsConfig = values["components"]
+    @model_validator(mode="after")
+    def validate_auto_control(self):
+        with ForceSetAttr(self.auto_control) as v:
+            components = self.components
             if v.groups is None:
                 v.groups = components.unique_groups
             if {ComponentRole.l, ComponentRole.f} - set(components.roles):
                 if v.groups:
-                    getLogger(cls.__name__).warning(
+                    getLogger(self.__class__.__name__).warning(
                         "No leader and follower role found in the components, "
                         "clear auto_control.groups."
                     )
@@ -329,14 +326,23 @@ class GroupedComponentsSystemConfig(BaseModel, frozen=True):
             if auto_groups:
                 v.rates = ensure_equal_length(auto_groups, v.rates)
                 v.modes = ensure_equal_length(auto_groups, v.modes)
-        return v
+        return self
+
+    @model_validator(mode="after")
+    @force_set_attr
+    def validate_post_capture(self) -> Dict[str, PostCaptureConfig]:
+        if self.post_capture is None:
+            components = self.components
+            self.post_capture = {
+                group: None
+                for group in components.unique_groups
+                if components.group_has_role(group, ComponentRole.l)
+            }
+        return self
 
 
 class ComponentGroupManager:
-    def __init__(
-        self,
-        config: GroupedComponentsSystemConfig,
-    ):
+    def __init__(self, config: GroupedComponentsSystemConfig):
         self.components: ComponentGroupsConfig[Component] = config.components
         self._config = config
         self._role_mode_set = {}
@@ -361,8 +367,13 @@ class ComponentGroupManager:
                 f"Setting post capture for group {group_name}: {post_capture}"
             )
             leader = None
-            for leader in self.components.grouped_instance[group_name][ComponentRole.l]:
-                leader.set_post_capture(post_capture)
+            grouped = self.components.grouped_instance[group_name]
+            for leader in grouped[ComponentRole.l]:
+                followers = grouped.get(ComponentRole.f)
+                # TODO: should pass all the followers' info to the leader?
+                leader.set_post_capture(
+                    post_capture, followers[0].get_info() if followers else {}
+                )
             if leader is None:
                 self.get_logger().warning(
                     f"Group: {group_name} has no leader, post capture will not be set"
@@ -506,6 +517,24 @@ class GroupedComponentsSystem(System):
     def _init_all_components(self) -> bool:
         self._cg_manager = ComponentGroupManager(self.config)
         if self._cg_manager.configure_groups():
+            # NOTE: concur is the first key to ensure concurrent components are processed first
+            self._comp_tupe_dict = {"concur": [], "normal": []}
+            for (
+                group_name,
+                role_configs,
+            ) in self._cg_manager.components.grouped_config.items():
+                for role, configs in role_configs.items():
+                    for config in configs:
+                        component = config.instance
+                        comp_name = config.name
+                        key = (
+                            "concur"
+                            if isinstance(component, SensorConcurrentWrapper)
+                            else "normal"
+                        )
+                        self._comp_tupe_dict[key].append(
+                            (group_name, component, comp_name)
+                        )
             return True
         return False
 
@@ -588,23 +617,12 @@ class GroupedComponentsSystem(System):
 
         return info
 
-    def _fully_process(self, func: Callable[[str, Component, str], None]):
-        concur_comps = []
-        for (
-            group_name,
-            role_configs,
-        ) in self._cg_manager.components.grouped_config.items():
-            for role, configs in role_configs.items():
-                for config in configs:
-                    component = config.instance
-                    comp_name = config.name
-                    if isinstance(component, SensorConcurrentWrapper):
-                        concur_comps.append((group_name, component, comp_name))
-                        wait = False
-                    else:
-                        wait = True
-                    func(group_name, component, comp_name, "capture", wait)
-        for group, component, comp_name in concur_comps:
+    def _fully_process(self, func: Callable[[str, Component, str, str, bool], None]):
+        wait = {"concur": False, "normal": True}
+        for key, comps in self._comp_tupe_dict.items():
+            for group, component, comp_name in comps:
+                func(group, component, comp_name, "capture", wait[key])
+        for group, component, comp_name in self._comp_tupe_dict["concur"]:
             func(group, component, comp_name, "result", True)
 
     @cache

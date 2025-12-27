@@ -18,7 +18,7 @@ from typing import (
     final,
 )
 from typing_extensions import Self
-from pydantic import BaseModel, field_validator, ValidationInfo, ConfigDict
+from pydantic import BaseModel, ValidationInfo, ConfigDict, JsonValue, field_validator
 from collections import defaultdict
 from airbot_data_collection.utils import StrEnum
 from functools import cached_property
@@ -73,22 +73,30 @@ class Sensor(ConfigurableBasis):
         """Shutdown"""
         # TODO: should use on_shutdown
         # to set the internal state
-        # which can be used in __del__
+        # which can be used in __del__?
         raise NotImplementedError
 
     @abstractmethod
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> JsonValue:
         """Get information"""
         raise NotImplementedError
 
-    def set_post_capture(self, config: PostCaptureConfig) -> None:
-        """Set post capture process"""
+    def set_post_capture(
+        self, config: Optional[PostCaptureConfig], info: JsonValue
+    ) -> None:
+        """Set post capture process.
+        Args:
+            config: The post capture configuration.
+            info: Additional information about the post capture process.
+                It is typically used when a sensor is used as a controller (e.g. the leader)
+                to transmit information about the controlled object, thereby aligning the data with
+                the controlled object.
+        """
         # This method can be overridden by subclasses to set post capture processing
-        pass
 
     @final
     @property
-    def metrics(self) -> Dict[str, Dict[str, Any]]:
+    def metrics(self) -> Dict[str, JsonValue]:
         """Get metrics"""
         return self._metrics
 

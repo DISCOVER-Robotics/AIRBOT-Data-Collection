@@ -7,11 +7,6 @@ from builtin_interfaces.msg import Time as TimeMsg
 from typing import Tuple, Optional, Dict, Set
 
 
-Position = Tuple[float, float, float]
-Orientation = Tuple[float, float, float, float]
-Pose = Tuple[Position, Orientation]
-
-
 def build_short_to_full_msg_map(
     preferred_packages: tuple = (),
 ):

@@ -49,11 +49,11 @@ class AIRBOTPlayMcapDataReplay:
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.utils import init_logging
     import argparse
     import time
     from logging import getLogger
     from itertools import count
+    from airbot_data_collection.utils import init_logging
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file_path", type=str)

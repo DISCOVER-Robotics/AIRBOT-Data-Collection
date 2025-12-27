@@ -18,6 +18,12 @@ from airbot_data_collection.common.systems.basis import (
 )
 from airbot_data_collection.common.utils.relative_control import RelativePoseControl
 from airbot_data_collection.common.utils.coordinate import CoordinateTools
+from airbot_data_collection.common.utils.tf import (
+    apply_tf_to_pose,
+    pose2matrix,
+    array_pose_to_list_wrapper,
+    StaticTFBuffer,
+)
 from airbot_data_collection.common.configs.control import (
     JointControlBasis,
     JointPositionServo,
@@ -112,9 +118,9 @@ class AIRBOTPlay(System):
     def __init__(self, config: AIRBOTPlayConfig):
         self.config = config
         self._joint_names = dict(zip(self.config.components, self.config.joint_names))
-        self._init_args()
 
     def on_configure(self) -> bool:
+        self._init_args()
         type2mode = {
             JointPositionPlan: RobotMode.PLANNING_POS,
             PosePlan: RobotMode.PLANNING_POS,
@@ -301,6 +307,22 @@ class AIRBOTPlay(System):
             }
         )
         self._default_limit = limits
+        self._default_range = {
+            "G2": {"eef/joint_state/position": {0: [0, 0.072]}},
+            "play": {"arm/joint_state/position": {0: [-3.151, 2.080]}},
+            "play_pro": {"arm/joint_state/position": {0: [-2.74, 2.74]}},
+        }
+        tf_dict = {
+            "G2": {"PE2": ((0, 0, 0), (0, 0, 0, 1)), "E2B": ((0, 0, 0), (0, 0, 0, 1))}
+        }
+        tf_dict["old_G2"] = tf_dict["G2"]
+        self._tf_buffer = StaticTFBuffer(
+            [
+                (target, source, pose2matrix(*tf))
+                for target, sources in tf_dict.items()
+                for source, tf in sources.items()
+            ]
+        )
 
     def _init_relative_control(self):
         pose = self.interface.get_end_pose()
@@ -340,10 +362,12 @@ class AIRBOTPlay(System):
         if self.config.pose_observation:
             start = perf_counter()
             pose = self.interface.get_end_pose()
+            prefix = "arm/pose"
+            pose = self._post_capture.get(prefix, lambda *args: args)(*pose)
             if self.config.relative_observation:
                 pose = self.rela_obs_ctrl.to_relative(*pose)
             for key, value in zip(self._pose_fields, pose):
-                obs[f"arm/pose/{key}"] = {"t": time_ns(), "data": value}
+                obs[f"{prefix}/{key}"] = {"t": time_ns(), "data": value}
             self._metrics["durations"]["capture/pose"] = perf_counter() - start
         start = perf_counter()
         for component in self.config.components:
@@ -383,15 +407,32 @@ class AIRBOTPlay(System):
             for key, value in self.interface.get_product_info().items()
         } | {f"{comp}/joint_names": names for comp, names in self._joint_names.items()}
 
-    def set_post_capture(self, config: PostCaptureConfig) -> None:
-        product_info = self.interface.get_product_info()
-        arm_type = product_info["product_type"]
-        eef_type = product_info["eef_types"][0]
-        default_limits = self._default_limit.get(
-            arm_type, {}
-        ) | self._default_limit.get(eef_type, {})
-        for key, value in zip(config.keys, config.target_ranges):
-            # e.g. key = "arm/joint_state/position"
+    def _get_default(
+        self, arm_type: str, eef_type: str, default: dict
+    ) -> Dict[str, dict]:
+        return default.get(arm_type, {}) | default.get(eef_type, {})
+
+    def set_post_capture(self, config, info):
+        self_info = self.interface.get_product_info()
+        arm_type = self_info["product_type"]
+        eef_type = self_info["eef_types"][0]
+        default_limits = self._get_default(arm_type, eef_type, self._default_limit)
+        default_range = self._get_default(arm_type, eef_type, self._default_range)
+        default_transf = {}
+        if config is None or config.transform is None or config.transform:
+            default_transf["arm/pose"] = self._tf_buffer.lookup_transform(
+                info["eef_types"][0], eef_type
+            )
+        if config is None:
+            range_mapping = default_range
+            transform = default_transf
+        else:
+            range_mapping = config.range_mapping
+            transform = {
+                key: pose2matrix(*value) if value is not None else default_transf[key]
+                for key, value in config.transform.items()
+            }
+        for key, value in range_mapping.items():
             limit = self.config.limit.get(key, {})
             default_limit = default_limits.get(key, {})
             default_limit.update(limit)
@@ -410,6 +451,10 @@ class AIRBOTPlay(System):
                     f"Failed to set post capture for {key} with "
                     f"{default_limits=}, {arm_type=}, {eef_type=}"
                 ) from e
+        for key, value in transform.items():
+            self._post_capture[key] = array_pose_to_list_wrapper(
+                apply_tf_to_pose, tf_matrix=value
+            )
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+"""Transformation utilities using numpy."""
+
 from airbot_data_collection.common.utils.transformations import (
     compose_matrix,
     euler_from_quaternion,
@@ -5,8 +7,21 @@ from airbot_data_collection.common.utils.transformations import (
     translation_from_matrix,
 )
 from functools import wraps
-from typing import Sequence, Tuple, List
+from typing import Sequence, Tuple, List, Dict, NamedTuple, Optional
+from collections import deque, defaultdict
+from logging import getLogger
 import numpy as np
+
+
+class TransformItem(NamedTuple):
+    """A transformation between two frames."""
+
+    target_frame: str
+    """Name of the frame to transform into."""
+    source_frame: str
+    """Name of the input frame."""
+    tf: np.ndarray
+    """4x4 transformation matrix from source_frame to target_frame."""
 
 
 def pose2matrix(position: Sequence[float], orientation: Sequence[float]) -> np.ndarray:
@@ -59,6 +74,29 @@ def tf_between_poses(
     matrix_a_inv = np.linalg.inv(matrix_a)
     tf_matrix = np.dot(matrix_a_inv, matrix_b)
     return tf_matrix
+
+
+def rela_pose_between_poses(
+    position_a: Sequence[float],
+    orientation_a: Sequence[float],
+    position_b: Sequence[float],
+    orientation_b: Sequence[float],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute the relative pose from pose A to pose B.
+
+    Args:
+        position_a (list or np.ndarray): Position of pose A (x, y, z).
+        orientation_a (list or np.ndarray): Orientation of pose A as a quaternion (x, y, z, w).
+        position_b (list or np.ndarray): Position of pose B (x, y, z).
+        orientation_b (list or np.ndarray): Orientation of pose B as a quaternion (x, y, z, w).
+
+    Returns:
+        tuple: A tuple containing:
+            - rela_position (np.ndarray): A 1D array of 3 elements representing the relative position.
+            - rela_orientation (np.ndarray): A 1D array of 4 elements representing the relative orientation as a quaternion (x, y, z, w).
+    """
+    tf_matrix = tf_between_poses(position_a, orientation_a, position_b, orientation_b)
+    return matrix2pose(tf_matrix)
 
 
 def apply_tf_to_pose(
@@ -130,6 +168,86 @@ def array_pose_to_list_wrapper(func, **p_kwargs):
     return wrapper
 
 
+class StaticTFBuffer:
+    def __init__(self, buffer: List[TransformItem] = None):
+        # 原始数据存储
+        self.buffer: List[TransformItem] = []
+        # 邻接表：{source_frame: [(target_frame, matrix), ...]}
+        self._adj: Dict[str, List[Tuple[str, np.ndarray]]] = defaultdict(list)
+        for transform in buffer or []:
+            # print("Adding transform to StaticTFBuffer:", transform)
+            self._add_transform(transform)
+        # 缓存：避免对相同路径进行重复搜索
+        self._cache: Dict[Tuple[str, str], np.ndarray] = {}
+
+    def add_transform(self, transform: TransformItem):
+        """添加或更新一个变换"""
+        self._add_transform(transform)
+        # 清除缓存，因为图结构改变了
+        self._cache.clear()
+
+    def _add_transform(self, transform: TransformItem):
+        target_frame, source_frame, tf = transform
+        mat = np.asanyarray(tf)
+        self.buffer.append((target_frame, source_frame, mat))
+        # 更新邻接表
+        # 正向：A -> B
+        self._adj[source_frame].append((target_frame, mat))
+        # 逆向：B -> A (计算逆矩阵)
+        try:
+            # print("Computing inverse for transform:", transform)
+            inv_mat = np.linalg.inv(mat)
+            self._adj[target_frame].append((source_frame, inv_mat))
+            # print("Inverse computed successfully.")
+        except np.linalg.LinAlgError:
+            self.get_logger().warning(f"Transform {transform} is not invertible.")
+
+    def lookup_transform(
+        self, target_frame: str, source_frame: str
+    ) -> Optional[np.ndarray]:
+        """
+        查找变换。支持多级链式查找和逆变换。
+        """
+        # 1. 检查相同帧
+        if source_frame == target_frame:
+            return np.eye(4)
+
+        # 2. 检查缓存
+        cache_key = (source_frame, target_frame)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        # 3. BFS 路径搜索
+        queue = deque([(source_frame, np.eye(4))])
+        visited = {source_frame}
+
+        while queue:
+            curr_frame, curr_tf = queue.popleft()
+
+            if curr_frame == target_frame:
+                # 存入缓存并返回
+                self._cache[cache_key] = curr_tf
+                return curr_tf
+
+            for neighbor, edge_tf in self._adj.get(curr_frame, []):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    # 矩阵合成：T_ac = T_bc @ T_ab
+                    combined_tf = edge_tf @ curr_tf
+                    queue.append((neighbor, combined_tf))
+
+        return None
+
+    def clear(self):
+        self.buffer.clear()
+        self._adj.clear()
+        self._cache.clear()
+
+    @classmethod
+    def get_logger(cls):
+        return getLogger(cls.__name__)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -153,10 +271,37 @@ if __name__ == "__main__":
     assert np.allclose(new_qat_b, qat_b)
 
     rela_pose_b = matrix2pose(tf_ab)
+    rela_pose_b_new = rela_pose_between_poses(pos_a, qat_a, pos_b, qat_b)
+    assert np.allclose(rela_pose_b[0], rela_pose_b_new[0])
+    assert np.allclose(rela_pose_b[1], rela_pose_b_new[1])
     assert np.allclose(pose2matrix(*rela_pose_b), tf_ab)
 
     new_pos_b2, new_qat_b2 = apply_rela_pose_to_pose(pos_a, qat_a, *rela_pose_b)
     assert np.allclose(new_pos_b2, pos_b)
     assert np.allclose(new_qat_b2, qat_b)
+
+    tf_manager = StaticTFBuffer()
+
+    # 模拟数据：World -> Robot (平移 x=1)
+    t_world_robot = np.eye(4)
+    t_world_robot[0, 3] = 1.0
+    tf_manager.add_transform(("robot", "world", t_world_robot))
+
+    # 模拟数据：Robot -> Camera (平移 z=0.5)
+    t_robot_camera = np.eye(4)
+    t_robot_camera[2, 3] = 0.5
+    tf_manager.add_transform(("camera", "robot", t_robot_camera))
+
+    # 自动计算跨级变换：World -> Camera
+    res = tf_manager.lookup_transform("camera", "world")
+    print("World to Camera:\n", res)
+
+    # 自动计算逆变换：Camera -> World
+    res_inv = tf_manager.lookup_transform("world", "camera")
+    print("\nCamera to World (Inverse):\n", res_inv)
+
+    assert np.allclose(tf_manager.lookup_transform("world", "world"), np.eye(4))
+
+    assert tf_manager.lookup_transform("camera", "any") is None
 
     print("All tests passed.")
