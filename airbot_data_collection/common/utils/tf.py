@@ -5,6 +5,7 @@ from airbot_data_collection.common.utils.transformations import (
     euler_from_quaternion,
     quaternion_from_matrix,
     translation_from_matrix,
+    identity_matrix,
 )
 from functools import wraps
 from typing import Sequence, Tuple, List, Dict, NamedTuple, Optional
@@ -166,6 +167,19 @@ def array_pose_to_list_wrapper(func, **p_kwargs):
         return array_pose_to_list(*func(*args, **kwargs, **p_kwargs))
 
     return wrapper
+
+
+def is_identity_matrix(matrix: np.ndarray, tol: float = 1e-6) -> bool:
+    """Check if a matrix is an identity matrix within a tolerance.
+
+    Args:
+        matrix (np.ndarray): The matrix to check.
+        tol (float): The tolerance for the check.
+
+    Returns:
+        bool: True if the matrix is an identity matrix within the tolerance, False otherwise.
+    """
+    return np.allclose(matrix, identity_matrix(), atol=tol)
 
 
 class StaticTFBuffer:

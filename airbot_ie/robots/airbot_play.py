@@ -22,6 +22,7 @@ from airbot_data_collection.common.utils.tf import (
     apply_tf_to_pose,
     pose2matrix,
     array_pose_to_list_wrapper,
+    is_identity_matrix,
     StaticTFBuffer,
 )
 from airbot_data_collection.common.configs.control import (
@@ -359,18 +360,21 @@ class AIRBOTPlay(System):
     ) -> dict[str, dict[str, Union[float, Dict[str, List[float]]]]]:
         """key: component_name/data_type"""
         obs = {}
-        if self.config.pose_observation:
+        config = self.config
+        if config.pose_observation:
             start = perf_counter()
             pose = self.interface.get_end_pose()
             prefix = "arm/pose"
+            # print(f"Raw pose: {pose}")
             pose = self._post_capture.get(prefix, lambda *args: args)(*pose)
-            if self.config.relative_observation:
+            # print(f"Post processed pose: {pose}")
+            if config.relative_observation:
                 pose = self.rela_obs_ctrl.to_relative(*pose)
             for key, value in zip(self._pose_fields, pose):
                 obs[f"{prefix}/{key}"] = {"t": time_ns(), "data": value}
             self._metrics["durations"]["capture/pose"] = perf_counter() - start
         start = perf_counter()
-        for component in self.config.components:
+        for component in config.components:
             for field in self._js_fields:
                 obs[f"{component}/joint_state/{field}"] = {
                     "t": time_ns(),
@@ -452,9 +456,12 @@ class AIRBOTPlay(System):
                     f"{default_limits=}, {arm_type=}, {eef_type=}"
                 ) from e
         for key, value in transform.items():
-            self._post_capture[key] = array_pose_to_list_wrapper(
-                apply_tf_to_pose, tf_matrix=value
+            self._post_capture[key] = (
+                array_pose_to_list_wrapper(apply_tf_to_pose, tf_matrix=value)
+                if not is_identity_matrix(value)
+                else lambda *args: args
             )
+        self.get_logger().info(f"Post capture config set: {self._post_capture}")
 
 
 if __name__ == "__main__":
