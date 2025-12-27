@@ -1,10 +1,11 @@
 from airbot_ie.robots.airbot_play import (
     AIRBOTPlay as AIRBOTPlayReal,
-    AIRBOTPlayConfig,
+    AIRBOTPlayConfig as AIRBOTPlayConfigReal,
     RobotMode,
     SpeedProfile,
 )
 from numpy import random
+from typing import List
 import logging
 
 
@@ -98,6 +99,15 @@ class AIRBOTArmMock:
         return logging.getLogger(cls.__name__)
 
 
+class AIRBOTPlayConfig(AIRBOTPlayConfigReal):
+    """
+    A mock configuration class for AIRBOTPlay.
+    """
+
+    product_type: str = "replay"
+    eef_types: List[str] = ["PE2"]
+
+
 class AIRBOTPlay(AIRBOTPlayReal):
     """
     A mock class for AIRBOTPlay.
@@ -105,6 +115,13 @@ class AIRBOTPlay(AIRBOTPlayReal):
 
     config: AIRBOTPlayConfig
     interface: AIRBOTArmMock
+
+    def on_configure(self):
+        self.interface.get_product_info = lambda: {
+            "product_type": self.config.product_type,
+            "eef_types": self.config.eef_types,
+        }
+        return super().on_configure()
 
 
 if __name__ == "__main__":
