@@ -21,6 +21,7 @@ from airbot_data_collection.common.utils.coordinate import CoordinateTools
 from airbot_data_collection.common.utils.tf import (
     apply_tf_to_pose,
     pose2matrix,
+    to_matrix,
     array_pose_to_list_wrapper,
     is_identity_matrix,
     StaticTFBuffer,
@@ -284,6 +285,9 @@ class AIRBOTPlay(System):
             robot_mode = {comp: robot_mode for comp in self.config.components}
         return self.interface.switch_mode(robot_mode["arm"])
 
+    def _get_tf_key(self, component: str, frame: str) -> str:
+        return f"{component}.{frame}"
+
     def _init_args(self):
         self._js_fields = self.config.joint_fields
         self._pose_fields = ("position", "orientation")
@@ -313,16 +317,28 @@ class AIRBOTPlay(System):
             "play": {"arm/joint_state/position": {0: [-3.151, 2.080]}},
             "play_pro": {"arm/joint_state/position": {0: [-2.74, 2.74]}},
         }
+        iden_rela_pose = ((0, 0, 0), (0, 0, 0, 1))
+        z_pos = lambda z: (0, 0, z)  # noqa: E731
         tf_dict = {
-            "G2": {"PE2": ((0, 0, 0), (0, 0, 0, 1)), "E2B": ((0, 0, 0), (0, 0, 0, 1))}
+            "play": {
+                "none": z_pos(0.0864995),
+                "G2": z_pos(0.2466995),
+                "old_G2": z_pos(0.2466995),
+                "E2B": z_pos(0.1488995),
+            },
         }
-        tf_dict["old_G2"] = tf_dict["G2"]
+        tf_list = [("replay.PE2", "play.E2B", iden_rela_pose)]
+        for arm_type, pos_rela in tf_dict.items():
+            for eef_type, tf_part in pos_rela.items():
+                tf_list.append(
+                    (
+                        self._get_tf_key(arm_type, eef_type),
+                        self._get_tf_key(arm_type, "ref"),
+                        tf_part,
+                    )
+                )
         self._tf_buffer = StaticTFBuffer(
-            [
-                (target, source, pose2matrix(*tf))
-                for target, sources in tf_dict.items()
-                for source, tf in sources.items()
-            ]
+            [(tgt, src, to_matrix(tf_part)) for tgt, src, tf_part in tf_list]
         )
 
     def _init_relative_control(self):
@@ -425,7 +441,8 @@ class AIRBOTPlay(System):
         default_transf = {}
         if config is None or config.transform is None or config.transform:
             default_transf["arm/pose"] = self._tf_buffer.lookup_transform(
-                info["eef_types"][0], eef_type
+                self._get_tf_key(info["product_type"], info["eef_types"][0]),
+                self._get_tf_key(arm_type, eef_type),
             )
         if config is None:
             range_mapping = default_range
@@ -456,12 +473,13 @@ class AIRBOTPlay(System):
                     f"{default_limits=}, {arm_type=}, {eef_type=}"
                 ) from e
         for key, value in transform.items():
+            # print(f"tf_matrix={value}")
             self._post_capture[key] = (
                 array_pose_to_list_wrapper(apply_tf_to_pose, tf_matrix=value)
                 if not is_identity_matrix(value)
                 else lambda *args: args
             )
-        self.get_logger().info(f"Post capture config set: {self._post_capture}")
+        # self.get_logger().info(f"Post capture config set: {self._post_capture}")
 
 
 if __name__ == "__main__":
