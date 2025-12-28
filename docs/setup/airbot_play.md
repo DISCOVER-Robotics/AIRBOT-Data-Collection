@@ -10,6 +10,8 @@
 
 安装说明： [AIRBOT Play 驱动程序 和 Python SDK](http://docs.qiuzhi.tech/0.2.7/airbot-play/quick-start/software-setup.html)
 
+对于`AIRBOT TOK`,额外安装：`pip install requests`用于底盘数据采集。
+
 ## 机械臂绑定
 
 为了避免混淆示教臂和执行臂，需要按设备实际使用的角色绑定`CAN`名称。

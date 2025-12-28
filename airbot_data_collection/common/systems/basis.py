@@ -2,6 +2,7 @@ from airbot_data_collection.basis import (
     ConfigurableBasis,
     PostCaptureConfig,
     DictDataStamped,
+    DataStamped,
 )
 from abc import abstractmethod
 from enum import Enum, auto
@@ -45,7 +46,7 @@ class Sensor(ConfigurableBasis):
         """Capture observation from the sensor
         Args:
             timeout: Maximum time to wait for the observation to be ready. If None, wait indefinitely.
-                If 0, do not wait and return None immediately.
+                If 0, do not wait and return None immediately. Then the caller can use the `result` method to get the result later.
         Returns:
             The observation data as a dictionary, or None if timeout is zero.
         Raises:
@@ -78,7 +79,7 @@ class Sensor(ConfigurableBasis):
 
     @abstractmethod
     def get_info(self) -> JsonValue:
-        """Get information"""
+        """Get information. TODO: should be reacquired before each sampling?"""
         raise NotImplementedError
 
     def set_post_capture(
@@ -99,6 +100,11 @@ class Sensor(ConfigurableBasis):
     def metrics(self) -> Dict[str, JsonValue]:
         """Get metrics"""
         return self._metrics
+
+    @final
+    @staticmethod
+    def _create_value(data: Any, t: int = 0) -> DataStamped:
+        return DataStamped.create(data, t)
 
 
 class System(Sensor):
