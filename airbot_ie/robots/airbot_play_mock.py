@@ -41,8 +41,8 @@ class AIRBOTArmMock:
     def set_speed_profile(self, speed_profile):
         return isinstance(speed_profile, SpeedProfile)
 
-    def servo_joint_pos(self, joint_pos, speed_profile=None):
-        self.get_logger().debug(f"servo joint pos: {joint_pos}")
+    def servo_joint_pos(self, joint_pos, speed_profile=None, log="servo joint pos"):
+        self.get_logger().debug(f"{log}: {joint_pos}")
         assert isinstance(joint_pos, list)
         assert len(joint_pos) == 6, joint_pos
 
@@ -106,7 +106,7 @@ class AIRBOTPlayConfig(AIRBOTPlayConfigReal):
 
     product_type: str = "replay"
     eef_types: List[str] = ["PE2"]
-    log_level: int = logging.DEBUG
+    log_level: int = logging.INFO
 
 
 class AIRBOTPlay(AIRBOTPlayReal):
