@@ -1,7 +1,7 @@
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing import get_context, current_process
 from multiprocessing.connection import Connection
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ImportString, validate_call
 from typing import Union, Dict, Type, Optional
 from airbot_data_collection.common.systems.basis import Sensor, System
 from airbot_data_collection.basis import ConcurrentMode
@@ -14,7 +14,6 @@ from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
 from airbot_data_collection.common.utils.shareable_value import ShareableValue
 from numpy import uint64
 from setproctitle import setproctitle
-
 
 InterfaceType = Union[Sensor, System]
 
@@ -141,10 +140,12 @@ class SensorConcurrentWrapper(Sensor):
         return True
 
 
+@validate_call(config=ConfigDict(arbitrary_types_allowed=True))
 def concurrent_wrapper(
-    interface_cls: Type[InterfaceType], config_cls: Optional[Type[BaseModel]] = None
+    interface_cls: Union[Type[InterfaceType], ImportString[Type[InterfaceType]]],
+    config_cls: Optional[Type[BaseModel]] = None,
 ):
-    config_cls = config_cls or interface_cls.resolve_config_type()
+    config_cls = config_cls or interface_cls.resolve_config_type(interface_cls)
     field_name = "concurrent_wrapped"
     if config_cls is None:
         ConfigWithConcurrent = ConcurrentWrapperConfig
@@ -225,7 +226,9 @@ if __name__ == "__main__":
     # con_mock_cam = concurrent_wrapper(MockCamera)(
     #     MockCameraConfig(random=True), concurrent=ConcurrentMode.process
     # )
-    cls_wrapped, cfg_wrapped = concurrent_wrapper(MockCamera, MockCameraConfig)
+    cls = "airbot_data_collection.common.devices.cameras.mock.MockCamera"
+    # cls = MockCamera
+    cls_wrapped, cfg_wrapped = concurrent_wrapper(cls)
     con_mock_cam = cls_wrapped(
         cfg_wrapped(random=True, concurrent_wrapped=ConcurrentMode.process)
     )
