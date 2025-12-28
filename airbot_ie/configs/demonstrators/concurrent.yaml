@@ -1,0 +1,32 @@
+# @package _global_
+
+defaults:
+  - basis
+
+concur_inst: airbot_data_collection.common.systems.wrappers.concurrent_instantiate
+
+demonstrator:
+  instance:
+    components:
+      groups:
+        - /
+        - /
+      names:
+        - env_camera
+        - follow_camera
+      instances:
+        - _target_: ${concur_inst}
+          interface_cls: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
+          camera_index: null
+          height: 480
+          width: 640
+          enable_depth: true
+          align_depth: true
+          fps: 30
+        - _target_: ${concur_inst}
+          interface_cls: airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera
+      roles:
+        - o
+        - o
+dataset:
+  directory: concur_camera

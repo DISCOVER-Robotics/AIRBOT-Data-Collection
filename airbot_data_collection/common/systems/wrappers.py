@@ -209,29 +209,30 @@ def concurrent_wrapper(
     return ConcurrentWrappedClass, ConfigWithConcurrent
 
 
+def concurrent_instantiate(
+    interface_cls, config_cls=None, config_kwargs: dict = None, **kwargs
+) -> SensorConcurrentWrapper:
+    cls, cfg = concurrent_wrapper(interface_cls, config_cls)
+    config_kwargs = config_kwargs or {}
+    config_kwargs.update(kwargs)
+    return cls(cfg(**config_kwargs))
+
+
 if __name__ == "__main__":
-    from airbot_data_collection.common.devices.cameras.mock import (
-        MockCamera,
-        MockCameraConfig,
-    )
+    from airbot_data_collection.common.devices.cameras.mock import MockCamera
     import cv2
     import time
 
     init_logging()
-    # con_mock_cam = SensorConcurrentWrapper(
-    #     ConcurrentWrapperConfig(
-    #         interface=MockCamera(MockCameraConfig()), mode=ConcurrentMode.process
-    #     )
-    # )
-    # con_mock_cam = concurrent_wrapper(MockCamera)(
-    #     MockCameraConfig(random=True), concurrent=ConcurrentMode.process
-    # )
+
     cls = "airbot_data_collection.common.devices.cameras.mock.MockCamera"
-    # cls = MockCamera
     cls_wrapped, cfg_wrapped = concurrent_wrapper(cls)
-    con_mock_cam = cls_wrapped(
-        cfg_wrapped(random=True, concurrent_wrapped=ConcurrentMode.process)
-    )
+    cls = MockCamera
+    cls_wrapped, cfg_wrapped = concurrent_wrapper(cls)
+    # con_mock_cam = cls_wrapped(
+    #     cfg_wrapped(random=True, concurrent_wrapped=ConcurrentMode.process)
+    # )
+    con_mock_cam = concurrent_instantiate(cls)
     assert con_mock_cam.configure()
     con_mock_cam.get_logger().info("Successfully configured")
     for i in range(10):
