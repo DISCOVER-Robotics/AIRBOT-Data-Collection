@@ -120,7 +120,7 @@ class AIRBOTArm:
         #     motor.uninit()
         return True
 
-    def on_switch_mode(self, mode: RobotMode):
+    def switch_mode(self, mode: RobotMode):
         self._current_mode = mode
         return True
 

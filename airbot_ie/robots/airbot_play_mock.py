@@ -87,7 +87,7 @@ class AIRBOTArmMock:
     def set_params(self, params: dict):
         return isinstance(params, dict)
 
-    def on_switch_mode(self, mode):
+    def switch_mode(self, mode):
         self.get_logger().info(f"Switched mode to {mode}")
         return isinstance(mode, RobotMode)
 
