@@ -175,7 +175,7 @@ class AIRBOTPlay(System):
         # print(f"mode_mapping: {self._mode_mapping}")
         # set action post process function TODO: configure this?
         self.action_post_process = self.action_data_to_list
-        self.get_logger().info(f"Connecting AIRBOT at {config.url}:{config.port}")
+        self.get_logger().info(f"Connecting to {config.url}:{config.port}")
         if self.interface.connect():
             # self.interface.set_speed_profile(self.config.speed_profile)
             self.interface.set_params(

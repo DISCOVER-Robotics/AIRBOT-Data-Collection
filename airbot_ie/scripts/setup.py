@@ -22,7 +22,7 @@ from collections import defaultdict
 from pprint import pformat
 from pydantic import Field
 from pydantic_settings import CliApp
-from typing import List
+from typing import List, Dict
 from importlib.metadata import version
 from pathlib import Path
 from ruamel.yaml import YAML
@@ -100,7 +100,7 @@ class SetupConfig(BaseModelWithFieldAliases):
         description="Directory containing the base configuration files.",
     )
     ref_cfg_name: Path = Field(
-        "airbot_play",
+        "basis",
         validation_alias="rcn",
         description="Name of the base configuration file.",
     )
@@ -378,7 +378,7 @@ while True:
         else:
             raise NotImplementedError(f"Not supported can group number {can_group_num}")
 
-        components = {
+        components: Dict[str, list] = {
             "instances": [
                 {
                     "_target_": "airbot_ie.robots.airbot_play.AIRBOTPlay",
@@ -394,11 +394,15 @@ while True:
             "roles": ["l", "f"] * can_group_num + ["o"] * len(cfged_indices),
             "groups": groups,
         }
-        logger.info(f"Components: {pformat(components)}")
         ref_cfg_dir = ref_cfg_path.parent
         with open(ref_cfg_path) as f:
             config: dict = yaml.load(f)
             param_dict: dict = config["demonstrator"]["instance"]
+            raw_comps = param_dict.get("components")
+            if isinstance(raw_comps, dict):
+                for key, value in raw_comps.items():
+                    components[key].extend(value)
+            logger.info(f"Components: {pformat(components)}")
             param_dict["components"] = components
             # config["defaults"].append(
             #     {"post_capture@demonstrator.instance": str(can_num)}

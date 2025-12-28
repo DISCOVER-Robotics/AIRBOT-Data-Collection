@@ -1,7 +1,6 @@
 # @package _global_
 
 defaults:
-  - /robots: airbot_mmk
   - basis
 
 demonstrator:
@@ -10,11 +9,10 @@ demonstrator:
       groups:
         - /
       names:
-        - mmk
+        - base
       instances:
-        - ${robots}
+        - _target_: airbot_ie.robots.slamtec_athena2.SlamtecAthena2
+          blocking: false
+          rate: 50
       roles:
-        - o
-dataset:
-  directory: airbot_mmk
-log_jitter: false
+        - l

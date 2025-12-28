@@ -197,10 +197,19 @@ class ReferenceMode(StrEnum):
             return ReferenceBase.ACTION
 
 
-class CommonConfig(BaseModel, frozen=True):
-    """Common configuration for both observation and action."""
+class ConcurrentConfig(BaseModel, frozen=True):
+    """Configuration for concurrent systems."""
 
     model_config = ConfigDict(extra="forbid")
+
+    blocking: Optional[bool] = None
+    """Whether to block until completed. None means use the system default or not blocking."""
+    rate: Optional[float] = None
+    """periodic update rate in Hz, 0/None means not used, < 0 means no limit """
+
+
+class CommonConfig(ConcurrentConfig):
+    """Common configuration for both observation and action."""
 
     reference_mode: ReferenceMode = ReferenceMode.ABSOLUTE
 
@@ -235,11 +244,16 @@ Each component has a dictionary mapping SystemMode to ActionConfig.
 """
 
 
-class SystemConfig(BaseModel, frozen=True):
-    """Configuration for the robot system."""
+class SystemConfig(ConcurrentConfig):
+    """Configuration for the robot system.
+    If the top level concurrent config is set (not None),
+    it will override the component-level settings which are set to None.
+    """
 
-    model_config = ConfigDict(validate_default=True, extra="forbid")
+    model_config = ConfigDict(validate_default=True)
 
+    blocking: Optional[bool] = True
+    """Whether to block until completed."""
     components: List[str] = []
     """List of components in the system."""
     action: ActionConfigs = []
@@ -250,9 +264,29 @@ class SystemConfig(BaseModel, frozen=True):
     @field_validator("action", "observation", mode="after")
     def extend_list(cls, v, info: ValidationInfo) -> List[Any]:
         """Ensure the field list is always the same length as components."""
+        data = info.data
         if len(v) == 1:
-            v *= len(info.data.get("components", []))
+            v *= len(data.get("components", []))
         return v
+
+    @staticmethod
+    def _override_cfgs(cfgs: List[CommonConfig], data: dict):
+        fields = ("blocking", "rate")
+        for field in fields:
+            for cfg in cfgs:
+                if getattr(cfg, field) is None:
+                    object.__setattr__(cfg, field, data.get(field))
+        return cfgs
+
+    @field_validator("action", mode="after")
+    def validate_action(cls, v: ActionConfigs, info: ValidationInfo):
+        for cfg_dict in v:
+            cls._override_cfgs(cfg_dict.values(), info.data)
+        return v
+
+    @field_validator("observation", mode="after")
+    def validate_obs(cls, v: List[ObservationConfig], info: ValidationInfo):
+        return cls._override_cfgs(v, info.data)
 
     @cached_property
     def as_dict(

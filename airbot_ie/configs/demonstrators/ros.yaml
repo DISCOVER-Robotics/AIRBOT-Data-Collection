@@ -4,6 +4,7 @@ defaults:
   - /robots: airbot_play_with_name
   # - /key_remap: example
   - /key_remap@sampler.instance.key_remap: example
+  - basis
 
 remap_module: mcap_data_loader.utils.key
 key_merge:
@@ -28,11 +29,8 @@ sampler:
       non_monotonic_log: false
 
 demonstrator:
-  name: grouped
   instance:
-    _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
     auto_control:
-      groups: []
       rates: [100]
       modes: [process]
     components:

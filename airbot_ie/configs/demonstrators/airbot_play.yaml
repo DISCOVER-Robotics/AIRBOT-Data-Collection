@@ -2,13 +2,10 @@
 
 defaults:
   - /robots: airbot_play
+  - basis
 
 demonstrator:
-  name: grouped
   instance:
-    _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
-    auto_control:
-      groups: []
     components:
       groups:
         - /
@@ -23,31 +20,31 @@ demonstrator:
         - l
         # - o
 
-sampler:
-  instance:
-    _target_: airbot_ie.samplers.mcap_sampler.AIRBOTMcapDataSampler
-    # task_info:
-    #   operator: Anonymous
-    #   station: ptk-001
-    #   task_name: anonymous task
-    #   task_description: do some thing
-    #   task_id: "135"
-    #   skill:
-    #     - pick
-    #     - place
-    #   object:
-    #     - wooden_blocks
-    #     - bowl
-    #   scene: desktop
-    #   subtasks:
-    #     - skill: pick
-    #       description: pick the wooden blocks from the bowl with the gripper
-    #       description_zh: 用夹爪从碗中拾取木制积木
-    # upload:
-    #   enable: false
-    #   endpoint: 192.168.215.80
-    #   username: admin
-    #   password: "123456"
+# sampler:
+#   instance:
+#     _target_: airbot_ie.samplers.mcap_sampler.AIRBOTMcapDataSampler
+#     task_info:
+#       operator: Anonymous
+#       station: ptk-001
+#       task_name: anonymous task
+#       task_description: do some thing
+#       task_id: "135"
+#       skill:
+#         - pick
+#         - place
+#       object:
+#         - wooden_blocks
+#         - bowl
+#       scene: desktop
+#       subtasks:
+#         - skill: pick
+#           description: pick the wooden blocks from the bowl with the gripper
+#           description_zh: 用夹爪从碗中拾取木制积木
+#     upload:
+#       enable: false
+#       endpoint: 192.168.215.80
+#       username: admin
+#       password: "123456"
 
 dataset:
   directory: airbot_play

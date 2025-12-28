@@ -1,6 +1,6 @@
 import time
 from typing import Tuple
-from pydantic import IPvAnyAddress, NonNegativeInt
+from pydantic import IPvAnyAddress
 from threading import Thread
 from airbot_data_collection.common.systems.basis import SystemConfig, System, SystemMode
 from airbot_data_collection.common.utils.http import RESTfulJson as rj
@@ -15,12 +15,10 @@ VelocityTuple = Tuple[float, float, float]  # vx, vy, omega
 
 
 class SlamtecAthena2Config(SystemConfig):
-    """Slamtec Athena2 robot configuration"""
+    """Slamtec Athena2 robotic base configuration"""
 
     ip: IPvAnyAddress = "192.168.11.1"
-    """IP address"""
-    rate: NonNegativeInt = 0
-    """Control rate in Hz, 0 means no periodic state update"""
+    """IP address of the robot"""
 
 
 class Urls:
@@ -51,33 +49,41 @@ class SlamtecAthena2(System):
 
     def __init__(self, config: SlamtecAthena2Config):
         self.config = config
-        self._urls = Urls(self.config.ip)
+        self._urls = Urls(config.ip)
+        self._cur_state = None
 
     def check_connection(self) -> bool:
         return self.get_error_state() is not None
 
     def on_configure(self) -> bool:
+        self.get_logger().info(f"Connecting to {self.config.ip}")
         if not self.check_connection():
             self.get_logger().error("Failed to connect")
             return False
 
+        rate = self.config.rate
+        rate = 50 if (rate == 0 and not self.config.blocking) else rate
+
         def get_state_loop():
-            rate = Rate(self.config.rate)
+            loop_rate = Rate(rate)
             while True:
                 self.get_state(True)
-                rate.sleep()
+                loop_rate.sleep()
 
-        if self.config.rate > 0:
-            self._get_state_thread = Thread(target=get_state_loop, daemon=True)
-            self._get_state_thread.start()
+        if rate != 0:
+            self._get_state_concur = Thread(target=get_state_loop, daemon=True)
+            self._get_state_concur.start()
+            while self._cur_state is None:
+                # self.get_logger().info("")
+                time.sleep(0.2)
         return True
 
     def capture_observation(self, timeout=None):
-        block = timeout != 0
+        block = timeout != 0 if self.config.blocking in {None, True} else False
         return self.get_state(block)
 
     def result(self, timeout=None):
-        return self._base_state
+        return self._cur_state
 
     def on_switch_mode(self, mode):
         if mode is SystemMode.PASSIVE:
@@ -151,10 +157,10 @@ class SlamtecAthena2(System):
                 "twist/linear": self._create_value([velocity[0], 0.0, 0.0], t),
                 "twist/angular": self._create_value([0.0, 0.0, velocity[2]], t),
             }
-            self._base_state = base_state
+            self._cur_state = base_state
             return base_state
         else:
-            return self._base_state
+            return self._cur_state
 
     def get_current_pose(self) -> PoseTuple:
         pose = rj.get(self._urls.current_pose)
