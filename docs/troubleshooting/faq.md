@@ -26,3 +26,7 @@
 型号的相机混用的情况下，可能型号1的相机设置为`MJPEG`，型号2的相机设置为`YUYV`的情况下才能同时使用。
 如果上述修改有效，最后可以考虑执行如下命令永久调整uvc内核配置：`echo "options uvcvideo nodrop=1 timeout=5000 quirks=0x80" | sudo tee -a /etc/modprobe.d/uvcvideo.conf >/dev/null`
 - RealSense相机也会占用`/dev/video`号，因此当与USB相机一起连接到电脑上时需要注意区分。
+
+## 其他
+
+- [数据检查](data_checking.md)

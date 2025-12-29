@@ -40,7 +40,11 @@
     <img src="../assets/visualize/image-4.png" width="900">
 </p>
 
+
 ### 方法二：使用 mcap 命令行工具导出视频
+
+<a id="mcap_cli"></a>
+#### 安装 MCAP CLI
 
 可以基于`mcap`命令行工具将视频导出为本地文件。首先执行如下命令安装`mcap`命令行工具：
 
@@ -48,6 +52,8 @@
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install mcap
 ```
+
+#### 导出视频文件
 
 然后执行如下命令导出视频文件：
 
