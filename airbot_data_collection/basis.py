@@ -12,7 +12,7 @@ from mcap_data_loader.utils.terminal import Bcolors  # noqa: F401
 from mcap_data_loader.basis.cfgable import ConfigurableBasis, ConfigType  # noqa: F401
 
 
-PACKAGE_NAME = "airbot-data-collection"
+PACKAGE_NAME = "airdc"
 
 Position = Tuple[float, float, float]
 Orientation = Tuple[float, float, float, float]

@@ -28,7 +28,7 @@ def main() -> int:
         """
         The main manager of data collection.
         """
-        logger.info(f"Version: {version('airbot-data-collection')}")
+        logger.info(f"Version: {version(PACKAGE_NAME)}")
         fsm = DemonstrateFSM(
             DemonstrateFSMConfig(state_machine=config.fsm, interface=config)
         )
