@@ -27,6 +27,23 @@
 如果上述修改有效，最后可以考虑执行如下命令永久调整uvc内核配置：`echo "options uvcvideo nodrop=1 timeout=5000 quirks=0x80" | sudo tee -a /etc/modprobe.d/uvcvideo.conf >/dev/null`
 - RealSense相机也会占用`/dev/video`号，因此当与USB相机一起连接到电脑上时需要注意区分。
 
+## 资源占用
+
+数据采集程序可能会同时启动多个进程，为了更直观地监控相关进程的资源占用情况，可使用如下脚本：
+
+```bash
+python3 scripts/process_analysis.py airbot-data
+```
+
+该脚本默认会每隔1秒刷新数据采集主进程及其子进程的CPU和内存占用情况（使用了具有可读性的进程名称）。按`Ctrl+C`退出。
+
+通常可看到如下几个主要进程：
+
+- `airbot-data-collection`主进程：非采集时典型占用CPU约10%，采集时约200% - 700%，取决于数据量和频率
+- `OpenCV`可视化进程（如果启动）：典型占用约`150%`
+- 遥操作跟随控制进程（如果启用）
+- 相机进程（如果启用并发；每个相机独占一个）
+
 ## 其他
 
 - [数据检查](data_checking.md)
