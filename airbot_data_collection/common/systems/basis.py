@@ -19,7 +19,14 @@ from typing import (
     final,
 )
 from typing_extensions import Self
-from pydantic import BaseModel, ValidationInfo, ConfigDict, JsonValue, field_validator
+from pydantic import (
+    BaseModel,
+    ValidationInfo,
+    ConfigDict,
+    JsonValue,
+    field_validator,
+    model_validator,
+)
 from collections import defaultdict
 from airbot_data_collection.utils import StrEnum
 from functools import cached_property
@@ -219,6 +226,14 @@ class ActionConfig(CommonConfig):
 
     flatten: bool = False
     """Whether to flatten the action dictionary into a single list."""
+    unpack: bool = False
+    """Whether to unpack the action list into multiple args."""
+
+    @model_validator(mode="after")
+    def validate_unpack_flatten(self) -> Self:
+        if self.flatten and self.unpack:
+            raise ValueError("Cannot set both flatten and unpack to True.")
+        return self
 
     @property
     def interfaces(self) -> Set[InterfaceType]:

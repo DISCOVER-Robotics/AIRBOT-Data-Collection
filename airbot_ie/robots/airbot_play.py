@@ -270,8 +270,9 @@ class AIRBOTPlay(System):
                 )
                 return
             for component, keys in act_keys.items():
+                action_cfg = self.config.as_dict[component]["action"][mode]
                 # flatten the action values
-                if self.config.as_dict[component]["action"][mode].flatten:
+                if action_cfg.flatten:
                     target = []
                     for key in keys:
                         target.extend(self.action_post_process(action[key]))
@@ -280,7 +281,11 @@ class AIRBOTPlay(System):
                     # TODO: is this always correct?
                     if len(target) == 1:
                         target = target[0]
-                component_func[component](target)
+                act_func = component_func[component]
+                if action_cfg.unpack:
+                    act_func(*target)
+                else:
+                    act_func(target)
         else:
             component_length = self._mode2length[self.current_mode]
             cnt = 0
