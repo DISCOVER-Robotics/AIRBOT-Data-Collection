@@ -63,11 +63,11 @@ basic = [
     "flatten-dict",
 ]
 all = [
-    "airbot-data-collection[basic]",
-    "airbot-data-collection[cfg]",
-    "airbot-data-collection[soft]",
-    "airbot-data-collection[hard]",
-    "airbot-data-collection[cv2]",
+    "airdc[basic]",
+    "airdc[cfg]",
+    "airdc[soft]",
+    "airdc[hard]",
+    "airdc[cv2]",
 ]
 
 [tool.setuptools.packages.find]
@@ -75,7 +75,4 @@ where = ["."]
 include = ["airbot_data_collection*", "airbot_ie*"]
 
 [project.scripts]
-# Primary CLI: matches project name and is easy to discover/tab-complete
-airbot-data-collection = "airbot_data_collection.main:main"
-# Short alias for convenience
 airdc = "airbot_data_collection.main:main"

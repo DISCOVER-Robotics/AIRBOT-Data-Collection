@@ -16,7 +16,7 @@ root:
   handlers: [console]
 
 loggers:
-  airbot-data-collection:
+  airdc:
     level: INFO
   transitions:
     level: WARNING
