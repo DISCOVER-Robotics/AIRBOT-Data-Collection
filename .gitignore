@@ -12,3 +12,4 @@ test.py
 airbot_logs/
 # hydra outputs
 outputs/
+dist/
