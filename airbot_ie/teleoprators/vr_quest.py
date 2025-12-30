@@ -1,12 +1,12 @@
 import logging
 from typing import Optional, List, Dict
-from airbot_data_collection.common.devices.vr.quest import (
+from airdc.common.devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
     VRControllerEvent,
     EventValueMode,
 )
-from airbot_data_collection.basis import Bcolors
+from airdc.basis import Bcolors
 from pprint import pformat
 from functools import partial
 from abc import ABC, abstractmethod
@@ -217,12 +217,12 @@ class VRQuestController(InputController):
 
 def main(controller: VRQuestController):
     import time
-    from airbot_data_collection.utils import init_logging
-    from airbot_data_collection.common.utils.transformations import (
+    from airdc.utils import init_logging
+    from airdc.common.utils.transformations import (
         euler_from_quaternion,
         quaternion_from_euler,
     )
-    from airbot_data_collection.common.utils.coordinate import CoordinateTools
+    from airdc.common.utils.coordinate import CoordinateTools
     import numpy as np
 
     np.set_printoptions(precision=3)

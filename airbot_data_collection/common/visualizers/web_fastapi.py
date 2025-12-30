@@ -3,13 +3,13 @@ import fastapi
 import fastapi.responses
 from collections import defaultdict
 from uvicorn import Config, Server
-from airbot_data_collection.common.visualizers.basis import (
+from airdc.common.visualizers.basis import (
     SampleInfo,
     VisualizerBasis,
     WebVisualizerConfig,
 )
-from airbot_data_collection.common.utils.progress import run_event_loop
-from airbot_data_collection.basis import DictDataStamped
+from airdc.common.utils.progress import run_event_loop
+from airdc.basis import DictDataStamped
 
 
 class FastAPIVisualizer(VisualizerBasis):
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     from PIL import Image
 
-    from airbot_data_collection.common.visualizers.basis import SampleInfo
+    from airdc.common.visualizers.basis import SampleInfo
 
     def generate_image_bytes(size=(320, 240), color=(100, 100, 200)) -> bytes:
         img = Image.new("RGB", size, color=color)

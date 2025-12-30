@@ -1,8 +1,8 @@
 from abc import abstractmethod
 from typing import Optional, Protocol, Dict, Any, final, runtime_checkable
 from pydantic import BaseModel
-from airbot_data_collection.basis import ConfigurableBasis, Bcolors
-from airbot_data_collection.state_machine.fsm import (
+from airdc.basis import ConfigurableBasis, Bcolors
+from airdc.state_machine.fsm import (
     DemonstrateAction,
     DemonstrateFSM,
     State,

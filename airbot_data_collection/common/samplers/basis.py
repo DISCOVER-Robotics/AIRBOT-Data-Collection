@@ -3,8 +3,8 @@ from typing import Any, Dict, Optional
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 from typing import Literal, Union, List
-from airbot_data_collection.basis import ConfigurableBasis
-from airbot_data_collection import __version__ as collector_version
+from airdc.basis import ConfigurableBasis
+from airdc import __version__ as collector_version
 from mcap_data_loader.utils.dict import CallableKeyMappingDict, MappingCall
 
 

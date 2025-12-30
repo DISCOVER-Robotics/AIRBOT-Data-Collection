@@ -3,7 +3,7 @@ from multiprocessing.synchronize import Event as ProcessEvent
 from multiprocessing import get_context
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Union, Type
-from airbot_data_collection.basis import ConcurrentMode
+from airdc.basis import ConcurrentMode
 from threading import Thread
 from multiprocessing.context import SpawnProcess
 import logging

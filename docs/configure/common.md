@@ -65,7 +65,7 @@ rgb_camera:
 
 ### 并发调用
 
-默认情况下，各个组件的观测是依次按顺序被获取的。在阻塞模式下，如果某些组件的调用时间较长，可能会影响整体的数据采集频率；尽管非阻塞模式下可以避免该问题，但是失去了数据获取的同步性，并且多个组件在同一进程中也会互相竞争资源降低整体性能。为避免上述问题，可以将组件类通过`airbot_data_collection.common.systems.wrappers.concurrent_instantiate`函数进行并发包裹和实例化，将原类型的观测获取转换为基于共享内存的多进程调用，从而提升整体性能。目前已测试了各种相机的并发获取（图像类型为`NDArray`），具体可参考`configs/demonstrators/concurrent.yaml`中的配置示例。注意，并发调用需要额外的系统资源开销，请仅对真正有需要的组件使用。
+默认情况下，各个组件的观测是依次按顺序被获取的。在阻塞模式下，如果某些组件的调用时间较长，可能会影响整体的数据采集频率；尽管非阻塞模式下可以避免该问题，但是失去了数据获取的同步性，并且多个组件在同一进程中也会互相竞争资源降低整体性能。为避免上述问题，可以将组件类通过`airdc.common.systems.wrappers.concurrent_instantiate`函数进行并发包裹和实例化，将原类型的观测获取转换为基于共享内存的多进程调用，从而提升整体性能。目前已测试了各种相机的并发获取（图像类型为`NDArray`），具体可参考`configs/demonstrators/concurrent.yaml`中的配置示例。注意，并发调用需要额外的系统资源开销，请仅对真正有需要的组件使用。
 
 ## 可视化器
 
@@ -81,7 +81,7 @@ rgb_camera:
 
 除了默认采样器，还支持：
 
-- ROS-MCAP采样器：`airbot_data_collection.common.samplers.mcap_sampler_ros.McapDataSamplerROS`。该采样器会根据`ROS_VERSION`环境变量选择相应版本的后端。各后端说明如下：
+- ROS-MCAP采样器：`airdc.common.samplers.mcap_sampler_ros.McapDataSamplerROS`。该采样器会根据`ROS_VERSION`环境变量选择相应版本的后端。各后端说明如下：
   - ROS1：尽管ROS1本身不支持MCAP格式，但是其保存的MCAP文件可以支持`Foxglove`可视化以及通过`mcap-ros1-support`包读取。使用虚拟环境时，通常需额外安装以下依赖：`pip install rospkg catkin_pkg empy`。 <!-- codespell:ignore empy -->
   - ROS2：其保存的MCAP的消息格式与录制的Bag文件兼容。但需注意虚拟环境的Python版本需与ROS2版本对应的Python版本匹配。
 

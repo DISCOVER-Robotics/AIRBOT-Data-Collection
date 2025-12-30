@@ -8,19 +8,19 @@ from concurrent.futures import (
 from logging import getLogger
 from typing import Any, List, Dict, Union
 from send2trash import send2trash
-from airbot_data_collection.common import DataSampler, MockDataSampler, Visualizer
-from airbot_data_collection.demonstrate.configs import (
+from airdc.common import DataSampler, MockDataSampler, Visualizer
+from airdc.demonstrate.configs import (
     ConcurrentMode,
     DemonstrateAction,
     DemonstrateConfig,
 )
-from airbot_data_collection.demonstrate.basis import SampleInfo
-from airbot_data_collection.basis import Bcolors
-from airbot_data_collection.utils import get_items_by_ext, zip
-from airbot_data_collection.common.utils.system_info import SystemInfo
-from airbot_data_collection.common.utils.progress import ProgressBar
-from airbot_data_collection.common.demonstrators.basis import Demonstrator
-from airbot_data_collection.state_machine.basis import CallbackEventType
+from airdc.demonstrate.basis import SampleInfo
+from airdc.basis import Bcolors
+from airdc.utils import get_items_by_ext, zip
+from airdc.common.utils.system_info import SystemInfo
+from airdc.common.utils.progress import ProgressBar
+from airdc.common.demonstrators.basis import Demonstrator
+from airdc.state_machine.basis import CallbackEventType
 from collections import defaultdict
 from functools import partial
 from pathlib import Path

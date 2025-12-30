@@ -5,14 +5,14 @@ from collections import deque, defaultdict
 from pprint import pformat
 from setproctitle import setproctitle
 from typing import Dict
-from airbot_data_collection.config import DataCollectionArgs
-from airbot_data_collection.managers.basis import DemonstrateManager
-from airbot_data_collection.state_machine.fsm import (
+from airdc.config import DataCollectionArgs
+from airdc.managers.basis import DemonstrateManager
+from airdc.state_machine.fsm import (
     DemonstrateFSM,
     DemonstrateFSMConfig,
     DemonstrateState,
 )
-from airbot_data_collection.basis import PACKAGE_NAME
+from airdc.basis import PACKAGE_NAME
 from mcap_data_loader.configurers.basis import main_argparse
 
 

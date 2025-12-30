@@ -6,17 +6,17 @@ from typing import Union, Optional
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
 from turbojpeg import TurboJPEG
 from pydantic import field_validator, model_validator, ValidationInfo
-from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
-from airbot_data_collection.common.devices.cameras.utils import (
+from airdc.common.systems.basis import Sensor, DictDataStamped
+from airdc.common.devices.cameras.utils import (
     ColorCameraConfig,
     find_camera_indices,
     get_camera_index_by_bus_info,
     CameraInfo,
     CameraControl,
 )
-from airbot_data_collection.common.visualizers.basis import VisualizerBasis
-from airbot_data_collection.common.utils.progress import run_event_loop
-from airbot_data_collection.common.utils.codec import ImageCoder
+from airdc.common.visualizers.basis import VisualizerBasis
+from airdc.common.utils.progress import run_event_loop
+from airdc.common.utils.codec import ImageCoder
 
 
 class V4L2CameraConfig(ColorCameraConfig):

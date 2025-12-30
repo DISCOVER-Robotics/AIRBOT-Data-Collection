@@ -1,13 +1,13 @@
 from abc import abstractmethod
 from typing import Optional, Protocol, Union, runtime_checkable, final
 from pydantic import BaseModel, NonNegativeInt, PositiveInt
-from airbot_data_collection.basis import ConfigurableBasis, ConcurrentMode
-from airbot_data_collection.basis import DictDataStamped
-from airbot_data_collection.common.utils.dict_utils import (
+from airdc.basis import ConfigurableBasis, ConcurrentMode
+from airdc.basis import DictDataStamped
+from airdc.common.utils.dict_utils import (
     DictKeyFilter,
     DictKeyFilterConfig,
 )
-from airbot_data_collection.demonstrate.basis import SampleInfo
+from airdc.demonstrate.basis import SampleInfo
 
 
 class VisualizerConfig(BaseModel, frozen=True):

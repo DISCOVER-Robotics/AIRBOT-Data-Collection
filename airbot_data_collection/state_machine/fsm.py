@@ -1,14 +1,14 @@
 from pydantic import BaseModel
-from airbot_data_collection.demonstrate.configs import DemonstrateConfig
-from airbot_data_collection.demonstrate.basis import (
+from airdc.demonstrate.configs import DemonstrateConfig
+from airdc.demonstrate.basis import (
     DemonstrateAction,
     DemonstrateState,
 )
-from airbot_data_collection.demonstrate.interface import (
+from airdc.demonstrate.interface import (
     DemonstrateInterface,
     Demonstrator,
 )
-from airbot_data_collection.state_machine.basis import (
+from airdc.state_machine.basis import (
     StateMachineBasis,
     StateMachineConfig,
     CallbackEventType,

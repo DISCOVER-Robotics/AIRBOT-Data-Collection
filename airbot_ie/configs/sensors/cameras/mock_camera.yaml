@@ -1,4 +1,4 @@
-_target_: airbot_data_collection.common.devices.cameras.mock.MockCameraConcurrent
+_target_: airdc.common.devices.cameras.mock.MockCameraConcurrent
 camera_index: null
 fps: 30
 width: 1280

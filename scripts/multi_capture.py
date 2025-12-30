@@ -4,8 +4,8 @@ import logging
 import time
 import cv2
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
-from airbot_data_collection.common.visualizers.opencv import decode_image
-from airbot_data_collection.utils import zip
+from airdc.common.visualizers.opencv import decode_image
+from airdc.utils import zip
 
 
 MODES = {

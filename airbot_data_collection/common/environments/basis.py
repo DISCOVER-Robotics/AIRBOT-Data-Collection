@@ -3,7 +3,7 @@ from typing import Any, Generic, TypeVar
 from abc import abstractmethod
 from pydantic import BaseModel, ConfigDict
 from logging import getLogger
-from airbot_data_collection.basis import ConfigurableBasis
+from airdc.basis import ConfigurableBasis
 
 
 T = TypeVar("T")

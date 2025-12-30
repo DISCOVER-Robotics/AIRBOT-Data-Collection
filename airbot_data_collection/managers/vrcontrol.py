@@ -2,9 +2,9 @@ from typing import Dict
 import time
 import rclpy
 from std_srvs.srv import SetBool
-from airbot_data_collection.managers.basis import DemonstrateManagerBasis
-from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.common.devices.vr.quest import (
+from airdc.managers.basis import DemonstrateManagerBasis
+from airdc.state_machine.fsm import DemonstrateAction as Action
+from airdc.common.devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
     VRControllerEvent,

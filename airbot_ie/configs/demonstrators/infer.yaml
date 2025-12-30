@@ -14,14 +14,14 @@ _setup:
 
 demonstrator:
   instance:
-    _target_: airbot_data_collection.common.demonstrators.wrapped.WrappedDemonstrator
+    _target_: airdc.common.demonstrators.wrapped.WrappedDemonstrator
     environment:
-      _target_: airbot_data_collection.common.environments.grouped.GroupedEnvironment
+      _target_: airdc.common.environments.grouped.GroupedEnvironment
       components: ${_setup.demonstrator.instance.components}
     caller:
-      _target_: airbot_data_collection.common.callers.policy.PolicyEvaluationCaller
+      _target_: airdc.common.callers.policy.PolicyEvaluationCaller
     wrappers:
-      - _target_: airbot_data_collection.common.wrappers.ted.TemporalEnsemblingWithDropping
+      - _target_: airdc.common.wrappers.ted.TemporalEnsemblingWithDropping
         drop_num: 0
         weights: []
         max_steps: 0

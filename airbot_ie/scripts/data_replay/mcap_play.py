@@ -1,6 +1,6 @@
 """AIRBOT Play MCAP data replay."""
 
-from airbot_data_collection.common.systems.mcap_player import (
+from airdc.common.systems.mcap_player import (
     McapPlayer,
     McapPlayerConfig,
     McapDatasetConfig,
@@ -8,7 +8,7 @@ from airbot_data_collection.common.systems.mcap_player import (
 # from airbot_ie.robots.airbot_play import AIRBOTPlay, AIRBOTPlayConfig
 
 from airbot_ie.robots.airbot_play_mock import AIRBOTPlay, AIRBOTPlayConfig
-from airbot_data_collection.common.systems.basis import SystemMode, ActionConfigs
+from airdc.common.systems.basis import SystemMode, ActionConfigs
 from typing import List
 from pprint import pformat
 import logging
@@ -70,8 +70,8 @@ if __name__ == "__main__":
     import time
     from logging import getLogger
     from itertools import count
-    from airbot_data_collection.utils import init_logging
-    from airbot_data_collection.common.configs.control import (
+    from airdc.utils import init_logging
+    from airdc.common.configs.control import (
         PosePlan,
         PoseServo,
         JointPositionPlan,

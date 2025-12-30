@@ -1,2 +1,2 @@
-from airbot_data_collection.common.samplers.basis import DataSampler, MockDataSampler
-from airbot_data_collection.common.visualizers.basis import Visualizer
+from airdc.common.samplers.basis import DataSampler, MockDataSampler
+from airdc.common.visualizers.basis import Visualizer

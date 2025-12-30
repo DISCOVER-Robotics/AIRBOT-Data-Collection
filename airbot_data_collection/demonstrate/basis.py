@@ -1,9 +1,9 @@
-from airbot_data_collection.basis import ConcurrentMode
-from airbot_data_collection.common.utils.progress import (
+from airdc.basis import ConcurrentMode
+from airdc.common.utils.progress import (
     Waitable,
     ConcurrentProgressHandler,
 )
-from airbot_data_collection.utils import StrEnum
+from airdc.utils import StrEnum
 from multiprocessing import get_context
 from enum import auto
 from pydantic import NonNegativeInt, BaseModel
@@ -46,7 +46,7 @@ class SampleInfo(BaseModel):
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.utils import init_logging
+    from airdc.utils import init_logging
 
     init_logging()
 

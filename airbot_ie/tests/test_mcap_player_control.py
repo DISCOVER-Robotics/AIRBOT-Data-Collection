@@ -1,6 +1,6 @@
 if __name__ == "__main__":
     import argparse
-    from airbot_data_collection.tests.test_mcap_player import McapSinglePosePlayer
+    from airdc.tests.test_mcap_player import McapSinglePosePlayer
     from airbot_ie.robots.airbot_play import (
         AIRBOTPlay,
         AIRBOTPlayConfig,
@@ -8,7 +8,7 @@ if __name__ == "__main__":
         InterfaceType,
         SystemMode,
     )
-    from airbot_data_collection.common.utils.transformations import (
+    from airdc.common.utils.transformations import (
         quaternion_from_euler,
     )
     import time

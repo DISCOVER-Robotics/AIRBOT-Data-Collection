@@ -72,7 +72,7 @@ all = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["airbot_data_collection*", "airbot_ie*"]
+include = ["airdc*", "airbot_ie*"]
 
 [project.scripts]
-airdc = "airbot_data_collection.main:main"
+airdc = "airdc.main:main"

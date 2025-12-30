@@ -1,5 +1,5 @@
-from airbot_data_collection.utils import StrEnum
-from airbot_data_collection.basis import ConfigurableBasis, ConfigType
+from airdc.utils import StrEnum
+from airdc.basis import ConfigurableBasis, ConfigType
 from enum import auto, Enum
 from collections import defaultdict
 from typing import Callable, Dict, List

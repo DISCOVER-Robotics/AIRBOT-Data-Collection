@@ -1,5 +1,5 @@
 from typing import Tuple
-from airbot_data_collection.common.systems.basis import ActionConfig, InterfaceType
+from airdc.common.systems.basis import ActionConfig, InterfaceType
 from enum import Enum
 from pydantic import BaseModel, PositiveFloat, NonNegativeInt
 from typing import List

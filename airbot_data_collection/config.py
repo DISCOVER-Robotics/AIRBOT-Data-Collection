@@ -1,9 +1,9 @@
 from pydantic import BaseModel, NonNegativeFloat
-from airbot_data_collection.demonstrate.configs import (
+from airdc.demonstrate.configs import (
     ComponentsConfig,
     DemonstrateConfig,
 )
-from airbot_data_collection.state_machine.fsm import (
+from airdc.state_machine.fsm import (
     DemonstrateFSMConfig,
     StateMachineConfig,
 )

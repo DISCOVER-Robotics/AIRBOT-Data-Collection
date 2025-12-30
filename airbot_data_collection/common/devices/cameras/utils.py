@@ -14,7 +14,7 @@ from pydantic import (
     Field,
 )
 from collections import defaultdict
-from airbot_data_collection.basis import ConcurrentMode
+from airdc.basis import ConcurrentMode
 
 
 class Intrinsics(BaseModel, frozen=True):

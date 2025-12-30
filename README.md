@@ -93,7 +93,7 @@ python3 scripts/multi_capture.py 2 4 6 -ff MJPEG MJPEG MJPEG
 对于Intel-RealSense相机，可以运行`$SHELL install/install_realsense.sh`安装相关依赖，并执行如下命令查看已连接相机的序列号：
 
 ```bash
-python3 airbot_data_collection/common/devices/cameras/intelrealsense.py
+python3 airdc/common/devices/cameras/intelrealsense.py
 ```
 
 ## 数据采集配置

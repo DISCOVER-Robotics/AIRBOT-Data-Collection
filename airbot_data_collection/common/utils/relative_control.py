@@ -1,11 +1,11 @@
 import numpy as np
 from typing import Tuple, Optional
 from logging import getLogger
-from airbot_data_collection.common.utils.transformations import (
+from airdc.common.utils.transformations import (
     quaternion_inverse,
     quaternion_multiply,
 )
-from airbot_data_collection.common.systems.basis import ReferenceMode, ReferenceBase
+from airdc.common.systems.basis import ReferenceMode, ReferenceBase
 
 
 Position = Tuple[float, float, float]

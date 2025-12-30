@@ -3,15 +3,15 @@ from multiprocessing import get_context, current_process
 from multiprocessing.connection import Connection
 from pydantic import BaseModel, ConfigDict, ImportString, validate_call
 from typing import Union, Dict, Type, Optional
-from airbot_data_collection.common.systems.basis import Sensor, System
-from airbot_data_collection.basis import ConcurrentMode
-from airbot_data_collection.common.utils.event_rpc import (
+from airdc.common.systems.basis import Sensor, System
+from airdc.basis import ConcurrentMode
+from airdc.common.utils.event_rpc import (
     EventRpcManager,
     EventRpcServer,
 )
-from airbot_data_collection.utils import init_logging
-from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
-from airbot_data_collection.common.utils.shareable_value import ShareableValue
+from airdc.utils import init_logging
+from airdc.common.utils.shareable_numpy import ShareableNumpy
+from airdc.common.utils.shareable_value import ShareableValue
 from numpy import uint64
 from setproctitle import setproctitle
 
@@ -219,13 +219,13 @@ def concurrent_instantiate(
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.common.devices.cameras.mock import MockCamera
+    from airdc.common.devices.cameras.mock import MockCamera
     import cv2
     import time
 
     init_logging()
 
-    cls = "airbot_data_collection.common.devices.cameras.mock.MockCamera"
+    cls = "airdc.common.devices.cameras.mock.MockCamera"
     cls_wrapped, cfg_wrapped = concurrent_wrapper(cls)
     cls = MockCamera
     cls_wrapped, cfg_wrapped = concurrent_wrapper(cls)

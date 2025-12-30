@@ -33,9 +33,9 @@ demonstrator:
         - "${merge_cfg:${robots}, {port: 50052}}"
         - "${merge_cfg:${robots}, {port: 50053}}"
         # - "${merge_cfg:${robots}, {port: 50053, product_type: play, eef_types: [G2]}}"
-        - _target_: airbot_data_collection.common.devices.cameras.mock.MockCamera
-        # - _target_: airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera
-        # - _target_: airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera
+        - _target_: airdc.common.devices.cameras.mock.MockCamera
+        # - _target_: airdc.common.devices.cameras.v4l2.V4L2Camera
+        # - _target_: airdc.common.devices.cameras.intelrealsense.IntelRealSenseCamera
         #   camera_index: null
         #   height: 480
         #   width: 640
@@ -53,7 +53,7 @@ demonstrator:
         - o
         # - l
 
-action_class: airbot_data_collection.common.systems.grouped.GroupsSendActionConfig
+action_class: airdc.common.systems.grouped.GroupsSendActionConfig
 
 send_actions:
   after_state_change:

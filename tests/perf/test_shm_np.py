@@ -1,4 +1,4 @@
-from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
+from airdc.common.utils.shareable_numpy import ShareableNumpy
 from multiprocessing.managers import SharedMemoryManager
 import numpy as np
 import cv2

@@ -1,10 +1,10 @@
-from airbot_data_collection.common.systems.mcap_player import (
+from airdc.common.systems.mcap_player import (
     McapPlayer,
     McapPlayerConfig,
     McapDatasetConfig,
 )
 from airbot_ie.robots.airbot_mmk import AIRBOTMMK, AIRBOTMMKConfig
-from airbot_data_collection.common.systems.basis import SystemMode
+from airdc.common.systems.basis import SystemMode
 from typing import Optional, List
 from mmk2_types.types import RobotComponents
 import numpy as np
@@ -65,7 +65,7 @@ class MMKMcapDataReplay:
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.utils import init_logging
+    from airdc.utils import init_logging
     import argparse
     import time
     from logging import getLogger

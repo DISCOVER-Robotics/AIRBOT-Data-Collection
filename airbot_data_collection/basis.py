@@ -1,7 +1,7 @@
 from enum import auto
 from typing import Dict, Union, List, Tuple, Optional
 from pydantic import BaseModel, ConfigDict
-from airbot_data_collection.utils import StrEnum
+from airdc.utils import StrEnum
 from mcap_data_loader.utils.basic import (
     DataStamped,
     DictDataStamped,

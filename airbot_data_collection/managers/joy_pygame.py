@@ -2,11 +2,11 @@ from discoverse.examples.force_control_data_collect_using_joy.joy.joy_controller
     JoyController,
 )
 from enum import IntEnum, auto
-from airbot_data_collection.managers.basis import (
+from airdc.managers.basis import (
     DemonstrateManagerBasis,
     ManagerConfigBasis,
 )
-from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
+from airdc.state_machine.fsm import DemonstrateAction as Action
 from typing import Dict, Union
 from functools import partial
 

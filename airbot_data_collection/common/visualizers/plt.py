@@ -2,14 +2,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.image import AxesImage
-from airbot_data_collection.common.visualizers.basis import (
+from airdc.common.visualizers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
     VisualizerBasis,
 )
-from airbot_data_collection.utils import optimal_grid
-from airbot_data_collection.common.visualizers.tk import get_dpi, resolution_to_inches
-from airbot_data_collection.basis import DictDataStamped
+from airdc.utils import optimal_grid
+from airdc.common.visualizers.tk import get_dpi, resolution_to_inches
+from airdc.basis import DictDataStamped
 
 
 class PltVisualizer(VisualizerBasis):

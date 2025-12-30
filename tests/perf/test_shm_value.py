@@ -1,4 +1,4 @@
-from airbot_data_collection.common.utils.shareable_value import ShareableValue
+from airdc.common.utils.shareable_value import ShareableValue
 from multiprocessing.managers import SharedMemoryManager
 import numpy as np
 from typing import Dict, Union

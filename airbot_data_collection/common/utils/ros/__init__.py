@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     def process_camera_info_dict(cam_info_dict: Dict[str, Any]): ...
     def get_current_stamp() -> Any: ...
 else:
-    module = import_module(f"airbot_data_collection.common.utils.ros.ros{ROS_VERSION}")
+    module = import_module(f"airdc.common.utils.ros.ros{ROS_VERSION}")
     build_short_to_full_msg_map = module.build_short_to_full_msg_map
     get_message = module.get_message
     set_message_fields = module.set_message_fields

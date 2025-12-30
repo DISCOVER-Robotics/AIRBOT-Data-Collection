@@ -8,12 +8,12 @@ from pydantic import (
     computed_field,
     model_validator,
 )
-from airbot_data_collection.basis import ConcurrentMode, force_set_attr
-from airbot_data_collection.common.samplers.basis import DataSampler
-from airbot_data_collection.common.visualizers.basis import VisualizerBasis
-from airbot_data_collection.common.demonstrators.basis import Demonstrator
-from airbot_data_collection.demonstrate.basis import DemonstrateAction, DemonstrateState
-from airbot_data_collection.state_machine.basis import CallbackEventType
+from airdc.basis import ConcurrentMode, force_set_attr
+from airdc.common.samplers.basis import DataSampler
+from airdc.common.visualizers.basis import VisualizerBasis
+from airdc.common.demonstrators.basis import Demonstrator
+from airdc.demonstrate.basis import DemonstrateAction, DemonstrateState
+from airdc.state_machine.basis import CallbackEventType
 from mcap_data_loader.utils.dict import (
     CallableKeyMappingDict,
     MappingCall,

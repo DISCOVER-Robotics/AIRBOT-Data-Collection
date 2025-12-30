@@ -1,4 +1,4 @@
-from airbot_data_collection.common.devices.cameras.intelrealsense import (
+from airdc.common.devices.cameras.intelrealsense import (
     IntelRealSenseCamera,
     IntelRealSenseCameraConfig,
     find_camera_indices,

@@ -1,23 +1,23 @@
-from airbot_data_collection.common.devices.cameras.v4l2 import (
+from airdc.common.devices.cameras.v4l2 import (
     V4L2Camera,
     V4L2CameraConfig,
 )
-from airbot_data_collection.common.visualizers.opencv import (
+from airdc.common.visualizers.opencv import (
     OpenCVVisualizer,
     OpenCVVisualizerConfig,
 )
-from airbot_data_collection.common.devices.cameras.utils import (
+from airdc.common.devices.cameras.utils import (
     find_video_capture_devices,
 )
-from airbot_data_collection.utils import (
+from airdc.utils import (
     init_logging,
     execute_shell_script,
     get_can_interfaces,
     zip,
     BaseModelWithFieldAliases,
 )
-from airbot_data_collection.common.utils.system_info import SystemInfo
-from airbot_data_collection.basis import PACKAGE_NAME, Bcolors
+from airdc.common.utils.system_info import SystemInfo
+from airdc.basis import PACKAGE_NAME, Bcolors
 from collections import defaultdict
 from pprint import pformat
 from pydantic import Field
@@ -38,7 +38,7 @@ logger = logging.getLogger(f"{PACKAGE_NAME}-setup")
 logger.info(f"Version: {version(PACKAGE_NAME)}")
 
 try:
-    from airbot_data_collection.common.devices.cameras.intelrealsense import (
+    from airdc.common.devices.cameras.intelrealsense import (
         IntelRealSenseCamera,
         IntelRealSenseCameraConfig,
         find_camera_device_ids,
@@ -250,11 +250,13 @@ for i, index in enumerate(list(used_camera_indices)):
                 camera_params[bus] = {
                     "fps": 30,
                 }
-                target = "airbot_data_collection.common.devices.cameras.intelrealsense.IntelRealSenseCamera"
+                target = (
+                    "airdc.common.devices.cameras.intelrealsense.IntelRealSenseCamera"
+                )
             else:
                 bus = camera.device.info.bus_info
                 file_name = camera.device.filename
-                target = "airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera"
+                target = "airdc.common.devices.cameras.v4l2.V4L2Camera"
             camera_config["_target_"] = target
             camera_params[bus].update(camera_config)
             logger.info(f"Camera {index} bus/serial info: {bus}")

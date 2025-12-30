@@ -11,9 +11,9 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 
-from airbot_data_collection.managers.basis import DemonstrateManagerBasis
-from airbot_data_collection.state_machine.fsm import DemonstrateAction as Action
-from airbot_data_collection.basis import Bcolors
+from airdc.managers.basis import DemonstrateManagerBasis
+from airdc.state_machine.fsm import DemonstrateAction as Action
+from airdc.basis import Bcolors
 
 
 logging.basicConfig(level=logging.INFO)

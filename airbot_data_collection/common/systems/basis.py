@@ -1,4 +1,4 @@
-from airbot_data_collection.basis import (
+from airdc.basis import (
     ConfigurableBasis,
     PostCaptureConfig,
     DictDataStamped,
@@ -28,7 +28,7 @@ from pydantic import (
     model_validator,
 )
 from collections import defaultdict
-from airbot_data_collection.utils import StrEnum
+from airdc.utils import StrEnum
 from functools import cached_property
 
 

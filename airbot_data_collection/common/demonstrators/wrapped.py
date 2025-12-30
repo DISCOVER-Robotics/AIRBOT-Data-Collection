@@ -1,14 +1,14 @@
-from airbot_data_collection.common.demonstrators.basis import Demonstrator
+from airdc.common.demonstrators.basis import Demonstrator
 from pydantic import BaseModel, ConfigDict
 from typing import List
-from airbot_data_collection.demonstrate.configs import DemonstrateAction
-from airbot_data_collection.common.wrappers.basis import (
+from airdc.demonstrate.configs import DemonstrateAction
+from airdc.common.wrappers.basis import (
     EnvironmentBasis,
     ForwardingWrapper,
     TakeOverEnvWrapper,
     WrapperBasis,
 )
-from airbot_data_collection.common.callers.basis import CallerBasis
+from airdc.common.callers.basis import CallerBasis
 
 
 class WrappedDemonstratorConfig(BaseModel):
@@ -122,13 +122,13 @@ class WrappedDemonstrator(Demonstrator):
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.common.utils.utils import (
+    from airdc.common.utils.utils import (
         init_hydra_config,
         hydra_instance_from_dict,
     )
     from omegaconf import OmegaConf
-    from airbot_data_collection.utils import init_logging
-    from airbot_data_collection.common.systems.basis import SystemMode
+    from airdc.utils import init_logging
+    from airdc.common.systems.basis import SystemMode
     from pprint import pprint
 
     init_logging()

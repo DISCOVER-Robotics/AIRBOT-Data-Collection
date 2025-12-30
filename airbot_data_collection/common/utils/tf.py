@@ -1,6 +1,6 @@
 """Transformation utilities using numpy."""
 
-from airbot_data_collection.common.utils.transformations import (
+from airdc.common.utils.transformations import (
     compose_matrix,
     euler_from_quaternion,
     quaternion_from_matrix,

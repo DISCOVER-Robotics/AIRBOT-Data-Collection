@@ -2,7 +2,7 @@ from mcap_data_loader.datasets.mcap_dataset import (
     McapFlatBuffersSampleDataset,
     McapDatasetConfig,
 )
-from airbot_data_collection.common.systems.data_player import (
+from airdc.common.systems.data_player import (
     DataPlayerConfig,
     IterablePlayer,
 )

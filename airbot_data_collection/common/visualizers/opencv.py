@@ -4,15 +4,15 @@ import numpy as np
 import time
 from pydantic import BaseModel
 from threading import current_thread, main_thread
-from airbot_data_collection.common.visualizers.basis import (
+from airdc.common.visualizers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
     VisualizerBasis,
     ConcurrentMode,
 )
-from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
-from airbot_data_collection.utils import init_logging
-from airbot_data_collection.basis import DictDataStamped
+from airdc.common.utils.shareable_numpy import ShareableNumpy
+from airdc.utils import init_logging
+from airdc.basis import DictDataStamped
 from multiprocessing.context import SpawnProcess
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing import get_context, current_process

@@ -11,11 +11,11 @@ from typing import Optional, Callable, List, Dict, Union, Type
 from enum import IntEnum, auto
 from functools import partial
 from collections import defaultdict
-from airbot_data_collection.basis import ConfigurableBasis
-from airbot_data_collection.common.utils.relative_control import RelativePoseControl
-from airbot_data_collection.common.utils.coordinate import CoordinateConverter
-from airbot_data_collection.common.utils.ros.ros2 import TFPublisher
-from airbot_data_collection.common.devices.basis import EventValueMode
+from airdc.basis import ConfigurableBasis
+from airdc.common.utils.relative_control import RelativePoseControl
+from airdc.common.utils.coordinate import CoordinateConverter
+from airdc.common.utils.ros.ros2 import TFPublisher
+from airdc.common.devices.basis import EventValueMode
 
 
 class VRControllerEvent(IntEnum):
@@ -226,7 +226,7 @@ class VRQuest(ConfigurableBasis):
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.utils import init_logging
+    from airdc.utils import init_logging
     from pprint import pprint
     import logging
 

@@ -1,4 +1,4 @@
-from airbot_data_collection.common.systems.basis import System, SystemConfig
+from airdc.common.systems.basis import System, SystemConfig
 from time import time_ns
 
 

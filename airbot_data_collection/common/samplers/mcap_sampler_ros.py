@@ -1,12 +1,12 @@
 from typing import Optional, ClassVar, Dict, Any
 from collections.abc import Sequence
 from typing_extensions import Self, TypedDict
-from airbot_data_collection.common.utils.ros.mcap import Writer, get_mcap_writer
-from airbot_data_collection.common.samplers.mcap_sampler import (
+from airdc.common.utils.ros.mcap import Writer, get_mcap_writer
+from airdc.common.samplers.mcap_sampler import (
     McapDataSamplerConfig,
     McapDataSampler,
 )
-from airbot_data_collection.common.utils.ros import (
+from airdc.common.utils.ros import (
     get_message,
     get_message_short,
     get_fields_and_field_types,
@@ -192,7 +192,7 @@ class McapDataSamplerROS(McapDataSampler):
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.common.samplers.mcap_sampler import (
+    from airdc.common.samplers.mcap_sampler import (
         McapDataSamplerConfig,
     )
     from pathlib import Path

@@ -4,14 +4,14 @@ from threading import Thread
 from time import time_ns, sleep, perf_counter
 from typing import Union, Optional, Tuple, Dict
 from contextlib import suppress
-from airbot_data_collection.common.devices.cameras.utils import (
+from airdc.common.devices.cameras.utils import (
     RGBDCameraConfig,
     CameraStreamConfig,
     CameraInfo,
     find_video_capture_devices,
 )
-from airbot_data_collection.common.systems.basis import Sensor, DictDataStamped
-from airbot_data_collection.basis import force_set_attr
+from airdc.common.systems.basis import Sensor, DictDataStamped
+from airdc.basis import force_set_attr
 from mcap_data_loader.utils.dict import update_if
 from pyrealsense2 import config as RSConfig  # noqa: N812
 from pyrealsense2 import format as RSFormat  # noqa: N812

@@ -7,7 +7,7 @@ from multiprocessing.process import BaseProcess
 from pydantic import BaseModel, ConfigDict, Field
 from abc import abstractmethod, ABC
 from setproctitle import setproctitle
-from airbot_data_collection.basis import ConcurrentMode, Bcolors
+from airdc.basis import ConcurrentMode, Bcolors
 import logging
 import asyncio
 

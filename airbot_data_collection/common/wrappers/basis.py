@@ -5,8 +5,8 @@ from collections.abc import Callable
 from abc import abstractmethod
 from pydantic import BaseModel, PositiveInt
 from logging import getLogger
-from airbot_data_collection.basis import ConfigurableBasis
-from airbot_data_collection.common.environments.basis import (
+from airdc.basis import ConfigurableBasis
+from airdc.common.environments.basis import (
     EnvironmentBasis,
     EnvironmentOutput,
 )

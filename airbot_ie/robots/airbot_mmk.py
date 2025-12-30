@@ -1,6 +1,6 @@
 from pydantic import BaseModel, PositiveInt
-from airbot_data_collection.common.systems.basis import System, SystemMode
-from airbot_data_collection.utils import list_remove
+from airdc.common.systems.basis import System, SystemMode
+from airdc.utils import list_remove
 from mmk2_types.types import (
     RobotComponents,
     ImageTypes,
@@ -359,7 +359,7 @@ class AIRBOTMMK(System):
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.common.visualizers.opencv import (
+    from airdc.common.visualizers.opencv import (
         OpenCVVisualizer,
         OpenCVVisualizerConfig,
     )

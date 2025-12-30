@@ -1,8 +1,8 @@
-from airbot_data_collection.common.systems.mcap_player import (
+from airdc.common.systems.mcap_player import (
     McapPlayer,
     McapDatasetConfig,
 )
-from airbot_data_collection.common.utils.transformations import (
+from airdc.common.utils.transformations import (
     quaternion_multiply,
     quaternion_from_euler,
 )

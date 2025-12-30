@@ -1,6 +1,6 @@
-from airbot_data_collection.common.systems.basis import System
-from airbot_data_collection.common.utils.progress import ProgressHandler
-from airbot_data_collection.demonstrate.basis import DemonstrateAction
+from airdc.common.systems.basis import System
+from airdc.common.utils.progress import ProgressHandler
+from airdc.demonstrate.basis import DemonstrateAction
 from pydantic import BaseModel
 from abc import abstractmethod
 

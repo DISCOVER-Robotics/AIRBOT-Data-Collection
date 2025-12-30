@@ -2,10 +2,10 @@ import time
 from typing import Tuple
 from pydantic import IPvAnyAddress
 from threading import Thread
-from airbot_data_collection.common.systems.basis import SystemConfig, System, SystemMode
-from airbot_data_collection.common.utils.http import RESTfulJson as rj
-from airbot_data_collection.common.utils.transformations import quaternion_from_euler
-from airbot_data_collection.common.configs.control import BaseControlParams
+from airdc.common.systems.basis import SystemConfig, System, SystemMode
+from airdc.common.utils.http import RESTfulJson as rj
+from airdc.common.utils.transformations import quaternion_from_euler
+from airdc.common.configs.control import BaseControlParams
 from mcap_data_loader.utils.basic import Rate
 from mcap_data_loader.data_types.basis import Pose3D
 

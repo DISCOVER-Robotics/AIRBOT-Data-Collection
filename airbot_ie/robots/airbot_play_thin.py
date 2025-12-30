@@ -3,8 +3,8 @@ import numpy as np
 import time
 from typing import List, Optional
 from enum import Enum
-from airbot_data_collection.common.utils.interpolate import Interpolate
-from airbot_data_collection.basis import Bcolors
+from airdc.common.utils.interpolate import Interpolate
+from airdc.basis import Bcolors
 from logging import getLogger
 from threading import Thread
 
@@ -213,7 +213,7 @@ class AIRBOTArm:
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.utils import init_logging
+    from airdc.utils import init_logging
     import logging
 
     init_logging(logging.INFO)

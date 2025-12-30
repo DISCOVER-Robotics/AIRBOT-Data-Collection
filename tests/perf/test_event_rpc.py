@@ -1,4 +1,4 @@
-from airbot_data_collection.common.utils.event_rpc import (
+from airdc.common.utils.event_rpc import (
     ProcessEventRpcArgs,
     EventRpcClient,
     EventRpcServer,

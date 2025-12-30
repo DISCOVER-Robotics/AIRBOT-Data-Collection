@@ -1,9 +1,9 @@
-from airbot_data_collection.common.systems.grouped import (
+from airdc.common.systems.grouped import (
     GroupedComponentsSystemConfig,
     GroupedComponentsSystem,
     GroupsSendActionConfig,
 )
-from airbot_data_collection.basis import DictDataStamped, ForceSetAttr
+from airdc.basis import DictDataStamped, ForceSetAttr
 from pydantic import field_validator, ValidationInfo
 from mcap_data_loader.datasets.dataset import RealTimeDatasetABC
 
@@ -46,15 +46,15 @@ class GroupedSystemDataSource(RealTimeDatasetABC[DictDataStamped]):
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.utils import init_logging
-    from airbot_data_collection.common.systems.basis import SystemMode
-    from airbot_data_collection.common.systems.grouped import (
+    from airdc.utils import init_logging
+    from airdc.common.systems.basis import SystemMode
+    from airdc.common.systems.grouped import (
         SystemSensorComponentGroupsConfig,
         AutoControlConfig,
     )
     from pprint import pprint
-    from airbot_data_collection.common.devices.cameras.mock import MockCamera
-    from airbot_data_collection.common.systems.mock import MockSystem
+    from airdc.common.devices.cameras.mock import MockCamera
+    from airdc.common.systems.mock import MockSystem
     import time
 
     init_logging()

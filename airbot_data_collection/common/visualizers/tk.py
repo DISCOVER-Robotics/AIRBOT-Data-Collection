@@ -2,12 +2,12 @@ import numpy as np
 from tkinter import Canvas, Tk, Toplevel
 from typing import Union
 from PIL import Image, ImageTk
-from airbot_data_collection.common.visualizers.basis import (
+from airdc.common.visualizers.basis import (
     GUIVisualizerConfig,
     SampleInfo,
     VisualizerBasis,
 )
-from airbot_data_collection.basis import DictDataStamped
+from airdc.basis import DictDataStamped
 
 
 def get_dpi() -> float:

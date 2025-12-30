@@ -1,4 +1,4 @@
-from airbot_data_collection.common.utils.ros import (
+from airdc.common.utils.ros import (
     ROS_VERSION,
     get_datatype_and_msgdef_text,
 )
@@ -14,10 +14,10 @@ else:
     from typing import IO, Any, Dict, Optional, Union
     from mcap.writer import CompressionType
     from rclpy.serialization import serialize_message
-    from airbot_data_collection.common.utils.ros.ros2 import (
+    from airdc.common.utils.ros.ros2 import (
         get_datatype_and_msgdef_text,
     )
-    from airbot_data_collection import __version__
+    from airdc import __version__
     import time
     import mcap
 

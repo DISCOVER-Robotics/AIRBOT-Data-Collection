@@ -1,5 +1,5 @@
 if __name__ == "__main__":
-    from airbot_data_collection.common.utils.av_coder import AvCoder
+    from airdc.common.utils.av_coder import AvCoder
 
     import time
 

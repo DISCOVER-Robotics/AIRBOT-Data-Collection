@@ -3,7 +3,7 @@ from multiprocessing.shared_memory import SharedMemory
 from multiprocessing.managers import SharedMemoryManager
 from typing import Any, Callable, Optional, Union, Dict
 from typing_extensions import Self
-from airbot_data_collection.common.utils.shareable_numpy import ShareableNumpy
+from airdc.common.utils.shareable_numpy import ShareableNumpy
 
 
 class ShareableValue:

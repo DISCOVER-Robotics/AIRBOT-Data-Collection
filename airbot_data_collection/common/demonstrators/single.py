@@ -1,4 +1,4 @@
-from airbot_data_collection.common.demonstrators.basis import Demonstrator
+from airdc.common.demonstrators.basis import Demonstrator
 from pydantic import BaseModel
 
 

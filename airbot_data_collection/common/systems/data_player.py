@@ -1,6 +1,6 @@
 from pydantic import BaseModel, NonNegativeFloat, NonNegativeInt, ConfigDict
 from typing import Any, Optional
-from airbot_data_collection.common.systems.basis import System, SystemMode
+from airdc.common.systems.basis import System, SystemMode
 from more_itertools import consume, seekable
 from mcap_data_loader.datasets.dataset import IterableDatasetABC
 

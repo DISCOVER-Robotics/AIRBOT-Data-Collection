@@ -2,8 +2,8 @@ import uuid
 from pydantic import BaseModel, ConfigDict
 from typing import Dict
 from logging import getLogger
-from airbot_data_collection.basis import Bcolors
-from airbot_data_collection.common.samplers.mcap_sampler import (
+from airdc.basis import Bcolors
+from airdc.common.samplers.mcap_sampler import (
     McapDataSampler,
     McapDataSamplerConfig,
 )

@@ -8,14 +8,14 @@ sample_limit:
 sampler:
   name: airbot_mcap_sampler
   instance:
-    _target_: airbot_data_collection.common.samplers.mcap_sampler.McapDataSampler
+    _target_: airdc.common.samplers.mcap_sampler.McapDataSampler
 concurrent:
   actions: [update]
 visualizers:
   names:
     - opencv
   instances:
-    - _target_: airbot_data_collection.common.visualizers.opencv.OpenCVVisualizer
+    - _target_: airdc.common.visualizers.opencv.OpenCVVisualizer
       rate: 30
       concurrent_mode: process
       key_filtering:
@@ -23,14 +23,14 @@ visualizers:
           - color/image_raw
           - depth/image_rect_raw
           - aligned_depth_to_color/image_raw
-prepare_cv2: "${instantiate:{_target_: airbot_data_collection.common.visualizers.opencv.prepare_cv2_imshow}}"
+prepare_cv2: "${instantiate:{_target_: airdc.common.visualizers.opencv.prepare_cv2_imshow}}"
 managers:
   names:
     - self_manager
     - keyboard
   instances:
-    - _target_: airbot_data_collection.managers.basis.SelfManager
-    - _target_: airbot_data_collection.managers.keyboard.KeyboardCallbackManager
+    - _target_: airdc.managers.basis.SelfManager
+    - _target_: airdc.managers.keyboard.KeyboardCallbackManager
 
 fsm:
   _target_: airbot_ie.configs.fsm.get_fsm_config

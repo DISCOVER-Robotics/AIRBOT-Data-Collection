@@ -13,7 +13,7 @@ from shutil import rmtree
 from mcap_data_loader.utils.av_coder import AvCoder, AvCoderConfig
 from mcap_data_loader.utils.mcap_utils import McapTool, MediaType
 from mcap_data_loader.serialization.flb import McapFlatBuffersWriter, FlatBuffersSchemas
-from airbot_data_collection.common.samplers.basis import DataSampler, DataSamplerConfig
+from airdc.common.samplers.basis import DataSampler, DataSamplerConfig
 
 
 class McapDataSamplerConfig(DataSamplerConfig):

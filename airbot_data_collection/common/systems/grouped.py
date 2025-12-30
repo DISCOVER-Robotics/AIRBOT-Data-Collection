@@ -2,7 +2,7 @@ from pydantic import BaseModel, NonNegativeFloat, ConfigDict, model_validator, F
 from typing import List, Union, Optional, Any, Dict, Literal, Set
 from collections.abc import Callable
 from typing_extensions import Self
-from airbot_data_collection.basis import (
+from airdc.basis import (
     StrEnum,
     auto,
     PostCaptureConfig,
@@ -11,22 +11,22 @@ from airbot_data_collection.basis import (
     force_set_attr,
     Bcolors,
 )
-from airbot_data_collection.common.systems.basis import Sensor, System, SystemMode
-from airbot_data_collection.common.utils.progress import Waitable
+from airdc.common.systems.basis import Sensor, System, SystemMode
+from airdc.common.utils.progress import Waitable
 
 # TODO: should we import from `demonstrate` here?
-from airbot_data_collection.demonstrate.configs import (
+from airdc.demonstrate.configs import (
     ComponentConfig,
     ComponentsConfig,
     T,
 )
-from airbot_data_collection.utils import zip, init_logging
-from airbot_data_collection.common.systems.wrappers import (
+from airdc.utils import zip, init_logging
+from airdc.common.systems.wrappers import (
     ConcurrentWrapperConfig,
     SensorConcurrentWrapper,
 )
-from airbot_data_collection.common.utils.progress import create_handler
-from airbot_data_collection.common.utils.utils import (
+from airdc.common.utils.progress import create_handler
+from airdc.common.utils.utils import (
     defaultdict_to_dict,
     ensure_equal_length,
 )

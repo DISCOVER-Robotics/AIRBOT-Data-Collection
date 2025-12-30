@@ -4,8 +4,8 @@ from pydantic import PositiveInt, Field
 from time import time_ns, perf_counter
 from collections import defaultdict
 from functools import partial, cached_property
-from airbot_data_collection.utils import linear_map, zip
-from airbot_data_collection.common.systems.basis import (
+from airdc.utils import linear_map, zip
+from airdc.common.systems.basis import (
     System,
     SystemConfig,
     InterfaceType,
@@ -14,9 +14,9 @@ from airbot_data_collection.common.systems.basis import (
     ObservationConfig,
     SystemMode,
 )
-from airbot_data_collection.common.utils.relative_control import RelativePoseControl
-from airbot_data_collection.common.utils.coordinate import CoordinateTools
-from airbot_data_collection.common.utils.tf import (
+from airdc.common.utils.relative_control import RelativePoseControl
+from airdc.common.utils.coordinate import CoordinateTools
+from airdc.common.utils.tf import (
     apply_tf_to_pose,
     pose2matrix,
     to_matrix,
@@ -24,7 +24,7 @@ from airbot_data_collection.common.utils.tf import (
     is_identity_matrix,
     StaticTFBuffer,
 )
-from airbot_data_collection.common.configs.control import (
+from airdc.common.configs.control import (
     JointControlBasis,
     JointPositionServo,
     JointPositionPlan,

@@ -1,12 +1,12 @@
 import numpy as np
 from typing import List, Any, Union
 from pydantic import BaseModel, NonNegativeInt
-from airbot_data_collection.common.utils.event_rpc import (
+from airdc.common.utils.event_rpc import (
     EventRpcManager,
     ConcurrentMode,
     EventRpcServer,
 )
-from airbot_data_collection.common.wrappers.basis import WrapperBasis
+from airdc.common.wrappers.basis import WrapperBasis
 
 
 class TemporalEnsemblingWithDroppingConfig(BaseModel):

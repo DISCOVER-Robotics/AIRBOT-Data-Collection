@@ -2,12 +2,12 @@ from enum import auto, IntEnum
 from tf2_msgs.msg import TFMessage
 from sensor_msgs.msg import Joy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
-from airbot_data_collection.common.devices.vr.quest import (
+from airdc.common.devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
     EventValueMode,
 )
-from airbot_data_collection.common.utils.ros.ros2 import TFDiscover
+from airdc.common.utils.ros.ros2 import TFDiscover
 from typing import List
 
 
@@ -104,7 +104,7 @@ class VRPico(VRQuest):
 
 
 if __name__ == "__main__":
-    from airbot_data_collection.utils import init_logging
+    from airdc.utils import init_logging
     from pprint import pprint
     import logging
 

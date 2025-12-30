@@ -8,7 +8,7 @@ dataset:
 demonstrator:
   name: grouped
   param:
-    _target_: airbot_data_collection.common.demonstrators.grouped.GroupedDemonstrator
+    _target_: airdc.common.demonstrators.grouped.GroupedDemonstrator
     auto_control:
       groups: []
     components:
@@ -23,7 +23,7 @@ demonstrator:
       instances:
         - "${merge_cfg:${robots}, {port: 50050}}"
         - "${merge_cfg:${robots}, {port: 50051}}"
-        - _target_: airbot_data_collection.common.devices.cameras.v4l2.V4L2Camera
+        - _target_: airdc.common.devices.cameras.v4l2.V4L2Camera
       roles:
         - l
         - f

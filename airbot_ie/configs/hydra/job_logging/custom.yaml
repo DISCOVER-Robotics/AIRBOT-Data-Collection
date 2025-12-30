@@ -3,7 +3,7 @@ disable_existing_loggers: false
 
 formatters:
   colorful:
-    (): airbot_data_collection.utils.ColorfulFormatter
+    (): airdc.utils.ColorfulFormatter
 
 handlers:
   console:

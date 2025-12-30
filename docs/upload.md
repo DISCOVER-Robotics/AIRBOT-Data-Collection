@@ -8,7 +8,7 @@
 
 ### 1. 配置文件改动
 
-**文件：** `airbot_data_collection/defaults/config_mmk.yaml`
+**文件：** `airdc/defaults/config_mmk.yaml`
 
 - 将 `task_id` 从字符串 `"120"` 改为整数 `120`
 - 新增 `upload` 配置节：
@@ -27,7 +27,7 @@ sampler:
 
 ### 2. 代码改动
 
-**文件：** `airbot_data_collection/airbot/samplers/mcap_sampler.py`
+**文件：** `airdc/airbot/samplers/mcap_sampler.py`
 
 #### 主要修改：
 
@@ -133,7 +133,7 @@ pip install dataloop
 ### 3. 运行程序
 
 ```bash
-cd airbot_data_collection
+cd airdc
 bash run_mmk.sh
 ```
 
