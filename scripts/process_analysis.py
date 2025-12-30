@@ -35,17 +35,41 @@ def build_process_snapshot():
     return snapshot
 
 
-def find_root_process(snapshot: dict, cmd_fragment: str):
-    """在快照中查找第一个命令行包含片段的进程。"""
+def find_root_process(
+    snapshot: dict, cmd_fragment: str, preferred_pid=None, exclude_pids=None
+):
+    """在快照中查找命令行包含片段的进程，优先使用上次命中的 PID。"""
     if not cmd_fragment:
         return None
 
-    for pid, info in snapshot.items():
-        if cmd_fragment in info.get("cmdline", ""):
-            try:
-                return psutil.Process(pid)
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                return None
+    exclude_pids = exclude_pids or set()
+
+    def pick_process(pid: int):
+        if pid in exclude_pids:
+            return None
+        info = snapshot.get(pid)
+        if not info:
+            return None
+        if cmd_fragment not in info.get("cmdline", ""):
+            return None
+        try:
+            proc = psutil.Process(pid)
+            # 确保进程仍在运行且非僵尸，避免持有陈旧句柄
+            if proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE:
+                return proc
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            return None
+        return None
+
+    if preferred_pid:
+        proc = pick_process(preferred_pid)
+        if proc:
+            return proc
+
+    for pid in snapshot.keys():
+        proc = pick_process(pid)
+        if proc:
+            return proc
     return None
 
 
@@ -181,6 +205,8 @@ def main():
     fragment = args.command_fragment
     interval = args.interval
     top_n = args.top
+    tracked_pid = None
+    self_pid = os.getpid()
 
     prime_cpu_counters()
     time.sleep(0.1)
@@ -188,7 +214,17 @@ def main():
     try:
         while True:
             snapshot = build_process_snapshot()
-            root_proc = find_root_process(snapshot, fragment)
+            root_proc = find_root_process(
+                snapshot,
+                fragment,
+                preferred_pid=tracked_pid,
+                exclude_pids={self_pid},
+            )
+
+            if root_proc:
+                tracked_pid = root_proc.pid
+            else:
+                tracked_pid = None
 
             # 构建完整输出内容
             output_lines = []
