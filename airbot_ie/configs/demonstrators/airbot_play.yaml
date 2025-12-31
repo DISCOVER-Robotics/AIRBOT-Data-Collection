@@ -1,7 +1,6 @@
 # @package _global_
 
 defaults:
-  - /robots: airbot_play
   - basis
 
 demonstrator:
@@ -14,7 +13,11 @@ demonstrator:
         - ""
         # - follow_camera
       instances:
-        - "${merge_cfg:${robots}, {port: 50051}}"
+        - _target_: airbot_ie.robots.airbot_play.AIRBOTPlay
+          port: 50050
+          components:
+            - arm
+            - eef
         # - _target_: airdc.common.devices.cameras.v4l2.V4L2Camera
       roles:
         - l

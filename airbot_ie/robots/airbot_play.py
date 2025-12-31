@@ -58,11 +58,17 @@ ComponentType = Literal["arm", "eef"]
 
 class AIRBOTPlayConfig(SystemConfig):
     url: str = "localhost"
+    """The robot server URL."""
     port: PositiveInt = 50050
+    """The robot server port."""
     speed_profile: Optional[Union[SpeedProfile, str]] = SpeedProfile.FAST
+    """The speed profile for the robot movements."""
     limit: Dict[str, Dict[Union[str, int], Tuple[float, float]]] = {}
+    """The limit configuration for joint positions."""
     backend: str = "grpc"  # grpc or thin
+    """The backend type for connecting to the robot."""
     components: List[ComponentType] = Field(["arm", "eef"], min_length=1)
+    """List of robot components to control."""
     action: ActionConfigs = [
         {
             SystemMode.RESETTING: JointPositionPlan(),
@@ -78,6 +84,7 @@ class AIRBOTPlayConfig(SystemConfig):
         [f"joint{i}" for i in range(1, 7)],
         ["arm_eef_gripper_joint"],
     ]
+    """The joint names for each component."""
 
     def model_post_init(self, context):
         if isinstance(self.speed_profile, str):
