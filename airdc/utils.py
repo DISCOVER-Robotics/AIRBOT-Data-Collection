@@ -6,6 +6,9 @@ from pydantic import BaseModel, AliasChoices
 from mcap_data_loader.utils.basic import get_items_by_ext, zip, StrEnum
 
 
+zip_equal = zip
+
+
 class BaseModelWithFieldAliases(BaseModel):
     """By default, `validation_alias` will override the original field name.
     This class also adds the original field name to the alias."""
