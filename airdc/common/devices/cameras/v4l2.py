@@ -1,5 +1,6 @@
 import asyncio
 import numpy as np
+import time
 from threading import Event
 from typing import Union, Optional
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
