@@ -33,61 +33,7 @@ demonstrator:
     auto_control:
       rates: [100]
       modes: [process]
-    components:
-      groups:
-        - left
-        - left
-        - right
-        - right
-        - camera
-      names:
-        - leader
-        - follower
-        - leader
-        - follower
-        - camera_env
-      instances:
-        - "${merge_cfg:${robots}, {port: 50050}}"
-        - "${merge_cfg:${robots}, {port: 50051}}"
-        - "${merge_cfg:${robots}, {port: 50052}}"
-        - "${merge_cfg:${robots}, {port: 50053}}"
-        # - _target_: airdc.common.devices.cameras.mock.MockCamera
-        - _target_: airdc.common.devices.cameras.v4l2.V4L2Camera
-        # - _target_: airdc.common.devices.cameras.intelrealsense.IntelRealSenseCamera
-          # camera_index: null
-          # height: 480
-          # width: 640
-          # fps: 30
-          # enable_depth: true
-          # align_depth: true
-          # blocking: false
-        # rgb_camera:
-        #   intrinsics:
-        #     distortion_model: plumb_bob
-        #     d: [0.0, 0.0, 0.0, 0.0, 0.0]
-        #     k: [615.0, 0.0, 320.0, 0.0, 615.0, 240.0, 0.0, 0.0, 1.0]
-        #     binning_x: 0
-        #     binning_y: 0
-        #   calibration:
-        #     r: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-        #     p: [615.0, 0.0, 320.0, 0.0, 0.0, 615.0, 240.0, 0.0, 0.0, 0.0, 1.0, 0.0]
-        #     roi:
-        #       x_offset: 0
-        #       y_offset: 0
-        #       height: 0
-        #       width: 0
-        #       do_rectify: false
-        # depth_module:
-        #   intrinsics:
-        #     distortion_model: plumb_bob
-        #   calibration:
-        #     r: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-      roles:
-        - l
-        - f
-        - l
-        - f
-        - o
+    components: null
 
 # action_class: airdc.common.systems.grouped.GroupsSendActionConfig
 

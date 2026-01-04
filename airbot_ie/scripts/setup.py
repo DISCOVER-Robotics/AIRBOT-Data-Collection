@@ -26,6 +26,7 @@ from typing import List, Dict
 from importlib.metadata import version
 from pathlib import Path
 from ruamel.yaml import YAML
+from toolz.dicttoolz import get_in
 import logging
 import cv2
 import subprocess
@@ -95,7 +96,7 @@ class SetupConfig(BaseModelWithFieldAliases):
         description="Ignore CAN interfaces by their names.",
     )
     ref_cfg_dir: Path = Field(
-        "airbot_ie/configs/demonstrators/",
+        "airbot_ie/configs/demonstrators",
         validation_alias="rcd",
         description="Directory containing the base configuration files.",
     )
@@ -103,6 +104,16 @@ class SetupConfig(BaseModelWithFieldAliases):
         "basis",
         validation_alias="rcn",
         description="Name of the base configuration file.",
+    )
+    ref_arm_cfg_dir: Path = Field(
+        "airbot_ie/configs/robots",
+        validation_alias="racd",
+        description="Directory containing the base configuration files for the robotic arms.",
+    )
+    ref_arm_cfg_name: str = Field(
+        "",
+        validation_alias="racn",
+        description="Name of the base configuration file for the robotic arms.",
     )
 
 
@@ -380,25 +391,39 @@ while True:
         else:
             raise NotImplementedError(f"Not supported can group number {can_group_num}")
 
-        components: Dict[str, list] = {
-            "instances": [
-                {
-                    "_target_": "airbot_ie.robots.airbot_play.AIRBOTPlay",
-                    "port": 50050 + i,
-                }
-                for i in range(len(can_itfs))
-            ]
-            + [
-                {"camera_index": bus} | camera_params.get(bus, {})
-                for bus in cfged_bus_serials
-            ],
-            "names": ["lead", "follow"] * can_group_num + cfged_names,
-            "roles": ["l", "f"] * can_group_num + ["o"] * len(cfged_indices),
-            "groups": groups,
-        }
-        ref_cfg_dir = ref_cfg_path.parent
         with open(ref_cfg_path) as f:
             config: dict = yaml.load(f)
+            ref_arm_cfg_name = args.ref_arm_cfg_name
+            cfg_name = None
+            print(pformat(config))
+            if not ref_arm_cfg_name:
+                for cfg in config.get("defaults", []):
+                    if isinstance(cfg, dict):
+                        cfg_name = cfg.get("/robots")
+                        if cfg_name is not None:
+                            break
+            ref_arm_cfg_name = ref_arm_cfg_name or cfg_name or "airbot_play"
+            logger.info(f"Using arm ref cfg name: {ref_arm_cfg_name}")
+            if ref_arm_cfg_name:
+                arm_ref_cfg_path = args.ref_arm_cfg_dir / Path(
+                    ref_arm_cfg_name
+                ).with_suffix(".yaml")
+                with open(arm_ref_cfg_path) as f:
+                    arm_ref_cfg = yaml.load(f)
+            components: Dict[str, list] = {
+                "instances": [
+                    (arm_ref_cfg | {"port": 50050 + i}) for i in range(len(can_itfs))
+                ]
+                + [
+                    {"camera_index": bus} | camera_params.get(bus, {})
+                    for bus in cfged_bus_serials
+                ],
+                "names": ["lead", "follow"] * can_group_num + cfged_names,
+                "roles": ["l", "f"] * can_group_num + ["o"] * len(cfged_indices),
+                "groups": groups,
+            }
+            ref_cfg_dir = ref_cfg_path.parent
+
             param_dict: dict = config["demonstrator"]["instance"]
             raw_comps = param_dict.get("components")
             if isinstance(raw_comps, dict):

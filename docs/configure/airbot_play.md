@@ -19,6 +19,8 @@ python3 airbot_ie/scripts/setup.py --ic <bus_id> --ii <can_id> --rcd <ref_config
 - `--ii`：指定要忽略的CAN名称，通常用于忽略非机械臂的其他在用的CAN设备。如果不需要忽略，请去掉该参数。
 - `--rcd`：参考配置文件夹路径，默认值为`airbot_ie/configs/demonstrators`。
 - `--rcn`：参考配置文件名称（yaml后缀可省略），默认值为`basis`。其他内置支持选项：`ros`、`base`（TOK带底盘数采时使用）。
+- `--racd`：参考机械臂配置文件夹路径，默认值为`airbot_ie/configs/robots`。
+- `--racn`：参考机械臂配置文件名称（yaml后缀可省略）。如果不指定，则会从参考配置文件的`defaults`字段中尝试获取`/robots`配置，如果未找到则使用`airbot_play`。
 
 启动后，该程序会要求输入密码，这是为了获取设备的序列号便于匹配不同设备。
 而后会自动检测设备所连接的所有相机并通过图形窗口实时显示图像，图像上方标题的格式为：`名称-ID-USB端口信息或序列号`，如果未曾配置过

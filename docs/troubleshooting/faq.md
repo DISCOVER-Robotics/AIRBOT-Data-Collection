@@ -27,6 +27,8 @@
 如果上述修改有效，最后可以考虑执行如下命令永久调整uvc内核配置：`echo "options uvcvideo nodrop=1 timeout=5000 quirks=0x80" | sudo tee -a /etc/modprobe.d/uvcvideo.conf >/dev/null`
 - RealSense相机也会占用`/dev/video`号，因此当与USB相机一起连接到电脑上时需要注意区分。
 
+更多相机相关问题请参考[USB相机常见问题](usb_cam.md)。
+
 ## 资源占用
 
 数据采集程序可能会同时启动多个进程，为了更直观地监控相关进程的资源占用情况，可使用如下脚本：

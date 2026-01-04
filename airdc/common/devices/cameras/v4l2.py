@@ -1,11 +1,11 @@
 import asyncio
 import numpy as np
 from threading import Event
-from time import time_ns
 from typing import Union, Optional
 from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
+from linuxpy.ctypes import timeval
 from turbojpeg import TurboJPEG
-from pydantic import field_validator, model_validator, ValidationInfo
+from pydantic import field_validator, model_validator
 from airdc.common.systems.basis import Sensor, DictDataStamped
 from airdc.common.devices.cameras.utils import (
     ColorCameraConfig,
@@ -46,20 +46,6 @@ class V4L2CameraConfig(ColorCameraConfig):
             object.__setattr__(self.rgb_camera, "pixel_format", self.pixel_format)
         return self
 
-    @property
-    def color_format(self):
-        color_cfg = self.rgb_camera
-        return (color_cfg.width, color_cfg.height, color_cfg.pixel_format)
-
-    @property
-    def can_set_format(self) -> bool:
-        return None not in self.color_format
-
-    @property
-    def is_partial_color_format(self) -> bool:
-        formats = set(self.color_format)
-        return None in formats and len(formats) > 1
-
 
 class V4L2Camera(Sensor):
     """
@@ -88,17 +74,16 @@ class V4L2Camera(Sensor):
         if self.device.closed:
             return False
         self._capture = VideoCapture(self.device, config.nb_buffers, config.mode)
-        if config.can_set_format:
-            self._capture.set_format(
-                color_config.width, color_config.height, color_config.pixel_format
-            )
-        elif config.is_partial_color_format:
-            self.get_logger().warning(
-                "Partial color format specified, but cannot set format without all parameters."
-            )
-        self._format = self._capture.get_format()
+        format = self._capture.get_format()
+        self._capture.set_format(
+            color_config.width or format.width,
+            color_config.height or format.height,
+            color_config.pixel_format or format.pixel_format,
+        )
         if color_config.fps:
             self._capture.set_fps(color_config.fps)
+        self._capture.open()
+        self._format = self._capture.get_format()
         # NOTE: do not move to __init__ to avoid deepcopy error
         self._event = Event()
         self._read_fut = asyncio.run_coroutine_threadsafe(
@@ -142,13 +127,13 @@ class V4L2Camera(Sensor):
         return obs
 
     def shutdown(self) -> bool:
-        # TODO: why manually closing raises error?
-        # self._shutdown = True
-        # self._capture.close()
-        # self._read_fut.result()
-        # # self.device.close()
-        # return self.device.closed
-        return True
+        self._shutdown = True
+        self._read_fut.result()
+        # NOTE: without a short sleep period, there is a high probability of a shutdown error occurring
+        time.sleep(0.01)
+        self._capture.close()
+        self.device.close()
+        return self.device.closed
 
     def _init_info(self):
         cam_format = self._capture.get_format()
@@ -194,26 +179,40 @@ class V4L2Camera(Sensor):
         self._visualizer = visualizer
 
     async def _read_frame(self):
-        with self._capture as stream:
-            async for frame in stream:
-                self.stamp = time_ns()
-                self._frame = frame
-                self._event.set()
-                # if self._shutdown:
-                #     break
+        async for frame in self._capture:
+            timestamp: timeval = frame.buff.timestamp
+            self.stamp = timestamp.secs * int(1e9) + timestamp.usecs * int(1e3)
+            self._frame = frame
+            self._event.set()
+            if self._shutdown:
+                break
 
 
 if __name__ == "__main__":
     import time
     import cv2
+    import logging
 
-    camera = V4L2Camera()
-    assert camera.configure()
-    while True:
-        start = time.monotonic()
-        image = camera.capture_observation()
-        print(f"time cost: {time.monotonic() - start}s", end="\r")
-        cv2.imshow("image", image)
-        if cv2.waitKey(1) & 0xFF in (ord("q"), 27):  # 27 is the ESC key
-            break
-    assert camera.shutdown()
+    logging.basicConfig(level=logging.INFO)
+
+    def test(show: bool = True):
+        camera = V4L2Camera()
+        assert camera.configure()
+        while True:
+            start = time.monotonic()
+            image = camera.capture_observation()["color/image_raw"]["data"]
+            if show:
+                print(f"time cost: {time.monotonic() - start}s", end="\r")
+                cv2.imshow("image", image)
+                if cv2.waitKey(1) & 0xFF in (ord("q"), 27):  # 27 is the ESC key
+                    cv2.destroyAllWindows()
+                    break
+            else:
+                break
+        assert camera.shutdown()
+
+    # test()
+    # test to ensure no shutdown error
+    for i in range(50):
+        print(i)
+        test(False)
