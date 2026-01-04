@@ -4,7 +4,7 @@ from pydantic import PositiveInt, Field
 from time import time_ns, perf_counter
 from collections import defaultdict
 from functools import partial, cached_property
-from airdc.utils import linear_map, zip
+from airdc.utils import linear_map, zip_equal
 from airdc.common.systems.basis import (
     System,
     SystemConfig,
@@ -414,7 +414,7 @@ class AIRBOTPlay(System):
             # print(f"Post processed pose: {pose}")
             if config.relative_observation:
                 pose = self.rela_obs_ctrl.to_relative(*pose)
-            for key, value in zip(self._pose_fields, pose):
+            for key, value in zip_equal(self._pose_fields, pose):
                 obs[f"{prefix}/{key}"] = {"t": time_ns(), "data": value}
             self._metrics["durations"]["capture/pose"] = perf_counter() - start
         start = perf_counter()
@@ -462,6 +462,9 @@ class AIRBOTPlay(System):
 
     def set_post_capture(self, config, info):
         self_info = self.interface.get_product_info()
+        # the info is empty if no follower in the group
+        # so we set it to self_info
+        info = info or self_info
         arm_type = self_info["product_type"]
         eef_type = self_info["eef_types"][0]
         default_limits = self._get_default(arm_type, eef_type, self._default_limit)
