@@ -26,7 +26,6 @@ from typing import List, Dict
 from importlib.metadata import version
 from pathlib import Path
 from ruamel.yaml import YAML
-from toolz.dicttoolz import get_in
 import logging
 import cv2
 import subprocess
@@ -115,6 +114,15 @@ class SetupConfig(BaseModelWithFieldAliases):
         validation_alias="racn",
         description="Name of the base configuration file for the robotic arms.",
     )
+    drag: bool = False
+    """Whether to use drag teaching mode."""
+    depth: bool = False
+    """Whether to enable depth cameras."""
+    concurrent: bool = Field(
+        False,
+        description="Whether to use concurrent camera instantiation.",
+        validation_alias="cc",
+    )
 
 
 args = CliApp.run(SetupConfig)
@@ -131,24 +139,43 @@ if not ref_cfg_path.exists():
 
 station_config_path = cur_dir / "station_config.yaml"
 station_config = yaml.load(open(station_config_path))
-NAME_CHOICES = station_config["choices"]
-BUS_NAME_MAPPINGS = station_config["bus_name_mapping"]
-# TODO: support for X5
-CAN_NAME_MAPPINGS = {
-    2: ["can_lead", "can_follow"],
-    4: ["can_left_lead", "can_left", "can_right_lead", "can_right"],
-}
+NAME_CHOICES = station_config["choices"][args.drag]
+BUS_NAME_MAPPINGS = defaultdict(dict, station_config["bus_name_mapping"])
+CAN_NAME_MAPPINGS = (
+    {
+        2: ["can_lead", "can_follow"],
+        4: ["can_left_lead", "can_left", "can_right_lead", "can_right"],
+    }
+    if not args.drag
+    else {
+        1: ["can_follow"],
+        2: ["can_left", "can_right"],
+    }
+)
 
 """Process CAN Interfaces"""
 
 can_itfs = args.can_interfaces or sorted(
     set(get_can_interfaces()) - set(args.ignore_cans)
 )
+logger.info(f"CAN interfaces: {can_itfs}")
 can_num = len(can_itfs)
-assert can_num in BUS_NAME_MAPPINGS, f"Not correct can number: {can_itfs}"
-can_buses = list_to_nested_tuples(can_itfs)
-can_group_num = len(can_buses)
-logger.info(f"CAN interfaces: {can_buses}")
+if can_num not in CAN_NAME_MAPPINGS:
+    raise ValueError(f"Not correct can number: {can_itfs} for drag={args.drag}")
+arm_names = (
+    ["lead", "follow"] * can_num // 2
+    if not args.drag
+    else {1: [""], 2: ["left", "right"]}[can_num]
+)
+arm_groups = (
+    {
+        2: ["/"] * can_num,
+        4: ["left"] * 2 + ["right"] * 2,
+    }[can_num]
+    if not args.drag
+    else ["/"] * can_num
+)
+arm_roles = ["l", "f"] * can_num // 2 if not args.drag else ["l"] * can_num
 
 if hw_uuid not in BUS_NAME_MAPPINGS[can_num]:
     BUS_NAME_MAPPINGS[can_num][hw_uuid] = {}
@@ -261,9 +288,17 @@ for i, index in enumerate(list(used_camera_indices)):
                 camera_params[bus] = {
                     "fps": 30,
                 }
-                target = (
+                cls_path = (
                     "airdc.common.devices.cameras.intelrealsense.IntelRealSenseCamera"
                 )
+                if args.concurrent:
+                    target = "airdc.common.systems.wrappers.concurrent_instantiate"
+                    camera_params[bus]["interface_cls"] = cls_path
+                else:
+                    target = cls_path
+                if args.depth:
+                    camera_params[bus]["enable_depth"] = True
+                    camera_params[bus]["align_depth"] = True
             else:
                 bus = camera.device.info.bus_info
                 file_name = camera.device.filename
@@ -384,13 +419,6 @@ while True:
         cv2.destroyAllWindows()
         no_cfg_buses_indexes.clear()
     elif key == ord("s"):
-        if can_group_num == 1:
-            groups = ["/"] * (len(can_itfs) + len(cfged_camera_types))
-        elif can_group_num == 2:
-            groups = ["left"] * 2 + ["right"] * 2 + ["/"] * len(cfged_camera_types)
-        else:
-            raise NotImplementedError(f"Not supported can group number {can_group_num}")
-
         with open(ref_cfg_path) as f:
             config: dict = yaml.load(f)
             ref_arm_cfg_name = args.ref_arm_cfg_name
@@ -418,9 +446,9 @@ while True:
                     {"camera_index": bus} | camera_params.get(bus, {})
                     for bus in cfged_bus_serials
                 ],
-                "names": ["lead", "follow"] * can_group_num + cfged_names,
-                "roles": ["l", "f"] * can_group_num + ["o"] * len(cfged_indices),
-                "groups": groups,
+                "names": arm_names + cfged_names,
+                "roles": arm_roles + ["o"] * len(cfged_indices),
+                "groups": arm_groups + ["/"] * len(cfged_indices),
             }
             ref_cfg_dir = ref_cfg_path.parent
 

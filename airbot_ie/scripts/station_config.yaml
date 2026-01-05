@@ -4,8 +4,8 @@ bus_name_mapping:
       usb-0000:00:14.0-1: follow_camera
       usb-0000:00:14.0-4: env_camera
     b0dc8900-3b32-11ed-99b1-ef6412dd1a00:
-      '243322072294': env_camera
-      '427622274177': follow_camera
+      "243322072294": env_camera
+      "427622274177": follow_camera
       usb-0000:00:14.0-3: env_camera
       usb-0000:00:14.0-5: follow_camera
     c5bc8546-51a9-21a3-9b32-1c697aa5e070:
@@ -27,12 +27,23 @@ bus_name_mapping:
 # NOTE: The 2 and 4 below refer to the number of robotic arms. During automatic setup,
 # the number of robotic arms determines the available camera names.
 choices:
-  2:  # 1 * (leader + follower)
-  - follow_camera
-  - env_camera
-  4:  # 2 * (leader + follower)
-  - left_camera
-  - right_camera
-  - env_camera
-  # - front_camera
-  # - top_camera
+  false: # not drag
+    2: # 1 * (leader + follower)
+      - follow_camera
+      - env_camera
+    4: # 2 * (leader + follower)
+      - left_camera
+      - right_camera
+      - env_camera
+    # - front_camera
+    # - top_camera
+  true: # drag
+    1: # single arm
+      - follow_camera
+      - env_camera
+    2: # left + right arms
+      - left_camera
+      - right_camera
+      - env_camera
+    # - front_camera
+    # - top_camera

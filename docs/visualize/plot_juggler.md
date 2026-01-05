@@ -10,7 +10,7 @@
 
 ## 安装使用
 
-可以通过以下命令安装`PlotJuggler`的ROS支持包：
+可以通过以下命令安装`PlotJuggler`的ROS支持包（需保证已正确设置ROS环境变量且添加了ROS软件源）：
 
 ```bash
 sudo apt install ros-$ROS_DISTRO-plotjuggler-ros
@@ -18,9 +18,17 @@ sudo apt install ros-$ROS_DISTRO-plotjuggler-ros
 
 然后运行如下命令启动：
 
-```bash
-rosrun plotjuggler plotjuggler
-```
+- ROS1：
+
+    ```bash
+    rosrun plotjuggler plotjuggler
+    ```
+
+- ROS2：
+
+    ```bash
+    ros2 run plotjuggler plotjuggler
+    ```
 
 <p align="center">
     <img src="../assets/visualize/plot_juggler/image-0.png">

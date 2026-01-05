@@ -10,7 +10,7 @@ demonstrator:
         - /
         # - /
       names:
-        - ""
+        - follow # unified name
         # - follow_camera
       instances:
         - _target_: airbot_ie.robots.airbot_play.AIRBOTPlay
