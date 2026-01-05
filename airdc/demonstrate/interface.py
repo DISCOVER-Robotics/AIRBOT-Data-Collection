@@ -226,6 +226,7 @@ class DemonstrateInterface:
 
     def save(self) -> None:
         """Save the sampled data and be ready for the next round."""
+        # FIXME: explicitly specifying the action type is coupled with the state machine logic
         self._wait_action_futures(DemonstrateAction.update)
         save_path = self._save_path
         if self._use_executor(DemonstrateAction.save):
@@ -313,10 +314,12 @@ class DemonstrateInterface:
             self._action_futures[action] = []
 
     def _wait_action_futures(self, action: DemonstrateAction) -> None:
-        futures = self._action_futures.get(action, None)
+        # drop the done futures
+        futures = [f for f in self._action_futures.get(action, []) if not f.done()]
         if futures:
+            # wait for the remaining futures
             for update_future in tqdm(
-                as_completed(futures), f"Completing {action.name} futures", len(futures)
+                futures, f"Completing {action.name} futures", len(futures)
             ):
                 update_future.result()
             self._action_futures[action] = []
