@@ -319,7 +319,7 @@ class DemonstrateInterface:
         if futures:
             # wait for the remaining futures
             for update_future in tqdm(
-                futures, f"Completing {action.name} futures", len(futures)
+                as_completed(futures), f"Completing {action.name} futures", len(futures)
             ):
                 update_future.result()
             self._action_futures[action] = []
