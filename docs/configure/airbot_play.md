@@ -2,9 +2,9 @@
 
 ## 注意事项
 
-- 对于`拖动示教`方式暂不支持自动配置，请手动绑定设备并修改配置文件。参考配置文件位于`airbot_ie/configs/demonstrators/airbot_play.yaml`
-- 如果尚未绑定机械臂，请确保按正确顺序插入设备（见[设备连接](../setup/airbot_play.md#设备连接)），然后执行下述命令后会默认自动进行绑定，请根据终端提示拔掉设备并重新连接即可
-- 同时使用多个USB相机时往往会因为相机连接顺序变化而导致设备号变化，造成数据记录的语义与实际不符，例如名为`env_camera`的环境相机实际上可能错误地对应了臂载相机。为了解决这个问题，自动配置程序使用了USB端口号代替设备号进行配置
+- 对于`拖动示教`方式暂不支持自动配置，请手动绑定设备并修改配置文件。参考配置文件位于`airbot_ie/configs/demonstrators/airbot_play.yaml`。
+- 如果尚未绑定机械臂，请确保按正确顺序插入设备（见[设备连接](../setup/airbot_play.md#设备连接)），然后执行下述命令后会默认自动进行绑定，请根据终端提示拔掉设备并重新连接即可。
+- 同时使用多个USB相机时往往会因为相机连接顺序变化而导致设备号变化，造成数据记录的语义与实际不符，例如名为`env_camera`的环境相机实际上可能错误地对应了臂载相机。为了解决这个问题，自动配置程序使用了USB端口号代替设备号进行配置。
 
 ## 配置过程
 
@@ -31,6 +31,8 @@ python3 airbot_ie/scripts/setup.py --ic <bus_id> --ii <can_id> --rcd <ref_config
 
 ## 手动调整
 
-常见的配置调整说明请参考[常见配置调整](../configure/common.md)。
+若不使用夹爪，请将配置中的`demonstrator.instance.components.instances`列表中各元素的`components`字段中的`eef`组件注释或删除。
+
+其他常见的配置调整说明请参考[常见配置调整](../configure/common.md)。
 
 注意：配置文件的生成基于给定的参考配置文件，主要是覆写了`demonstrator.instance`字段下的`components`参数，为防止重新生成配置后覆盖，建议不要仅修改`setup.yaml`，而是同步修改上述参考配置文件，这样重新生成配置时不会丢失修改。
