@@ -218,7 +218,7 @@ class AIRBOTPlay(System):
                 for field in fields.copy():
                     js = self._get_joint_state(component, field)
                     if js is None or set(js) == {None}:
-                        self.get_logger().warning(
+                        self.get_logger().info(
                             f"{component} ({comp_type}) joint state field: {field} is not available ({js})."
                         )
                         fields.remove(field)
