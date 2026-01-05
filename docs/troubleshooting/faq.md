@@ -46,6 +46,10 @@ python3 scripts/process_analysis.py airdc
 - 遥操作跟随控制进程（如果启用）
 - 相机进程（如果启用并发；每个相机独占一个）
 
+## 启动卡死
+
+默认启用`OpenCV`的可视化功能，其与默认的键盘控制库`pynput`可能存在冲突，导致图像显示卡死无法正常显示图像窗口，解决方法是优先导入并调用可视化，抢占控制权。为此可在配置文件中默认额外增加一个`prepare_cv2`字段，参考`airbot_ie/configs/basis.yaml`（默认已注释）。
+
 ## 其他
 
 - [数据检查](data_checking.md)
