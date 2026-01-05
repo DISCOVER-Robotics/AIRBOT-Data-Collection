@@ -20,7 +20,8 @@ class AIRBOTArmMock:
         return self.value
 
     def get_joint_eff(self):
-        return self.value
+        # return self.value
+        return [None] * len(self.value)
 
     def get_eef_pos(self):
         return [random.uniform(0.0, 0.0471)]

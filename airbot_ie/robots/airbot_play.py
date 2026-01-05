@@ -128,6 +128,7 @@ class AIRBOTPlay(System):
 
     def on_configure(self) -> bool:
         self._init_args()
+        interface = self.interface
         # mapping action config type to robot mode and function
         type2mode = {
             # NOTE: PLANNING_POS can be used for both joint and cartesian planning
@@ -139,15 +140,15 @@ class AIRBOTPlay(System):
         }
         type2func = {
             "arm": {
-                JointPositionServo: self.interface.servo_joint_pos,
-                JointPositionPlan: self.interface.move_to_joint_pos,
-                JointMIT: self.interface.mit_joint_integrated_control,
-                PoseServo: self.interface.servo_cart_pose,
-                PosePlan: self.interface.move_to_cart_pose,
+                JointPositionServo: interface.servo_joint_pos,
+                JointPositionPlan: interface.move_to_joint_pos,
+                JointMIT: interface.mit_joint_integrated_control,
+                PoseServo: interface.servo_cart_pose,
+                PosePlan: interface.move_to_cart_pose,
             },
             "eef": {
-                JointPositionServo: self.interface.servo_eef_pos,
-                JointPositionPlan: self.interface.move_eef_pos,
+                JointPositionServo: interface.servo_eef_pos,
+                JointPositionPlan: interface.move_eef_pos,
             },
         }
         # mapping action config type to action length
@@ -183,9 +184,9 @@ class AIRBOTPlay(System):
         # set action post process function TODO: configure this?
         self.action_post_process = self.action_data_to_list
         self.get_logger().info(f"Connecting to {config.url}:{config.port}")
-        if self.interface.connect():
-            # self.interface.set_speed_profile(self.config.speed_profile)
-            self.interface.set_params(
+        if interface.connect():
+            # interface.set_speed_profile(self.config.speed_profile)
+            interface.set_params(
                 {
                     "servo_node.moveit_servo.scale.linear": 10.0,
                     "servo_node.moveit_servo.scale.rotational": 10.0,
@@ -196,19 +197,31 @@ class AIRBOTPlay(System):
             )
             self._init_relative_control()
             # check if the robot components are available
-            info = self.interface.get_product_info()
+            info = interface.get_product_info()
             self.get_logger().info(f"Robot info: {info}")
-            info["arm_types"] = [info["product_type"]]
+            self._component_types = {
+                "arm": info["product_type"],
+                "eef": info["eef_types"][0],
+            }
             for component in config.components:
-                if info[f"{component}_types"][0] == "none":
+                comp_type = self._component_types[component]
+                if comp_type == "none":
                     self.get_logger().error(
                         f"Component {component} is not available. "
                         "Please check the configuration or the robot connection."
                     )
                     return False
-                if component == "eef" and not self.interface.get_eef_pos():
+                if component == "eef" and not interface.get_eef_pos():
                     self.get_logger().error(f"Can not get joint value of {component}")
                     return False
+                fields = self._js_fields[component]
+                for field in fields.copy():
+                    js = self._get_joint_state(component, field)
+                    if js is None or set(js) == {None}:
+                        self.get_logger().warning(
+                            f"{component} ({comp_type}) joint state field: {field} is not available ({js})."
+                        )
+                        fields.remove(field)
             return True
         return False
 
@@ -316,7 +329,7 @@ class AIRBOTPlay(System):
         return f"{component}.{frame}"
 
     def _init_args(self):
-        self._js_fields = self.config.joint_fields
+        self._js_fields = defaultdict(lambda: self.config.joint_fields)
         self._pose_fields = ("position", "orientation")
         self._post_capture = defaultdict(dict)
         limits: Dict[str, Dict[str, Dict[int, Tuple]]] = {
@@ -419,7 +432,7 @@ class AIRBOTPlay(System):
             self._metrics["durations"]["capture/pose"] = perf_counter() - start
         start = perf_counter()
         for component in config.components:
-            for field in self._js_fields:
+            for field in self._js_fields[component]:
                 obs[f"{component}/joint_state/{field}"] = {
                     "t": time_ns(),
                     "data": self._get_joint_state(component, field),
