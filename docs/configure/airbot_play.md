@@ -35,7 +35,7 @@ python3 airbot_ie/scripts/setup.py --ic <bus_id> --ii <can_id> --rcd <ref_config
 
 ## 手动调整
 
-若不使用夹爪，请将配置中的`demonstrator.instance.components.instances`列表中各元素的`components`字段中的`eef`组件注释或删除。
+若不使用夹爪，请在配置中的`demonstrator.instance.components.instances`列表中各元素增加`components`字段并设置为列表：`[arm]`。
 
 其他常见的配置调整说明请参考[常见配置调整](../configure/common.md)。
 
