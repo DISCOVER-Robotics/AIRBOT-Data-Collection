@@ -17,7 +17,7 @@ class AIRBOTArmMock:
         return self.value
 
     def get_joint_vel(self):
-        return self.value
+        return [float("nan")] * len(self.value)
 
     def get_joint_eff(self):
         # return self.value

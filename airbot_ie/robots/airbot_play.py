@@ -36,6 +36,7 @@ from airdc.common.configs.control import (
 from mcap_data_loader.utils.basic import DictDataStamped, DataStamped
 from functools import cache
 import numpy as np
+import math
 
 
 AVAILABLE_BACKEND = set()
@@ -215,9 +216,9 @@ class AIRBOTPlay(System):
                     self.get_logger().error(f"Can not get joint value of {component}")
                     return False
                 fields = self._js_fields[component]
-                for field in fields.copy():
+                for field in fields.copy() - {"name"}:
                     js = self._get_joint_state(component, field)
-                    if js is None or set(js) == {None}:
+                    if js is None or all(((v is None) or math.isnan(v)) for v in js):
                         self.get_logger().info(
                             f"{component} ({comp_type}) joint state field: {field} is not available ({js})."
                         )
@@ -474,12 +475,11 @@ class AIRBOTPlay(System):
         return default.get(arm_type, {}) | default.get(eef_type, {})
 
     def set_post_capture(self, config, info):
-        self_info = self.interface.get_product_info()
         # the info is empty if no follower in the group
         # so we set it to self_info
-        info = info or self_info
-        arm_type = self_info["product_type"]
-        eef_type = self_info["eef_types"][0]
+        info = info or self.interface.get_product_info()
+        arm_type = self._component_types["arm"]
+        eef_type = self._component_types["eef"]
         default_limits = self._get_default(arm_type, eef_type, self._default_limit)
         default_range = self._get_default(arm_type, eef_type, self._default_range)
         default_transf = {}
