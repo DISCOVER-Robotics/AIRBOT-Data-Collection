@@ -163,7 +163,7 @@ can_num = len(can_itfs)
 if can_num not in CAN_NAME_MAPPINGS:
     raise ValueError(f"Not correct can number: {can_itfs} for drag={args.drag}")
 arm_names = (
-    ["lead", "follow"] * can_num // 2
+    ["lead", "follow"] * (can_num // 2)
     if not args.drag
     else {1: [""], 2: ["left", "right"]}[can_num]
 )
@@ -175,7 +175,7 @@ arm_groups = (
     if not args.drag
     else ["/"] * can_num
 )
-arm_roles = ["l", "f"] * can_num // 2 if not args.drag else ["l"] * can_num
+arm_roles = ["l", "f"] * (can_num // 2) if not args.drag else ["l"] * can_num
 
 if hw_uuid not in BUS_NAME_MAPPINGS[can_num]:
     BUS_NAME_MAPPINGS[can_num][hw_uuid] = {}
