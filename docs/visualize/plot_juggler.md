@@ -16,7 +16,7 @@
 sudo apt install ros-$ROS_DISTRO-plotjuggler-ros
 ```
 
-然后运行如下命令启动（ROS1需要确保`roscore`已启动）：
+然后运行如下命令启动：
 
 ```bash
 rosrun plotjuggler plotjuggler
@@ -25,7 +25,6 @@ rosrun plotjuggler plotjuggler
 <p align="center">
     <img src="../assets/visualize/plot_juggler/image-0.png">
 </p>
-
 
 更多安装和使用说明请参考[官方GitHub仓库](https://github.com/facontidavide/PlotJuggler?tab=readme-ov-file)。
 
@@ -52,3 +51,5 @@ rosrun plotjuggler plotjuggler
 ## 可视化
 
 可以通过拖拽左侧的`Timeseries List`中数据的最后一级标量字段到中间的绘图区域来绘制。更多可视化操作请参考官方文档。
+
+注意：ROS1格式的MCAP文件可能会出现`JointState`等类型消息的字段解析不完整的问题（例如仅有header字段）。
