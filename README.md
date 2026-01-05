@@ -188,6 +188,7 @@ airdc --path airbot_ie/configs/config.yaml dataset.directory=example
 
 - [Foxglove](docs/visualize/foxglove.md)
 - [AIRBOT MCAP Data Viewer](docs/visualize/airbot.md)
+- [PlotJuggler](docs/visualize/plot_juggler.md)
 
 ## 性能测试
 
