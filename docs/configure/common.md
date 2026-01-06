@@ -38,11 +38,11 @@ rgb_camera:
         r: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
         p: [615.0, 0.0, 320.0, 0.0, 0.0, 615.0, 240.0, 0.0, 0.0, 0.0, 1.0, 0.0]
         roi:
-        x_offset: 0
-        y_offset: 0
-        height: 0
-        width: 0
-        do_rectify: false
+          x_offset: 0
+          y_offset: 0
+          height: 0
+          width: 0
+          do_rectify: false
 ```
 
 深度模组的配置类似，只是字段名称替换为`depth_module`即可。
