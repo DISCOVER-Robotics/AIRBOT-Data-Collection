@@ -1,5 +1,6 @@
-from typing import Union, Callable, Literal, Type, Optional, final
+from typing import Union, Literal, Type, Optional, Generic, TypeVar, final
 from typing_extensions import Self
+from collections.abc import Iterable, Iterator, Callable
 from threading import Thread, Event, Lock, current_thread, main_thread
 from multiprocessing import get_context, synchronize, current_process
 from multiprocessing.context import SpawnProcess
@@ -376,25 +377,32 @@ def run_event_loop() -> asyncio.AbstractEventLoop:
     return event_loop
 
 
-class ProgressBar:
+T = TypeVar("T")
+
+
+class ProgressBar(Generic[T]):
     def __init__(
-        self, total: int, desc: str, leave: Optional[bool] = True, leave_mode: int = 0
+        self,
+        desc: str,
+        total: int,
+        leave: Optional[bool] = True,
+        leave_mode: int = 0,
+        iterable: Optional[Iterable[T]] = None,
     ):
         self.total = total
         from tqdm import tqdm
         # from tqdm.asyncio import tqdm
 
-        self.progress_bar = tqdm(total=total, desc=desc, unit="step", leave=leave)
+        self.progress_bar = tqdm(iterable, desc, total, leave, unit="step")
         self.progress_bar.clear()
         self._leave_mode = leave_mode
         self._leave = leave
 
-    def update(self, index: int):
-        self.progress_bar.n = index
-        self.progress_bar.set_postfix(
-            {"Percentage": f"{index / self.total * 100:.1f}%"}
-        )
-        self.progress_bar.refresh()
+    def update(self, index: Optional[int] = None):
+        bar = self.progress_bar
+        bar.n = index if index is not None else bar.n + 1
+        bar.set_postfix({"Percentage": f"{bar.n / self.total * 100:.1f}%"})
+        bar.refresh()
 
     def reset(self, total: int = 0, desc: Optional[str] = None):
         self.progress_bar.reset(total=total or self.total)
@@ -417,4 +425,8 @@ class ProgressBar:
             if self._leave_mode > 0
             else self._leave
         )
+        bar.clear()
         bar.close()
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.progress_bar)

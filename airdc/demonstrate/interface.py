@@ -127,7 +127,7 @@ class DemonstrateInterface:
 
     def activate(self) -> bool:
         self._bar = ProgressBar(
-            self._sample_limit.size, f"Round {self._sample_info.round}", leave_mode=-1
+            f"Round {self._sample_info.round}", self._sample_limit.size, leave_mode=-1
         )
         Path(self._config.dataset.absolute_directory).mkdir(parents=True, exist_ok=True)
         self.get_logger().info("Warming up...")
@@ -203,6 +203,7 @@ class DemonstrateInterface:
                 self._metrics["durations"]["demonstrate/update/sampler"] = (
                     time.perf_counter() - start_sampler
                 )
+                # time.sleep(1 / 10)  # simulate some delay for sampler
 
             self._submit_action(DemonstrateAction.update, update_sampler, data)
             # update the progress bar
@@ -318,10 +319,13 @@ class DemonstrateInterface:
         futures = [f for f in self._action_futures.get(action, []) if not f.done()]
         if futures:
             # wait for the remaining futures
-            for update_future in tqdm(
-                as_completed(futures), f"Completing {action.name} futures", len(futures)
-            ):
+            bar = ProgressBar(
+                f"Completing {action.name} futures", len(futures), leave_mode=-1
+            )
+            for update_future in as_completed(futures):
                 update_future.result()
+                bar.update()
+            bar.close()
             self._action_futures[action] = []
 
     def abandon(self) -> bool:
