@@ -393,7 +393,9 @@ class ProgressBar(Generic[T]):
         from tqdm import tqdm
         # from tqdm.asyncio import tqdm
 
-        self.progress_bar = tqdm(iterable, desc, total, leave, unit="step")
+        self.progress_bar = tqdm(
+            iterable, desc, total, leave, unit="step", smoothing=1.0
+        )
         self.progress_bar.clear()
         self._leave_mode = leave_mode
         self._leave = leave
@@ -410,7 +412,13 @@ class ProgressBar(Generic[T]):
             self.progress_bar.desc = desc
         self.progress_bar.clear()
 
+    def clear(self):
+        # NOTE: sometimes manual cleanup is necessary to avoid terminal remnants.
+        self.progress_bar.clear()
+
     def close(self):
+        # NOTE: usually no need to close manually
+        # and manually closing may sometimes cause some terminal remnants
         bar = self.progress_bar
         if self._leave_mode < 0:
             bar.leave = bar.n == self.total

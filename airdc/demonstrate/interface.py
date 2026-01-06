@@ -319,9 +319,7 @@ class DemonstrateInterface:
         futures = [f for f in self._action_futures.get(action, []) if not f.done()]
         if futures:
             # wait for the remaining futures
-            bar = ProgressBar(
-                f"Completing {action.name} futures", len(futures), leave_mode=-1
-            )
+            bar = ProgressBar(f"Completing {action.name} futures", len(futures))
             for update_future in as_completed(futures):
                 update_future.result()
                 bar.update()
@@ -347,7 +345,6 @@ class DemonstrateInterface:
         )
         for vis in self._visualizers.values():
             vis.shutdown()
-        self._bar.close()
         return True
 
     def log_round(self):
