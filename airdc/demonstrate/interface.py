@@ -32,7 +32,7 @@ import shutil
 class DemonstrateInterface:
     def __init__(self, config: DemonstrateConfig):
         self._config = config
-        # init sampler, visualizers and demonstrator
+        """init sampler, visualizers and demonstrator"""
         self._sampler = (
             config.sampler.instance
             if config.sampler.instance is not None
@@ -40,13 +40,15 @@ class DemonstrateInterface:
         )
         self._visualizers = config.visualizers.instance_dict
         self._demonstrator = config.demonstrator.instance
-        # init sample info
+        """init sample info"""
         start_round = self._config.sample_limit.start_round
         if start_round < 0:
+            data_dir = self._config.dataset.absolute_directory
+            start_round = self._sampler.get_start_round(data_dir)
+        if start_round < 0:
             # detect the number of files in the directory
-            ds = self._config.dataset
             start_round = (
-                len(get_items_by_ext(ds.absolute_directory, ds.file_extension))
+                len(get_items_by_ext(data_dir, self._config.dataset.file_extension))
                 + start_round
                 + 1
             )
@@ -56,7 +58,7 @@ class DemonstrateInterface:
         else:
             self._sample_limit = self._config.sample_limit
         self._sample_info = SampleInfo(round=start_round)
-        # init concurrent actions
+        """init concurrent actions"""
         concur = self._config.concurrent
         self._action_executors: Dict[DemonstrateAction, Executor] = {}
         mode2executor = {
@@ -69,7 +71,7 @@ class DemonstrateInterface:
             args = (action.name,) if mode is ConcurrentMode.thread else ()
             self._action_executors[action] = mode2executor[mode](max_workers, *args)
         self._action_futures: Dict[DemonstrateAction, List[Future]] = defaultdict(list)
-        # store current round data
+        """store current round data"""
         self._round_data = defaultdict(list)
         self._metrics = defaultdict(dict)
         self._register_fsm_callbacks()

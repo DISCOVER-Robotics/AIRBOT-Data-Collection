@@ -76,6 +76,15 @@ class DataSamplerConfig(BaseModel, frozen=True):
 class DataSampler(ConfigurableBasis):
     """Data sampler for sampling kinds of data."""
 
+    def get_start_round(self, directory: Path) -> int:
+        """Get the starting round number from the given data directory.
+        Args:
+            directory (Path): The directory where the data are saved.
+        Returns:
+            int: The starting round number.
+        """
+        return -1
+
     @abstractmethod
     def compose_path(self, directory: Path, round: int) -> Path:
         """Compose the path to the data file. It will be called
