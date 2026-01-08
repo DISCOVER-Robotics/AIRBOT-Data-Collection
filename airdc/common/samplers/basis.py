@@ -74,7 +74,7 @@ class DataSamplerConfig(BaseModel, frozen=True):
 
 
 class DataSampler(ConfigurableBasis):
-    """Data sampler for sampling kinds of data.TODO: add a close method?"""
+    """Data sampler for sampling kinds of data."""
 
     @abstractmethod
     def compose_path(self, directory: Path, round: int) -> Path:
@@ -126,6 +126,9 @@ class DataSampler(ConfigurableBasis):
         Returns:
             bool: True if the data was saved successfully, False otherwise.
         """
+
+    def shutdown(self) -> None:
+        """Shutdown the data sampler, release all resources."""
 
 
 class MockDataSampler(DataSampler):

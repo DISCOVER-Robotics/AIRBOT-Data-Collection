@@ -345,6 +345,7 @@ class DemonstrateInterface:
         )
         for vis in self._visualizers.values():
             vis.shutdown()
+        self._sampler.shutdown()
         return True
 
     def log_round(self):
