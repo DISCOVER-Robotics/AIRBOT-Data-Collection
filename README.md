@@ -98,7 +98,8 @@ python3 airdc/common/devices/cameras/intelrealsense.py
 
 ## 程序配置
 
-数据采集程序默认基于`Hydra`框架进行配置，支持通过`yaml`文件配置默认参数以及通过命令行对参数进行覆写。若需更换其他配置框架，请参考[配置框架自定义](docs/configure/cfger.md)。
+数据采集程序默认基于`Hydra`框架进行配置，支持通过`yaml`文件配置默认参数以及通过命令行对参数进行覆写。
+<!-- 若需更换其他配置框架，请参考[配置框架自定义](docs/configure/cfger.md)。 -->
 
 数据采集的配置选项主要包括示教器/遥操系统（Demonstrator）、采样器（Sampler）、管理器（Manager）、可视化器（Visualizer）、状态机（FSM）以及其他基本配置（如logging、数据保存路径等）。
 
