@@ -82,6 +82,7 @@ class DataSampler(ConfigurableBasis):
             directory (Path): The directory where the data are saved.
         Returns:
             int: The starting round number.
+                -1 means it's up to the demonstrate interface to decide.
         """
         return -1
 
@@ -143,14 +144,16 @@ class DataSampler(ConfigurableBasis):
 class MockDataSampler(DataSampler):
     """Mock data sampler for testing purpose."""
 
-    def update(self, data) -> None:
-        return None
+    config: None
 
-    def save(self, path: Path, data: Any) -> bool:
+    def on_configure(self):
         return True
 
-    def remove(self, path: Path) -> bool:
+    def save(self, path: Path, data: Any):
         return True
 
-    def compose_path(self, directory: Path, round: int) -> Path:
+    def remove(self, path: Path):
+        return True
+
+    def compose_path(self, directory: Path, round: int):
         return directory / f"mock_{round}.data"
