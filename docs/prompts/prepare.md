@@ -1,10 +1,15 @@
+# 前置要求
+
+下面这些前置要求非常重要，请务必牢记并严格遵守！
+
 # env
 
-运行Python命令前，请先激活conda环境airbot_play_data
+运行Python命令前，请先激活conda环境airbot_play_data。
 
 # package
 
-遇到缺失的python包时，请直接通过pip安装，如果pip找不到对应包，请立刻停止操作并通知我处理。
+遇到缺失的Python包时，请直接通过pip安装，如果pip找不到对应包，请立刻停止操作并通知我处理。
+除非特别说明，否则请全局import，不要使用动态import来掩盖包找不到的问题。
 
 # 路径
 
