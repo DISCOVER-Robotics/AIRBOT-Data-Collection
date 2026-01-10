@@ -5,7 +5,12 @@
 
 ## Sampler
 
-请参考 airdc/docs/develop/modules.md中Sampler一节，分析将 /home/ghz/Work/lerobot/src/lerobot/scripts/lerobot_record.py 中的数据记录功能改写为DataSampler的子类是否可行，如果不可行，请说明需要在当前框架中增加哪些功能以支持该需求。如果可行，请先在 airdc/docs/manual/modules/samplers 目录下编写一个说明文档介绍各个方法的实现逻辑，然后在 airdc/airdc/common/samplers 目录下创建 lerobot_sampler.py 文件并进行实现，并确保通过测试。
+请参考 airdc/docs/develop/modules.md中Sampler一节，分析将 /home/ghz/Work/lerobot/src/lerobot/scripts/lerobot_record.py 中的数据记录功能改写为DataSampler的子类是否可行，如果不可行，请说明需要在当前框架中增加哪些功能以支持该需求。如果可行，请依次完成如下步骤：
+- 在 airdc/docs/manual/modules/samplers 目录下编写一个说明文档，其中：
+  - 介绍lerobot的数据格式
+  - 介绍lerobot原版的数据采集程序中对各类数据的采集逻辑（如高维图像数据、低维关节数据等）
+  - 介绍计划实现的sampler的各个方法的实现逻辑
+- 在 airdc/airdc/common/samplers 目录下创建 lerobot_sampler.py 文件并进行实现，并确保通过测试。
 
 一些提示：
 - 示例payload可以在测试文件中找到
