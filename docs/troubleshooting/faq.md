@@ -12,7 +12,23 @@
 
 ## OpenCV
 
-如果报错信息中出现`opencv`字样，首先检查卸载`opencv-headless`后重装`opencv-python`的操作有没有正常进行，检查对应相机的帧率是否正确匹配对应相机，并将连接到电脑的相机数据线重新拔掉后查看电脑内置相机的`camera_index`，最后按顺序连接相机。
+### headless冲突
+
+OpenCV的`headless`如果与完整版`opencv-python`同时安装，会导致可视化功能无法使用，通常会报如下错误：
+
+```
+cv2.error: OpenCV(4.12.0) /io/opencv/modules/highgui/src/window.cpp:1301: error: (-2:Unspecified error) The function is not implemented. Rebuild the library with Windows, GTK+ 2.x or Cocoa support. If you are on Ubuntu or Debian, install libgtk2.0-dev and pkg-config, then re-run cmake or configure script in function 'cvShowImage'
+```
+或
+```
+AttributeError: module 'cv2' has no attribute 'WINDOW_NORMAL'
+```
+此时需要卸载`opencv-headless`并重新安装`opencv-python`，可使用如下命令：
+
+```bash
+pip uninstall opencv-headless
+pip install opencv-python --force-reinstall
+```
 
 ## 相机
 

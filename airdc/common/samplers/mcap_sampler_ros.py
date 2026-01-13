@@ -75,16 +75,22 @@ class TopicInfo(BaseModel, frozen=True):
 
 
 class KeyInfo(BaseModel, frozen=True):
+    """The info for a specific key."""
+
     key: str
+    """The name of the key."""
     topic_info: TopicInfo
+    """The info of the topic the key belongs to."""
     field: str
+    """The name of the corresponding field in the topic message."""
     field_type: type
+    """The type of the corresponding field in the topic message."""
 
     def model_post_init(self, context):
         field_type = self.field_type
         if field_type is list:
             self._field_setter = lambda data: data
-        else:
+        else:  # e.g. Point(x=.., y=.., z=..)
             field_fft = get_fields_and_field_types(field_type)
             self._field_kwords = field_fft.keys()
             for field_t in set(field_fft.values()):
@@ -106,6 +112,10 @@ class KeyInfo(BaseModel, frozen=True):
     def seq2field_basic(self, seq: Sequence):
         return self.field_type(**dict(zip_equal(self._field_kwords, seq)))
 
+    @staticmethod
+    def _get_header(msg_dict: MessageDict) -> Header:
+        return Header(stamp=time_ns_to_stamp(msg_dict["t"]))
+
     @classmethod
     def finish_add(cls) -> Dict[str, Any]:
         data = {}
@@ -114,9 +124,11 @@ class KeyInfo(BaseModel, frozen=True):
             msg = info.msg_type(**msg_dict["value"])
             if info.has_stamp:
                 msg = info.msg_type_stamped(
-                    header=Header(stamp=time_ns_to_stamp(msg_dict["t"])),
+                    header=cls._get_header(msg_dict),
                     **{info.msg_name_snake: msg},
                 )
+            elif "header" in info.fields_and_field_types:
+                msg.header = cls._get_header(msg_dict)
             # TODO: use a tuple for better perf?
             data[topic] = {
                 "message": msg,
