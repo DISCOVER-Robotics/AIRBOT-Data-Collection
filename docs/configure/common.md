@@ -85,7 +85,7 @@ rgb_camera:
 
 ### 任务信息
 
-不同任务一般需要手动配置一些基本信息，可通过中`sampler.instance.task_info`字段配置，这些信息将可能在后续用作区分不同类型数据，以及可能用作模型的`prompt`。常见配置可参考`configs/demonstrators/airbot_play.yaml`中的注释内容。
+不同任务一般需要手动配置一些基本信息，可通过`sampler.instance.task_info`字段配置，这些信息将可能在后续用作区分不同类型数据，以及可能用作模型的`prompt`。常见配置可参考`configs/demonstrators/airbot_play.yaml`中的注释内容。
 
 ### 独立保存视频文件
 
