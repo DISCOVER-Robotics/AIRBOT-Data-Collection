@@ -4,7 +4,8 @@
 
 ## env
 
-运行Python命令前，请先激活conda环境airbot_play_data。
+- 运行Python命令前，请先激活conda环境`airbot_play_data`。
+- 运行可能涉及下载（如数据集、模型）的命令前，请先执行`export {HTTP_PROXY,HTTPS_PROXY,ALL_PROXY,http_proxy,https_proxy,all_proxy}=http://127.0.0.1:7890`配置终端代理。
 
 ## package
 
@@ -27,3 +28,6 @@
 ## 风格
 
 - 力求代码的简洁，除非有明确指示，否则不要添加额外的版本兼容等繁琐代码。
+- 尽可能模块化、可复用，避免冗长的函数和类，避免重复冗余的代码。
+- 自定义类如果需要初始化参数，只允许使用一个`config`参数，且该参数必须是继承自`pydantic.BaseModel`。
+- 脚本文件的命令行传参使用`pydantic_settings`库实现。
