@@ -48,8 +48,8 @@ class FastAPIVisualizer(VisualizerBasis):
         @self.app.get("/info")
         def get_info():
             if self.info is not None:
-                return {"index": self.info.index, "round": self.info.round}
-            return {"index": -1, "round": -1}
+                return {"index": self.info.index, "episode": self.info.episode}
+            return {"index": -1, "episode": -1}
 
     def _html_index(self) -> str:
         freq = 20
@@ -88,7 +88,7 @@ class FastAPIVisualizer(VisualizerBasis):
                         const res = await fetch('/info');
                         const data = await res.json();
                         document.getElementById('info-box').innerText =
-                            `Index: ${data.index}, Round: ${data.round}`;
+                            `Index: ${data.index}, Episode: ${data.episode}`;
                     } catch (e) {
                         console.error("Failed to fetch info", e);
                     }
@@ -111,7 +111,7 @@ class FastAPIVisualizer(VisualizerBasis):
             """
         html += """
             </div>
-            <p id="info-box"><b>Info</b> — Index: N/A, Round: N/A</p>
+            <p id="info-box"><b>Info</b> — Index: N/A, Episode: N/A</p>
         </body>
         </html>
         """
@@ -166,7 +166,7 @@ if __name__ == "__main__":
         index = 0
         while True:
             round_number = index // 250
-            info = SampleInfo(index=index, round=round_number)
+            info = SampleInfo(index=index, episode=round_number)
             frame = {
                 "/left/camera": generate_image_bytes(),
                 "/right/camera": generate_image_bytes(color=(200, 100, 100)),

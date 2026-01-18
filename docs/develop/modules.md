@@ -22,8 +22,8 @@
 
 以及 `DataSampler` 本身必须实现的抽象方法：
 
-- `def compose_path(self, directory: Path, round: int) -> Path`：
-	生成本轮（round）数据的保存路径。该方法会在开始采样时被调用，也会在删除已保存数据时被调用。
+- `def compose_path(self, directory: Path, episode: int) -> Path`：
+	生成本轮（episode）数据的保存路径。该方法会在开始采样时被调用，也会在删除已保存数据时被调用。
 
 - `def save(self, path: Path, data: Any) -> bool`：
 	将本轮采集到的缓存数据 `data` 持久化到 `path`。成功返回 `True`，失败返回 `False`。
@@ -34,7 +34,7 @@
 这些方法在基类中有默认行为/默认空实现，可按需覆盖：
 
 - `def get_start_round(self, directory: Path) -> int`：
-	返回起始 round。默认返回 `-1`，表示让上层演示接口根据数据目录中符合所配置后缀的文件数量推断起始 round。
+	返回起始 episode。默认返回 `-1`，表示让上层演示接口根据数据目录中符合所配置后缀的文件数量推断起始 episode。
 
 - `def update(self, data: Dict[str, Any]) -> Dict[str, Any]`：
 	对单帧/单次观测数据进行轻量处理并返回。默认原样返回；返回值会被演示接口追加进本轮缓存。
@@ -67,9 +67,9 @@
 	 `configure()` 内部会触发 `on_configure()` 完成最终初始化。
 
 3) 确定起始轮次：如果 `start_round < 0`，会调用 `get_start_round(data_dir)`；
-	 若仍返回负数，上层会根据目录中文件数量推断起始 round。
+	 若仍返回负数，上层会根据目录中文件数量推断起始 episode。
 
-4) 开始一轮采样：进入采样状态时调用 `compose_path(data_dir, round)` 生成保存路径。
+4) 开始一轮采样：进入采样状态时调用 `compose_path(data_dir, episode)` 生成保存路径。
 
 5) 采集过程中：每次更新会调用 `update(frame_dict)`，其返回值会被追加到本轮缓存。
 

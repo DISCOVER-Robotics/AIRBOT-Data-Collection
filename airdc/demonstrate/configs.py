@@ -99,7 +99,7 @@ class DatasetConfig(BaseModel, frozen=True):
     root: Path = Path("./data")  # root directory of all data
     # relative directory to the root directory where the data files are stored
     directory: str = ""
-    # used to automatically get the start sample round
+    # used to automatically get the start sample episode
     file_extension: str = "."
 
     @computed_field
@@ -110,8 +110,8 @@ class DatasetConfig(BaseModel, frozen=True):
 
 
 class SampleLimit(BaseModel, frozen=True):
-    # the start round of the data files to be saved
-    # if < 0, the start round will be automatically
+    # the start episode of the data files to be saved
+    # if < 0, the start episode will be automatically
     # determined by the the number of items in the
     # dataset directory that matches the file_extension
     # e.g. if the directory contains 10 files and the
@@ -129,7 +129,7 @@ class SampleLimit(BaseModel, frozen=True):
     # end_round = start_round + rounds
     # 0 means no limit
     rounds: NonNegativeInt = 0
-    # the end round of sampling
+    # the end episode of sampling
     # 0 means no limit
     end_round: NonNegativeInt = 0
 

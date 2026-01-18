@@ -48,8 +48,8 @@ class McapDataSampler(DataSampler):
     def _get_video_dir(self, path: Path) -> Path:
         return path.parent / path.stem
 
-    def compose_path(self, directory: Path, round: int) -> Path:
-        path = directory / f"{round}.mcap"
+    def compose_path(self, directory: Path, episode: int) -> Path:
+        path = directory / f"{episode}.mcap"
         # unset here to ensure a fresh writer for each file
         # but the writer is finished in save()
         self._mf_writer.unset_writer()

@@ -76,24 +76,24 @@ class DataSamplerConfig(BaseModel, frozen=True):
 class DataSampler(ConfigurableBasis):
     """Data sampler for sampling kinds of data."""
 
-    def get_start_round(self, directory: Path) -> int:
-        """Get the starting round number from the given data directory.
+    def get_start_episode(self, directory: Path) -> int:
+        """Get the starting episode number from the given data directory.
         Args:
             directory (Path): The directory where the data are saved.
         Returns:
-            int: The starting round number.
+            int: The starting episode number.
                 -1 means it's up to the demonstrate interface to decide.
         """
         return -1
 
     @abstractmethod
-    def compose_path(self, directory: Path, round: int) -> Path:
+    def compose_path(self, directory: Path, episode: int) -> Path:
         """Compose the path to the data file. It will be called
         at starting sampling and removing. Before returning, file
         handler can be created to save data in `update` during sampling.
         Args:
             directory (Path): The directory where the data will be saved.
-            round (int): The round number of the data.
+            episode (int): The episode number of the data.
         Returns:
             Path: The path to the data file.
         """
@@ -155,5 +155,5 @@ class MockDataSampler(DataSampler):
     def remove(self, path: Path):
         return True
 
-    def compose_path(self, directory: Path, round: int):
-        return directory / f"mock_{round}.data"
+    def compose_path(self, directory: Path, episode: int):
+        return directory / f"mock_{episode}.data"

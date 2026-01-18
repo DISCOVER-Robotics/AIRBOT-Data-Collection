@@ -60,9 +60,9 @@ class JoyCallbackConfig(BaseModel):
     def model_post_init(self, context):
         action_info = {
             Action.sample: "Start sampling",
-            Action.save: "Save sampled data in the current round",
+            Action.save: "Save sampled data in the current episode",
             Action.abandon: "Abandon current sampling without saving",
-            Action.finish: "Finish the current round and save all data",
+            Action.finish: "Finish the current episode and save all data",
             Action.remove: "Remove the last saved episode",
             Action.capture: "Capture current component observations",
         }
@@ -140,7 +140,9 @@ class JoyCallbackManager(DemonstrateManagerBasis):
         )
 
     def print_round(self):
-        self.get_logger().info(f"Current sample round: {self.fsm.sample_info.round}")
+        self.get_logger().info(
+            f"Current sample episode: {self.fsm.sample_info.episode}"
+        )
 
     def joy_callback(self, msg: Joy):
         """

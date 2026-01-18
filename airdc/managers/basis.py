@@ -19,9 +19,9 @@ class ManagerConfigBasis(BaseModel, frozen=True):
     def model_post_init(self, context):
         action_info = {
             DemonstrateAction.sample: "Start sampling",
-            DemonstrateAction.save: "Save sampled data in the current round",
+            DemonstrateAction.save: "Save sampled data in the current episode",
             DemonstrateAction.abandon: "Abandon current sampling without saving",
-            DemonstrateAction.finish: "Finish the current round and save all data",
+            DemonstrateAction.finish: "Finish the current episode and save all data",
             DemonstrateAction.remove: "Remove the last saved episode",
             DemonstrateAction.capture: "Capture current component observations",
         }
@@ -81,7 +81,7 @@ class SelfManagerConfig(BaseModel):
     # or the time duration is reached if not both are 0
     # usually save, abandon or None
     on_reach: Optional[DemonstrateAction] = DemonstrateAction.save
-    # what to do when the maximum round of samples is reached
+    # what to do when the maximum episode of samples is reached
     # usually finish or None
     on_reach_round: Optional[DemonstrateAction] = DemonstrateAction.finish
 

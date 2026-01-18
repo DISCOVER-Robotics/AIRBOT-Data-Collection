@@ -36,7 +36,7 @@ class LeRobotDataSamplerConfig(DataSamplerConfig):
 
     model_config = ConfigDict(extra="forbid")
 
-    episode_dirname: str = "episode_{round:06d}"
+    episode_dirname: str = "episode_{episode:06d}"
     """Episode directory name template under the dataset directory."""
 
     # --- lerobot writer behavior ---
@@ -121,14 +121,16 @@ class LeRobotDataSampler(DataSampler):
         """
         return True
 
-    def compose_path(self, directory: Path, round: int) -> Path:
-        """Compose the episode path for a round.
+    def compose_path(self, directory: Path, episode: int) -> Path:
+        """Compose the episode path for a episode.
 
         Notes:
             `LeRobotDataset.create(..., root=path)` requires root to not exist.
             This sampler will create the dataset lazily on the first `update()` call.
         """
-        episode_dir = Path(directory) / self.config.episode_dirname.format(round=round)
+        episode_dir = Path(directory) / self.config.episode_dirname.format(
+            episode=episode
+        )
         # Prepare for a new episode. Do not create directories here (compose_path might
         # be called for removal), but reset any previous in-flight state.
         self._reset_episode_state()
@@ -142,7 +144,7 @@ class LeRobotDataSampler(DataSampler):
             data: One step payload.
 
         Returns:
-            Data to be appended into the round buffer.
+            Data to be appended into the episode buffer.
         """
         if not self.config.lerobot_streaming_in_update:
             return data
@@ -196,11 +198,11 @@ class LeRobotDataSampler(DataSampler):
         return {}
 
     def save(self, path: Path, data: Any) -> bool:
-        """Save one round (episode).
+        """Save one episode (episode).
 
         Args:
             path: Episode path returned by `compose_path`.
-            data: Round buffer, typically `Dict[str, List[Any]]`.
+            data: Episode buffer, typically `Dict[str, List[Any]]`.
 
         Returns:
             True on success.

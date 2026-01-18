@@ -204,8 +204,8 @@ class OpenCVVisualizer(VisualizerBasis):
         This function overlays the episode and step text on the image background,
         and then displays the image with the updated text using OpenCV.
         """
-        text_top = f"Sample Round: {info.round}"
-        text_bottom = f"Sample Index: {info.index}"
+        text_top = f"Episode: {info.episode}"
+        text_bottom = f"Index: {info.index}"
         image = image
 
         # Calculate text size for centering the text
@@ -250,14 +250,14 @@ if __name__ == "__main__":
     ret = True
     assert ret, "Cannot read camera frame"
     video_name = str(video_name)
-    visualizer.update({video_name: frame}, SampleInfo(round=0, index=0), warm_up=True)
+    visualizer.update({video_name: frame}, SampleInfo(episode=0, index=0), warm_up=True)
     for i in range(330):
         start = time.perf_counter()
         # ret, frame = cap.read()
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
-        visualizer.update({video_name: frame}, SampleInfo(round=i, index=i))
+        visualizer.update({video_name: frame}, SampleInfo(episode=i, index=i))
         if visualizer.current_key == 27:
             break
         print(f"Frame {i} displayed in {(time.perf_counter() - start) * 1000:.3f} ms")

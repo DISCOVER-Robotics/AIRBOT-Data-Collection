@@ -56,7 +56,7 @@ class PltVisualizer(VisualizerBasis):
         for key, image in data.items():
             self._displays[key].set_data(image)
         self._fig.canvas.manager.set_window_title(
-            f"Round: {info.round}, Index: {info.index}"
+            f"Episode: {info.episode}, Index: {info.index}"
         )
         plt.pause(0.001)
         return True
@@ -76,5 +76,5 @@ if __name__ == "__main__":
         new_img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
         images = {key: new_img for key in {"image1", "image2", "image3", "image4"}}
         start = time.monotonic()
-        vis.update(images, SampleInfo(round=0, index=0))
+        vis.update(images, SampleInfo(episode=0, index=0))
         print(f"Update time cost: {time.monotonic() - start:.4f}s")

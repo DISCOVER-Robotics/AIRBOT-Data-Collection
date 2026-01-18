@@ -68,7 +68,7 @@ class TkinterVisualizer(VisualizerBasis):
                 win_info["tk_image"] = new_tk_image
 
         if not self.config.ignore_info:
-            info_text = f"Round: {info.round} | Index: {info.index}"
+            info_text = f"Episode: {info.episode} | Index: {info.index}"
             if "info" in self.text_ids:
                 self.canvas.itemconfig(self.text_ids["info"], text=info_text)
             else:
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     while True:
         start = time.monotonic()
-        vis.update(images, SampleInfo(round=round_num, index=index))
+        vis.update(images, SampleInfo(episode=round_num, index=index))
         print(f"time cost: {time.monotonic() - start:.3f}s")
         time.sleep(1)
         index += 1

@@ -4,7 +4,7 @@
 
 ## env
 
-- 运行Python命令前，请先激活conda环境`airbot_play_data`。
+- 运行Python命令前，请先激活conda环境`airbot_play_data`。注意不需要额外创建虚拟环境！！
 - 运行可能涉及下载（如数据集、模型）的命令前，请先执行`export {HTTP_PROXY,HTTPS_PROXY,ALL_PROXY,http_proxy,https_proxy,all_proxy}=http://127.0.0.1:7890`配置终端代理。
 
 ## package

@@ -10,7 +10,7 @@
 
 ## 1. 与 AIRDC 采集流程的关系
 
-在 AIRDC 中，采样器（`DataSampler`）只负责：接收每一步的 `payload`（来自 demonstrator capture）、可选的轻量处理、按 round/episode 组织并落盘。
+在 AIRDC 中，采样器（`DataSampler`）只负责：接收每一步的 `payload`（来自 demonstrator capture）、可选的轻量处理、按 episode 组织并落盘。
 
 而 `lerobot_record.py` 里包含的 teleop/policy 推理、精确 fps 睡眠、episode reset、UI 展示等逻辑不属于 sampler 范畴，应由 AIRDC 的 `Demonstrator + FSM/Managers` 负责。
 
@@ -44,7 +44,7 @@ LeRobot 的 `lerobot_record.py` 把“图像采集”和“图像写盘”拆成
 ## 2. 配置项（LeRobotDataSamplerConfig）
 
 - `episode_dirname`
-  - episode 目录名模板（在 dataset 目录下），默认 `episode_{round:06d}`
+  - episode 目录名模板（在 dataset 目录下），默认 `episode_{episode:06d}`
 
 - `lerobot_repo_id` / `lerobot_fps` / `lerobot_robot_type`
   - 传给 `LeRobotDataset.create(...)` 的元信息
@@ -74,7 +74,7 @@ LeRobot 的 `lerobot_record.py` 把“图像采集”和“图像写盘”拆成
 
 1) `sampler.set_info(info)`
 2) `sampler.configure()` → 内部触发 `on_configure()`
-3) 每轮开始：`compose_path(data_dir, round)`
+3) 每轮开始：`compose_path(data_dir, episode)`
 4) 每步：`update(payload)`
 5) 每轮结束：`save(path, round_data)`
 6) 保存/删除/丢弃后：`clear()`
@@ -96,9 +96,9 @@ LeRobot 的 `lerobot_record.py` 把“图像采集”和“图像写盘”拆成
 
 本实现不做动态导入/自动回退逻辑，缺少依赖会直接报错，便于尽早暴露环境问题。
 
-### 4.4 `compose_path(self, directory: Path, round: int) -> Path`
+### 4.4 `compose_path(self, directory: Path, episode: int) -> Path`
 
-- 返回当前 round 的保存路径。
+- 返回当前 episode 的保存路径。
 - 关键点：这里不落盘创建目录；采样器会在首次 `update()` 时懒创建 `LeRobotDataset`（其 `root` 必须不存在）。
 
 ### 4.5 `update(self, data: Dict[str, Any]) -> Dict[str, Any]`

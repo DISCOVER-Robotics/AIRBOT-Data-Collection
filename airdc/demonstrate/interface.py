@@ -44,7 +44,7 @@ class DemonstrateInterface:
         start_round = self._config.sample_limit.start_round
         if start_round < 0:
             data_dir = self._config.dataset.absolute_directory
-            start_round = self._sampler.get_start_round(data_dir)
+            start_round = self._sampler.get_start_episode(data_dir)
         if start_round < 0:
             # detect the number of files in the directory
             start_round = (
@@ -57,7 +57,7 @@ class DemonstrateInterface:
             )
         else:
             self._sample_limit = self._config.sample_limit
-        self._sample_info = SampleInfo(round=start_round)
+        self._sample_info = SampleInfo(episode=start_round)
         """init concurrent actions"""
         concur = self._config.concurrent
         self._action_executors: Dict[DemonstrateAction, Executor] = {}
@@ -71,7 +71,7 @@ class DemonstrateInterface:
             args = (action.name,) if mode is ConcurrentMode.thread else ()
             self._action_executors[action] = mode2executor[mode](max_workers, *args)
         self._action_futures: Dict[DemonstrateAction, List[Future]] = defaultdict(list)
-        """store current round data"""
+        """store current episode data"""
         self._round_data = defaultdict(list)
         self._metrics = defaultdict(dict)
         self._register_fsm_callbacks()
@@ -129,7 +129,9 @@ class DemonstrateInterface:
 
     def activate(self) -> bool:
         self._bar = ProgressBar(
-            f"Round {self._sample_info.round}", self._sample_limit.size, leave_mode=-1
+            f"Episode {self._sample_info.episode}",
+            self._sample_limit.size,
+            leave_mode=-1,
         )
         Path(self._config.dataset.absolute_directory).mkdir(parents=True, exist_ok=True)
         self.get_logger().info("Warming up...")
@@ -147,12 +149,12 @@ class DemonstrateInterface:
             self.get_logger().warning("Maximum number of rounds was reached.")
             return False
         self.get_logger().info(
-            Bcolors.green(f"Start sampling round: {self._sample_info.round}")
+            Bcolors.green(f"Start sampling episode: {self._sample_info.episode}")
         )
         self._save_path = self._sampler.compose_path(
-            self._config.dataset.absolute_directory, self._sample_info.round
+            self._config.dataset.absolute_directory, self._sample_info.episode
         )
-        self._bar.reset(desc=f"Round {self._sample_info.round}")
+        self._bar.reset(desc=f"Episode {self._sample_info.episode}")
         return True
 
     def capture(self, warm_up: bool = False) -> Dict[str, Any]:
@@ -228,7 +230,7 @@ class DemonstrateInterface:
         return flag
 
     def save(self) -> None:
-        """Save the sampled data and be ready for the next round."""
+        """Save the sampled data and be ready for the next episode."""
         # FIXME: explicitly specifying the action type is coupled with the state machine logic
         self._wait_action_futures(DemonstrateAction.update)
         save_path = self._save_path
@@ -244,13 +246,13 @@ class DemonstrateInterface:
                 save_path, self._sampler.save(save_path, self._round_data)
             ):
                 return False
-        self._sample_info.round += 1
+        self._sample_info.episode += 1
         self._clear()
         return True
 
     def remove(self) -> bool:
-        """Remove the last round saved sample."""
-        last_round = self._sample_info.round - 1
+        """Remove the last episode saved sample."""
+        last_round = self._sample_info.episode - 1
         if last_round >= 0:
             path = self._sampler.compose_path(
                 self._config.dataset.absolute_directory, last_round
@@ -260,7 +262,7 @@ class DemonstrateInterface:
             if not self._remove(path, True):
                 return False
             # the order is important
-            self._sample_info.round -= 1
+            self._sample_info.episode -= 1
             self._clear()
             self.get_logger().info(Bcolors.green(f"Removed {path}"))
         else:
@@ -329,12 +331,12 @@ class DemonstrateInterface:
             self._action_futures[action] = []
 
     def abandon(self) -> bool:
-        """Abandon the current round of sampling."""
+        """Abandon the current episode of sampling."""
         self._cancel_action_futures(DemonstrateAction.update)
         self._remove_path(self._save_path, False)
         self._clear()
         self.get_logger().info(
-            Bcolors.green(f"Abandoned the current round: {self._sample_info.round}")
+            Bcolors.green(f"Abandoned the current episode: {self._sample_info.episode}")
         )
         return True
 
@@ -343,7 +345,7 @@ class DemonstrateInterface:
         Finish the demonstration.
         """
         self.get_logger().info(
-            f"Finished the demonstration: from {self._sample_limit.start_round} to {self._sample_info.round}"
+            f"Finished the demonstration: from {self._sample_limit.start_round} to {self._sample_info.episode}"
         )
         for vis in self._visualizers.values():
             vis.shutdown()
@@ -352,7 +354,7 @@ class DemonstrateInterface:
 
     def log_round(self):
         self.get_logger().info(
-            Bcolors.cyan(f"Current sample round: {self._sample_info.round}")
+            Bcolors.cyan(f"Current sample episode: {self._sample_info.episode}")
         )
 
     @property
@@ -368,7 +370,7 @@ class DemonstrateInterface:
     @property
     def is_reached_round(self) -> bool:
         end_round = self._sample_limit.end_round
-        return end_round > 0 and self._sample_info.round > end_round
+        return end_round > 0 and self._sample_info.episode > end_round
 
     @property
     def demonstrator(self) -> Demonstrator:

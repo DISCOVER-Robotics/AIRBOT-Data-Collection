@@ -36,13 +36,13 @@ SpawnEvent = get_context("spawn").Event
 
 
 class SampleInfo(BaseModel):
-    """Information of the current sampling round."""
+    """Information of the current sampling episode."""
 
     # NOTE: no frozen, no validation for performance consideration
     index: NonNegativeInt = 0
-    """the current index (number) of the data in a single sample round"""
-    round: NonNegativeInt = 0
-    """the current round of the sampling"""
+    """the current index (number) of the data in a single sample episode"""
+    episode: NonNegativeInt = 0
+    """the current episode of the sampling"""
 
 
 if __name__ == "__main__":

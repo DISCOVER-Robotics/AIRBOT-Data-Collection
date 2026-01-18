@@ -44,7 +44,7 @@ class JoyManagerConfig(ManagerConfigBasis):
         Action.finish: JoyEvent.BUTTON_RB,
     }
     # instruction: Dict[str, str] = {
-    #     "b": "Back to sample the last round (override the last saved file)",
+    #     "b": "Back to sample the last episode (override the last saved file)",
     #     "i": "Show this instruction again",
     #     "g": "Switch passive (gravity composation) / resetting mode of the leaders",
     #     "f": "Start / stop following",
