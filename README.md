@@ -36,7 +36,7 @@
 建议创建独立的Python虚拟环境进行数据采集环境安装，以满足Python版本要求同时避免与其他项目的依赖冲突。以`conda`为例，可执行如下命令创建并激活虚拟环境：
 
 ```bash
-conda create -n airbot_data python=3.10 && conda activate airbot_data
+conda create -n airdc python=3.10 && conda activate airdc
 ```
 
 ### 机器人 Setup
@@ -60,7 +60,7 @@ conda create -n airbot_data python=3.10 && conda activate airbot_data
 ```bash
 git clone https://github.com/DISCOVER-Robotics/AIRBOT-Data-Collection.git --depth 1 -b <tag/branch> data-collection
 cd data-collection
-conda activate airbot_data
+conda activate airdc
 $SHELL install/install.sh
 ```
 
