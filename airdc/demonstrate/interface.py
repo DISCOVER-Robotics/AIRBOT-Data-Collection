@@ -24,7 +24,6 @@ from airdc.state_machine.basis import CallbackEventType
 from collections import defaultdict
 from functools import partial
 from pathlib import Path
-from tqdm import tqdm
 import time
 import shutil
 

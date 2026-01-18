@@ -1,14 +1,7 @@
 update_rate: 20
-dataset:
-  directory: basis
-  file_extension: .mcap
 sample_limit:
   size: 1000
   start_round: -1
-sampler:
-  name: airbot_mcap_sampler
-  instance:
-    _target_: airdc.common.samplers.mcap_sampler.McapDataSampler
 concurrent:
   actions: [update]
 visualizers:

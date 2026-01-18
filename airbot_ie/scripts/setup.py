@@ -94,10 +94,10 @@ class SetupConfig(BaseModelWithFieldAliases):
         validation_alias="ii",
         description="Ignore CAN interfaces by their names.",
     )
-    ref_cfg_dir: Path = Field(
-        "airbot_ie/configs/demonstrators",
+    ref_cfg_dir: List[Path] = Field(
+        [Path("airbot_ie/configs") / name for name in ["demonstrators", "samplers"]],
         validation_alias="rcd",
-        description="Directory containing the base configuration files.",
+        description="Directories containing the base configuration files.",
     )
     ref_cfg_name: Path = Field(
         "basis",
@@ -132,10 +132,18 @@ hw_uuid = SystemInfo.get_product(True).get("uuid", "unknown")
 logger.info(f"Hardware uuid: {hw_uuid}")
 
 """Process Configs"""
-
-ref_cfg_path = args.ref_cfg_dir / args.ref_cfg_name.with_suffix(".yaml")
-if not ref_cfg_path.exists():
+ref_cfgs = []
+for ref_cfg_dir in args.ref_cfg_dir:
+    ref_cfg_path = ref_cfg_dir / args.ref_cfg_name.with_suffix(".yaml")
+    if ref_cfg_path.exists():
+        ref_cfgs.append(ref_cfg_path)
+if not ref_cfgs:
     raise FileNotFoundError(f"Base config file not found: {ref_cfg_path.absolute()}")
+elif len(ref_cfgs) > 1:
+    logger.warning(
+        f"Multiple base config files found: {ref_cfgs}. Using the first one."
+    )
+ref_cfg_path = ref_cfgs[0]
 
 station_config_path = cur_dir / "station_config.yaml"
 station_config = yaml.load(open(station_config_path))

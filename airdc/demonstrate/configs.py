@@ -96,11 +96,14 @@ class ComponentsConfig(BaseModel, Generic[T], frozen=True):
 
 
 class DatasetConfig(BaseModel, frozen=True):
-    root: Path = Path("./data")  # root directory of all data
-    # relative directory to the root directory where the data files are stored
+    root: Path = Path("./data")
+    """root directory of all data"""
     directory: str = ""
-    # used to automatically get the start sample episode
+    """relative directory to the root directory where the data files are stored"""
     file_extension: str = "."
+    """the file extension of the data files, used to automatically get the start sample episode
+    If empty, return all directories. If ".", return all files.
+    """
 
     @computed_field
     @property

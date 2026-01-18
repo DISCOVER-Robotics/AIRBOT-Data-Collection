@@ -1,0 +1,12 @@
+# @package _global_
+
+sampler:
+  name: video_sampler
+  instance:
+    _target_: airdc.common.samplers.video_sampler.VideoSampler
+    # non_monotonic_mode: drop
+    # non_monotonic_log: false
+
+dataset:
+  directory: video
+  file_extension: ""
