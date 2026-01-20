@@ -12,6 +12,7 @@ from airdc.common.systems.basis import SystemMode, ActionConfigs
 from typing import List
 from pprint import pformat
 import logging
+import numpy as np
 
 
 class AIRBOTPlayMcapDataReplay:
@@ -21,6 +22,7 @@ class AIRBOTPlayMcapDataReplay:
         topics: List[str],
         url: str,
         action_cfg: ActionConfigs,
+        eef_threshold: float = 0.0,
     ):
         components = ["arm", "eef"]
         self.topics = topics
@@ -38,6 +40,7 @@ class AIRBOTPlayMcapDataReplay:
                 url=url, components=components, action=action_cfg, **kwargs
             )
         )
+        self._eef_threshold = eef_threshold
 
     def configure(self) -> bool:
         return self._mcap_player.configure() and self._robot.configure()
@@ -52,6 +55,14 @@ class AIRBOTPlayMcapDataReplay:
     def update(self) -> bool:
         if obs := self._mcap_player.capture_observation():
             self.get_logger().info(f"\n{pformat(obs)}")
+            if self._eef_threshold > 0.0:
+                for key in obs:
+                    if key.endswith("eef/joint_state/position"):
+                        position = obs[key]["data"]
+                        position = np.where(
+                            position < self._eef_threshold, 0.0, position
+                        )
+                        obs[key]["data"] = position
             self._robot.send_action(obs)
             # input("Press Enter to continue...")
             return True
@@ -82,37 +93,44 @@ if __name__ == "__main__":
     parser.add_argument("file_path", type=str)
     parser.add_argument("-f", "--fps", type=int, default=20)
     parser.add_argument("-ip", "--ip", type=str, default="localhost")
+    parser.add_argument("-eth", "--eef-threshold", type=float, default=0.04)
     args = parser.parse_args()
 
     period = 1.0 / args.fps
 
     init_logging()
     logger = getLogger("AIRBOTPlayMcapDataReplay")
-    # 1 - 1
+    # 1 - 1 pose
+    # topics = [
+    #     "/lead/eef/pose/position",
+    #     "/lead/eef/pose/orientation",
+    #     "/lead/eef/joint_state/position",
+    # ]
     topics = [
-        "/lead/eef/pose/position",
-        "/lead/eef/pose/orientation",
-        "/lead/eef/joint_state/position",
+        "/follow/arm/joint_state/position",
+        "/follow/eef/joint_state/position",
     ]
+    pose_control = False
     # 2 - 2
-    topics = [f"/left{topic}" for topic in topics]
+    # topics = [f"/left{topic}" for topic in topics]
     airbot_replay = AIRBOTPlayMcapDataReplay(
         args.file_path,
         topics,
         args.ip,
+        # [
+        #     {SystemMode.RESETTING: PosePlan(), SystemMode.SAMPLING: PoseServo()},
+        #     {
+        #         SystemMode.RESETTING: JointPositionPlan(),
+        #         SystemMode.SAMPLING: JointPositionServo(),
+        #     },
+        # ],
         [
-            {SystemMode.RESETTING: PosePlan(), SystemMode.SAMPLING: PoseServo()},
             {
                 SystemMode.RESETTING: JointPositionPlan(),
                 SystemMode.SAMPLING: JointPositionServo(),
             },
         ],
-        # [
-        #     {
-        #         SystemMode.RESETTING: JointPositionPlan,
-        #         SystemMode.SAMPLING: JointPositionServo,
-        #     },
-        # ],
+        args.eef_threshold,
     )
     assert airbot_replay.configure()
     assert airbot_replay.reset()
