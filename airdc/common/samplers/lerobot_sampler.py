@@ -99,19 +99,10 @@ class LeRobotDataSampler(DataSampler):
 
     _info: Dict[str, Any]
 
-    _current_episode_path: Optional[Path] = None
-    _dataset: Optional[LeRobotDataset] = None
-
     def __init__(self, config: LeRobotDataSamplerConfig = LeRobotDataSamplerConfig()):
-        """Create the sampler.
-
-        Args:
-            config: Sampler configuration. When constructed by Hydra, it may be a dict-like
-                object and will be validated into `LeRobotDataSamplerConfig`.
-        """
-        if not isinstance(config, LeRobotDataSamplerConfig):
-            config = LeRobotDataSamplerConfig.model_validate(config)
         self.config = config
+        self._current_episode_path: Optional[Path] = None
+        self._dataset: Optional[LeRobotDataset] = None
 
     def on_configure(self) -> bool:
         """Finalize configuration.
