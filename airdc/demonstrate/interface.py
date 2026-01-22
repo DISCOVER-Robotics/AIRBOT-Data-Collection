@@ -209,6 +209,7 @@ class DemonstrateInterface:
                 # time.sleep(1 / 10)  # simulate some delay for sampler
 
             self._submit_action(DemonstrateAction.update, update_sampler, data)
+            # update_sampler(data)  # blocking update
             # update the progress bar
             start_bar = time.perf_counter()
             info.index += 1
@@ -303,11 +304,17 @@ class DemonstrateInterface:
     def _use_executor(self, action: DemonstrateAction) -> bool:
         return action in self._action_executors
 
+    @staticmethod
+    def _check_future(future: Future):
+        if future.exception() is not None:
+            raise future.exception()
+
     def _submit_action(
         self, action: DemonstrateAction, func: Any, *args, **kwargs
     ) -> Future:
         future = self._action_executors[action].submit(func, *args, **kwargs)
         self._action_futures[action].append(future)
+        future.add_done_callback(self._check_future)
         return future
 
     def _cancel_action_futures(self, action: DemonstrateAction) -> None:
