@@ -152,9 +152,6 @@ class CameraStreamConfig(StreamProfile):
 class ColorStreamConfig(CameraStreamConfig):
     """Configuration for an color camera device."""
 
-    color_mode: Literal["bgr", "rgb"] = "bgr"
-    """The color mode of the camera image."""
-
 
 class DepthStreamConfig(CameraStreamConfig):
     """Configuration for a depth camera device."""

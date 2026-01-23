@@ -12,6 +12,7 @@ from airdc.common.devices.cameras.utils import (
 )
 from airdc.common.systems.basis import Sensor, DictDataStamped
 from airdc.basis import force_set_attr
+from airdc.common.utils.error import check_support
 from mcap_data_loader.utils.dict import update_if
 from pyrealsense2 import config as RSConfig  # noqa: N812
 from pyrealsense2 import format as RSFormat  # noqa: N812
@@ -64,8 +65,51 @@ def find_camera_device_ids(
     return mappings
 
 
+ALL_FORMATS = {
+    "any",
+    "bgr8",
+    "bgra8",
+    "combined_motion",
+    "disparity16",
+    "disparity32",
+    "distance",
+    "fg",
+    "gpio_raw",
+    "invi",
+    "inzi",
+    "m420",
+    "mjpeg",
+    "motion_raw",
+    "motion_xyz32f",
+    "name",
+    "raw10",
+    "raw16",
+    "raw8",
+    "rgb8",
+    "rgba8",
+    "six_dof",
+    "uyvy",
+    "value",
+    "w10",
+    "xyz32f",
+    "y10bpack",
+    "y12i",
+    "y16",
+    "y16i",
+    "y411",
+    "y8",
+    "y8i",
+    "yuyv",
+    "z16",
+    "z16h",
+}
+
+
 class IntelRealSenseCameraConfig(RGBDCameraConfig):
+    """Configuration for Intel RealSense camera device."""
+
     force_hardware_reset: bool = True
+    """Whether to force a hardware reset on camera initialization."""
 
     @force_set_attr
     def model_post_init(self, context):
@@ -83,6 +127,18 @@ class IntelRealSenseCameraConfig(RGBDCameraConfig):
         self.camera_index = (
             str(self.camera_index) if self.camera_index is not None else None
         )
+        object.__setattr__(
+            self.rgb_camera, "pixel_format", self.rgb_camera.pixel_format or "rgb8"
+        )
+        object.__setattr__(
+            self.depth_module, "pixel_format", self.depth_module.pixel_format or "z16"
+        )
+
+        def check_pixel_format(pixel_format: str, module: str):
+            check_support("pixel format", pixel_format, module, ALL_FORMATS)
+
+        check_pixel_format(self.rgb_camera.pixel_format, "RGB camera")
+        check_pixel_format(self.depth_module.pixel_format, "Depth module")
 
 
 class IntelRealSenseCamera(Sensor):
@@ -210,10 +266,18 @@ class IntelRealSenseCamera(Sensor):
             rs_config.enable_device(config.camera_index)
 
         if config.enable_color:
-            self._enable_stream(rs_config, RSStream.color, RSFormat.rgb8)
+            self._enable_stream(
+                rs_config,
+                RSStream.color,
+                getattr(RSFormat, config.rgb_camera.pixel_format),
+            )
 
         if config.enable_depth:
-            self._enable_stream(rs_config, RSStream.depth, RSFormat.z16)
+            self._enable_stream(
+                rs_config,
+                RSStream.depth,
+                getattr(RSFormat, config.depth_module.pixel_format),
+            )
 
         self._rs_pipe = RSPipeline()
         try:
@@ -274,9 +338,6 @@ class IntelRealSenseCamera(Sensor):
         outputs = {}
         if config.enable_color:
             color_image, stamp = self._get_frame(frames, "color")
-            # IntelRealSense uses RGB format as default (red, green, blue).
-            if config.rgb_camera.color_mode == "bgr":
-                color_image = color_image[..., ::-1]  # Convert RGB to BGR
             outputs["color/image_raw"] = {"t": stamp, "data": color_image}
         if config.enable_depth:
             depth_map, stamp = self._get_frame(frames, "depth")

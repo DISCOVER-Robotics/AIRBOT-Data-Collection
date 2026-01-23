@@ -3,7 +3,7 @@ import numpy as np
 import time
 from threading import Event
 from typing import Union, Optional
-from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture
+from linuxpy.video.device import Capability, Device, PixelFormat, VideoCapture, Frame
 from linuxpy.ctypes import timeval
 from turbojpeg import TurboJPEG
 from pydantic import field_validator, model_validator
@@ -17,7 +17,7 @@ from airdc.common.devices.cameras.utils import (
 )
 from airdc.common.visualizers.basis import VisualizerBasis
 from airdc.common.utils.progress import run_event_loop
-from airdc.common.utils.codec import ImageCoder
+from airdc.common.utils.error import check_support
 
 
 class V4L2CameraConfig(ColorCameraConfig):
@@ -25,8 +25,6 @@ class V4L2CameraConfig(ColorCameraConfig):
 
     nb_buffers: int = 2
     mode: Optional[Union[str, int]] = None
-    decode: bool = True
-    pixel_format: PixelFormat = PixelFormat.MJPEG
 
     @field_validator("mode", mode="after")
     def validate_mode(cls, v):
@@ -35,16 +33,17 @@ class V4L2CameraConfig(ColorCameraConfig):
             "read": Capability.READWRITE,
         }.get(v, v)
 
-    @field_validator("pixel_format", mode="before")
-    def validate_pixel_format(cls, v):
-        if isinstance(v, str):
-            return PixelFormat[v.upper()]
-        return v
-
     @model_validator(mode="after")
     def validate_rgb_camera(self):
-        if self.rgb_camera.pixel_format is None:
-            object.__setattr__(self.rgb_camera, "pixel_format", self.pixel_format)
+        object.__setattr__(
+            self.rgb_camera, "pixel_format", self.rgb_camera.pixel_format or "BGR24"
+        )
+        check_support(
+            "pixel format",
+            self.rgb_camera.pixel_format.upper(),
+            "V4L2 camera",
+            list(PixelFormat.__members__.keys()),
+        )
         return self
 
 
@@ -58,6 +57,8 @@ class V4L2Camera(Sensor):
         self._shutdown = False
         self._visualizer = None
         self._frame = None
+        self._swap_color = False
+        self._jpeg = None
 
     def on_configure(self) -> bool:
         config = self.config
@@ -75,23 +76,35 @@ class V4L2Camera(Sensor):
         if self.device.closed:
             return False
         self._capture = VideoCapture(self.device, config.nb_buffers, config.mode)
-        format = self._capture.get_format()
+        cap_format = self._capture.get_format()
+        pixel_format = PixelFormat[color_config.pixel_format.upper()]
         self._capture.set_format(
-            color_config.width or format.width,
-            color_config.height or format.height,
-            color_config.pixel_format or format.pixel_format,
+            color_config.width or cap_format.width,
+            color_config.height or cap_format.height,
+            pixel_format,
         )
         if color_config.fps:
             self._capture.set_fps(color_config.fps)
         self._capture.open()
         self._format = self._capture.get_format()
+        if pixel_format != self._format.pixel_format:
+            if self._format.pixel_format is PixelFormat.MJPEG:
+                if pixel_format in {PixelFormat.BGR24, PixelFormat.RGB24}:
+                    # use turbojpeg for MJPG to BGR conversion
+                    self._jpeg = TurboJPEG()
+                    if pixel_format is PixelFormat.RGB24:
+                        self._swap_color = True
+            else:
+                # self.get_logger().warning(
+                raise ValueError(
+                    f"Warning: Pixel format set to {self._format.pixel_format.name}, "
+                    f"but requested {pixel_format.name}."
+                )
         # NOTE: do not move to __init__ to avoid deepcopy error
         self._event = Event()
         self._read_fut = asyncio.run_coroutine_threadsafe(
             self._read_frame(), run_event_loop()
         )
-        if self.config.decode and color_config.pixel_format is PixelFormat.MJPEG:
-            self._jpeg = TurboJPEG()
         self._init_info()
         return True
 
@@ -102,29 +115,15 @@ class V4L2Camera(Sensor):
             if not self._event.wait(timeout):
                 raise TimeoutError(f"Timeout waiting for camera frame: {timeout} s.")
             self._event.clear()
-        frame_bytes = bytes(self._frame)
         key = "color/image_raw"
-        obs = {key: {"t": self.stamp}}
-        if not self.config.decode:
-            obs[key]["data"] = frame_bytes
+        frame = self._frame
+        frame_array = self._jpeg.decode(frame.data) if self._jpeg else frame.array
+        obs = {key: {"t": self._get_stamp(frame)}}
+        if len(frame_array.shape) > 1:
+            image = frame_array[:, :, ::-1] if self._swap_color else frame_array
         else:
-            pixel_format = self._format.pixel_format
-            if pixel_format is PixelFormat.MJPEG:
-                image = self._jpeg.decode(frame_bytes)
-                if image.shape[0] == 0 or image.shape[1] == 0:
-                    raise ValueError("Received empty image from camera.")
-            elif pixel_format is PixelFormat.YUYV:
-                image = ImageCoder.yuyv2bgr(
-                    frame_bytes, self._format.width, self._format.height
-                )
-            else:
-                raise NotImplementedError(
-                    f"Pixel format {pixel_format} not supported for decoding yet."
-                )
-            color_config = self.config.rgb_camera
-            if color_config.color_mode == "rgb":
-                image = image[:, :, ::-1]
-            obs[key]["data"] = image
+            image = frame.data
+        obs[key]["data"] = image
         return obs
 
     def shutdown(self) -> bool:
@@ -179,10 +178,13 @@ class V4L2Camera(Sensor):
         """
         self._visualizer = visualizer
 
+    @staticmethod
+    def _get_stamp(frame: Frame):
+        timestamp: timeval = frame.buff.timestamp
+        return timestamp.secs * int(1e9) + timestamp.usecs * int(1e3)
+
     async def _read_frame(self):
         async for frame in self._capture:
-            timestamp: timeval = frame.buff.timestamp
-            self.stamp = timestamp.secs * int(1e9) + timestamp.usecs * int(1e3)
             self._frame = frame
             self._event.set()
             if self._shutdown:
@@ -197,7 +199,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     def test(show: bool = True):
-        camera = V4L2Camera()
+        camera = V4L2Camera(V4L2CameraConfig(width=1280, height=720, fps=30))
         assert camera.configure()
         while True:
             start = time.monotonic()
@@ -212,8 +214,8 @@ if __name__ == "__main__":
                 break
         assert camera.shutdown()
 
-    # test()
+    test(True)
     # test to ensure no shutdown error
-    for i in range(50):
-        print(i)
-        test(False)
+    # for i in range(50):
+    #     print(i)
+    #     test(False)
