@@ -60,8 +60,17 @@ class Version(BaseModel, frozen=True):
     """Version of the data schema used for organizing and storing collected data."""
 
 
-class DataSamplerConfig(BaseModel, frozen=True):
+class DataSamplerConfigBasis(BaseModel, frozen=True):
+    """Base configuration for data sampler."""
+
     model_config = ConfigDict(extra="forbid")
+
+    key_remap: MappingCall[str] = CallableKeyMappingDict()
+    """Key remapping for data fields."""
+
+
+class DataSamplerConfig(DataSamplerConfigBasis):
+    """Configuration for data sampler."""
 
     version: Version = Version()
     """Version information for the data collection."""
@@ -69,8 +78,6 @@ class DataSamplerConfig(BaseModel, frozen=True):
     """Task information for the data collection."""
     save_type: SaveType = SaveType()
     """Data saving types for different modalities."""
-    key_remap: MappingCall[str] = CallableKeyMappingDict()
-    """Key remapping for data fields."""
 
 
 class DataSampler(ConfigurableBasis):
