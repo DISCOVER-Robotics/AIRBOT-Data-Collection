@@ -4,7 +4,6 @@ from typing import Dict
 from collections import defaultdict
 from functools import cache
 from pathlib import Path
-from shutil import rmtree
 import csv
 
 
@@ -20,7 +19,7 @@ class VideoSamplerConfig(DataSamplerConfigBasis):
 
 
 class VideoSampler(DataSampler):
-    """Sampler for video data.TODO: support recording to file directly."""
+    """Sampler for video data."""
 
     def __init__(self, config: VideoSamplerConfig):
         self.config = config
@@ -95,13 +94,57 @@ class VideoSampler(DataSampler):
             stamps_path = path / "frame_timestamps.csv"
             with open(stamps_path, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow(["key", "timestamps"])
+                writer.writerow(["port", "frame_time"])
                 for key, timestamps in self._stamps.items():
-                    writer.writerow([key, ";".join(map(str, timestamps))])
+                    for stamp in timestamps:
+                        writer.writerow([key, stamp])
             self.get_logger().info(f"Saved frame timestamps to: {stamps_path}")
         return True
 
+
+class VideoSamplerOnceConfig(VideoSamplerConfig):
+    once_a_key: str = ""
+    """If set, the videos will be save to this specific directory name one by one.
+    This is useful for recording calibration videos."""
+
+
+class VideoSamplerOnce(VideoSampler):
+    def __init__(self, config: VideoSamplerOnceConfig):
+        self.config = config
+        self._once = []
+        self._save_dir_name = self.config.once_a_key
+
+    def get_start_episode(self, directory):
+        if self._save_dir_name:
+            save_dir = directory / self._save_dir_name
+            if save_dir.exists():
+                self._once = [
+                    self._file_to_key(file)
+                    for file in save_dir.iterdir()
+                    if not file.is_dir()
+                ]
+                return len(self._once)
+        return super().get_start_episode(directory)
+
+    def _file_to_key(self, file: Path):
+        return "/" + file.stem.replace(".", "/")
+
+    def compose_path(self, directory, episode):
+        return super().compose_path(directory, self._save_dir_name or episode)
+
+    def update(self, data: dict):
+        if self._first_encode:
+            for key in data.keys():
+                if self._is_save_video(key):
+                    if key not in self._once:
+                        self._once.append(key)
+                        break
+            else:
+                if not self._once:
+                    raise ValueError("No video data found to save in VideoSamplerOnce.")
+                self._once = [self._once[0]]
+        key = self._once[0]
+        return super().update({key: data[key]})
+
     def remove(self, path):
-        self.get_logger().info(f"Removing videos: {path}")
-        rmtree(path, ignore_errors=True)
-        return True
+        return self._get_video_path(path, self._once[0])
