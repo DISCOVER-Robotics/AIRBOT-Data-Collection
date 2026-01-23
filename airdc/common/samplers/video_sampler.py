@@ -66,11 +66,13 @@ class VideoSampler(DataSampler):
     def end_videos(
         self, save_to_file: bool = False, reset: bool = False
     ) -> Dict[str, bytes]:
+        video_dir = self._dir
         if save_to_file:
-            self._dir.mkdir(parents=True, exist_ok=True)
+            video_dir.mkdir(parents=True, exist_ok=True)
+            self.get_logger().info(f"Saving videos to: {video_dir}")
         video_data = {}
         for key, coder in self._coders.items():
-            file_path = self._get_video_path(self._dir, key) if save_to_file else ""
+            file_path = self._get_video_path(video_dir, key) if save_to_file else ""
             video_bytes = coder.end(file_path, reset)
             if video_bytes is not None:
                 video_data[key] = video_bytes
@@ -88,7 +90,6 @@ class VideoSampler(DataSampler):
 
     def save(self, path, data):
         self.end_videos(not self.config.encode_to_file, False)
-        self.get_logger().info(f"Saved videos to: {path}")
         # Save frame timestamps if required
         if self._save_stamps:
             stamps_path = path / "frame_timestamps.csv"

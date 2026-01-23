@@ -5,15 +5,13 @@ from collections.abc import Mapping
 from mcap.writer import Writer
 from flatten_dict import flatten
 from time import time_ns
-from collections import defaultdict
-from functools import partial
 from pathlib import Path
 from functools import cache
-from shutil import rmtree
-from mcap_data_loader.utils.av_coder import AvCoder, AvCoderConfig
+from mcap_data_loader.utils.av_coder import AvCoderConfig
 from mcap_data_loader.utils.mcap_utils import McapTool, MediaType
 from mcap_data_loader.serialization.flb import McapFlatBuffersWriter, FlatBuffersSchemas
 from airdc.common.samplers.basis import DataSampler, DataSamplerConfig
+from airdc.common.samplers.video_sampler import VideoSampler, VideoSamplerConfig
 
 
 class McapDataSamplerConfig(DataSamplerConfig):
@@ -32,21 +30,23 @@ class McapDataSampler(DataSampler):
 
     def __init__(self, config: McapDataSamplerConfig):
         self.config = config
+        self._video_sampler = VideoSampler(
+            VideoSamplerConfig(
+                av_coder=config.av_coder,
+                key_remap=config.key_remap,
+                encode_to_file=False,
+            )
+        )
+        self._video2file = config.video_save_to in {"file", "both"}
+        self._video2folder = config.video_save_to in {"folder", "both"}
 
     def on_configure(self):
         """Configure the mcap data sampler."""
         self._mf_writer = McapFlatBuffersWriter(self.config.initial_builder_size)
-        self._coders: Dict[str, AvCoder] = defaultdict(
-            partial(AvCoder, config=self.config.av_coder)
-        )
-        self._frame_stamp_factor = int(1e9 / self.config.av_coder.time_base)
-        return True
+        return self._video_sampler.configure()
 
     def _create_writer(self, path: Path) -> Writer:
         return Writer(str(path)), True
-
-    def _get_video_dir(self, path: Path) -> Path:
-        return path.parent / path.stem
 
     def compose_path(self, directory: Path, episode: int) -> Path:
         path = directory / f"{episode}.mcap"
@@ -54,27 +54,21 @@ class McapDataSampler(DataSampler):
         # but the writer is finished in save()
         self._mf_writer.unset_writer()
         self._mf_writer.set_writer(*self._create_writer(path))
-        for coder in self._coders.values():
-            coder.reset()
+        self._video_dir = self._video_sampler.compose_path(directory, episode)
         return path
 
     def update(self, data: dict):
         """Update the data with the latest frames."""
-        # print(f"Updating data: {data.keys()}...")
-        flag = None
         for key in tuple(data.keys()):
             if flag := self._is_save_h264(key):
-                frame = data[key]
-                self._coders[key].encode_frame(
-                    frame["data"], frame["t"] // self._frame_stamp_factor
-                )
+                self._video_sampler.encode_frame(key, data[key])
             else:
                 flag = self._add_messages(key, [data[key]], [data["log_stamps"]])
             if flag:
                 data.pop(key)
         return data
 
-    def save(self, path: Path, data: dict) -> str:
+    def save(self, path: Path, data: dict) -> bool:
         """Save the data to a MCAP file."""
         writer = self._mf_writer.get_writer()
         mcap_tool = McapTool(writer)
@@ -107,34 +101,19 @@ class McapDataSampler(DataSampler):
         for key, values in data.items():
             if not self._add_messages(key, values, log_stamps):
                 self.get_logger().warning(f"Unknown data type for key: {key}")
-        if self._coders:
-            video_save_to = self.config.video_save_to
-            video_dir = self._get_video_dir(path)
-            video_path = None
-            for key, coder in self._coders.items():
-                key = self.config.key_remap(key)
-                video_bytes = coder.end()
-                if video_save_to in {"file", "both"}:
+        if self._video_sampler.is_updated():
+            video_data = self._video_sampler.end_videos(self._video2folder)
+            if self._video2file:
+                for key, video_bytes in video_data.items():
                     writer.add_attachment(
                         time_ns(), time_ns(), key, MediaType.VIDEO_MP4, video_bytes
                     )
-                if video_save_to in {"folder", "both"}:
-                    video_dir.mkdir(exist_ok=True)
-                    video_path = (
-                        video_dir / f"{key.removeprefix('/').replace('/', '.')}.mp4"
-                    )
-                    with open(video_path, "wb") as f:
-                        f.write(video_bytes)
-            if video_path is not None:
-                self.get_logger().info(f"Saved videos to folder: {video_dir}")
         writer.finish()
-        return path
+        return True
 
     def remove(self, path):
-        if self.config.video_save_to in {"folder", "both"}:
-            video_dir = self._get_video_dir(path)
-            self.get_logger().info(f"Removing video folder: {video_dir}")
-            rmtree(video_dir, ignore_errors=True)
+        if self._video2folder:
+            self._video_sampler.remove(path)
         return super().remove(path)
 
     def _add_messages(
