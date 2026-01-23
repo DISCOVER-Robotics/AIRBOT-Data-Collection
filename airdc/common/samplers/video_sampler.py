@@ -138,7 +138,4 @@ class VideoSamplerOnce(VideoSampler):
         return super().update({key: data[key]})
 
     def remove(self, path):
-        to_remove = self._get_video_path(path, self._once[-1])
-        if to_remove.exists():
-            to_remove.unlink()
-        return to_remove
+        return super().remove(self._get_video_path(path, self._once[-1]))

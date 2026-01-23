@@ -259,40 +259,17 @@ class DemonstrateInterface:
             )
             self._wait_action_futures(DemonstrateAction.save)
             # try to remove the data
-            removed_path = self._remove(path, True)
-            if not removed_path:
-                return False
+            removed_path = self._sampler.remove(path)
+            if removed_path is not None:
+                self.get_logger().info(Bcolors.green(f"Removed {removed_path}"))
+            else:
+                self.get_logger().warning(f"Path does not exist: {path}")
             # the order is important
             self._sample_info.episode -= 1
             self._clear()
-            self.get_logger().info(Bcolors.green(f"Removed {removed_path}"))
         else:
             self.get_logger().warning("Not ever saved yet")
         return True
-
-    def _remove(self, path: str, log: bool = False):
-        removed = self._sampler.remove(path)
-        if removed is None:
-            self._remove_path(path, log)
-            return path
-        return removed
-
-    def _remove_path(self, path: str, log: bool = False) -> bool:
-        """Remove the data from the given or last saved path."""
-        path_cls = Path(path)
-        if path_cls.exists():
-            if self._config.remove_mode == "permanent":
-                if path_cls.is_dir():
-                    shutil.rmtree(path_cls)
-                else:
-                    path_cls.unlink()
-            else:
-                send2trash(path_cls)
-            return True
-        else:
-            if log:
-                self.get_logger().warning(f"Path to be removed {path} does not exist.")
-            return True
 
     def _clear(self) -> None:
         self._round_data = defaultdict(list)
@@ -338,7 +315,7 @@ class DemonstrateInterface:
     def abandon(self) -> bool:
         """Abandon the current episode of sampling."""
         self._cancel_action_futures(DemonstrateAction.update)
-        self._remove_path(self._save_path, False)
+        self._sampler.remove(self._save_path)
         self._clear()
         self.get_logger().info(
             Bcolors.green(f"Abandoned the current episode: {self._sample_info.episode}")

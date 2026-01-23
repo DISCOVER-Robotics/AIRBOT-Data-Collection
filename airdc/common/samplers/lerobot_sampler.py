@@ -510,18 +510,13 @@ class LeRobotDataSampler(DataSampler):
 
     def remove(self, path: Path) -> Optional[bool]:
         """Remove saved episode directory."""
-        try:
-            if self._current_episode_path is not None and Path(
-                self._current_episode_path
-            ) == Path(path):
-                self._reset_episode_state()
-            if Path(path).exists():
-                rmtree(path)
-            return path
-        except Exception:
-            return ""
+        if (
+            self._current_episode_path is not None
+            and self._current_episode_path == path
+        ):
+            self._reset_episode_state()
+        return super().remove(path)
 
     def clear(self) -> None:
         """Clear per-episode internal state."""
         self._reset_episode_state()
-        return

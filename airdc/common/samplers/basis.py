@@ -6,6 +6,7 @@ from typing import Literal, Union, List
 from airdc.basis import ConfigurableBasis
 from airdc import __version__ as collector_version
 from mcap_data_loader.utils.dict import CallableKeyMappingDict, MappingCall
+from mcap_data_loader.utils.file import remove_path
 
 
 class Subtask(BaseModel, frozen=True):
@@ -67,6 +68,8 @@ class DataSamplerConfigBasis(BaseModel, frozen=True):
 
     key_remap: MappingCall[str] = CallableKeyMappingDict()
     """Key remapping for data fields."""
+    remove_mode: Literal["permanent", "trash"] = "permanent"
+    """Data removal mode."""
 
 
 class DataSamplerConfig(DataSamplerConfigBasis):
@@ -82,6 +85,9 @@ class DataSamplerConfig(DataSamplerConfigBasis):
 
 class DataSampler(ConfigurableBasis):
     """Data sampler for sampling kinds of data."""
+
+    def __init__(self, config: DataSamplerConfig):
+        self.config = config
 
     def get_start_episode(self, directory: Path) -> int:
         """Get the starting episode number from the given data directory.
@@ -121,11 +127,15 @@ class DataSampler(ConfigurableBasis):
         """
         return data
 
-    def remove(self, path: Path) -> Optional[Union[Path, str]]:
+    def remove(self, path: Path) -> Optional[Path]:
         """Remove the data from the given or last saved path.
-        If the return value is None, the demonstrate
-        interface will try to remove the path. Otherwise,
-        return the actually removed path or an empty string to raise an error."""
+        Args:
+            path (Path): The path to the data file.
+        Returns:
+            Optional[Path]: The path if removed successfully, None if the path does not exist.
+        """
+        if remove_path(path, self.config.remove_mode, False):
+            return path
 
     def set_info(self, info: Dict[str, Any]) -> None:
         """Set the info of the data collector.
