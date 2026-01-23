@@ -8,6 +8,8 @@ sampler:
     #   non_monotonic_mode: drop
     #   non_monotonic_log: false
 
+remove_mode: trash
+
 dataset:
   directory: video
   file_extension: ""

@@ -4,11 +4,12 @@ sampler:
   name: video_once_sampler
   instance:
     _target_: airdc.common.samplers.video_sampler.VideoSamplerOnce
-    once_a_key: recordings
     # av_coder:
     #   non_monotonic_mode: drop
     #   non_monotonic_log: false
 
+remove_mode: trash
+
 dataset:
   directory: video_once
-  file_extension: ""
+  file_extension: ".mp4"

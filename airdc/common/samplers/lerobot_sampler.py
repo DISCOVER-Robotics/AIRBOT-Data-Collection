@@ -517,9 +517,9 @@ class LeRobotDataSampler(DataSampler):
                 self._reset_episode_state()
             if Path(path).exists():
                 rmtree(path)
-            return True
+            return path
         except Exception:
-            return False
+            return ""
 
     def clear(self) -> None:
         """Clear per-episode internal state."""

@@ -102,35 +102,26 @@ class VideoSampler(DataSampler):
         return True
 
 
-class VideoSamplerOnceConfig(VideoSamplerConfig):
-    once_a_key: str = ""
-    """If set, the videos will be save to this specific directory name one by one.
-    This is useful for recording calibration videos."""
-
-
 class VideoSamplerOnce(VideoSampler):
-    def __init__(self, config: VideoSamplerOnceConfig):
-        self.config = config
-        self._once = []
-        self._save_dir_name = self.config.once_a_key
-
     def get_start_episode(self, directory):
-        if self._save_dir_name:
-            save_dir = directory / self._save_dir_name
-            if save_dir.exists():
-                self._once = [
-                    self._file_to_key(file)
-                    for file in save_dir.iterdir()
-                    if not file.is_dir()
-                ]
-                return len(self._once)
-        return super().get_start_episode(directory)
+        self._once = []
+        if directory.exists():
+            self._once = [
+                self._file_to_key(file)
+                for file in directory.iterdir()
+                if not file.is_dir()
+            ]
+            return len(self._once)
+        return 0
 
     def _file_to_key(self, file: Path):
         return "/" + file.stem.replace(".", "/")
 
     def compose_path(self, directory, episode):
-        return super().compose_path(directory, self._save_dir_name or episode)
+        # we do not know the video name until update
+        # TODO: use a warm-up phase to determine the data keys
+        super().compose_path(directory.parent, directory.name)
+        return directory
 
     def update(self, data: dict):
         if self._first_encode:
@@ -142,9 +133,12 @@ class VideoSamplerOnce(VideoSampler):
             else:
                 if not self._once:
                     raise ValueError("No video data found to save in VideoSamplerOnce.")
-                self._once = [self._once[0]]
-        key = self._once[0]
+                self._once = self._once[:1]
+        key = self._once[-1]
         return super().update({key: data[key]})
 
     def remove(self, path):
-        return self._get_video_path(path, self._once[0])
+        to_remove = self._get_video_path(path, self._once[-1])
+        if to_remove.exists():
+            to_remove.unlink()
+        return to_remove

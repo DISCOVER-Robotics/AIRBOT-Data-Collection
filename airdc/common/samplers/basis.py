@@ -121,10 +121,11 @@ class DataSampler(ConfigurableBasis):
         """
         return data
 
-    def remove(self, path: Path) -> Optional[bool]:
+    def remove(self, path: Path) -> Optional[Union[Path, str]]:
         """Remove the data from the given or last saved path.
         If the return value is None, the demonstrate
-        interface will try to remove the path."""
+        interface will try to remove the path. Otherwise,
+        return the actually removed path or an empty string to raise an error."""
 
     def set_info(self, info: Dict[str, Any]) -> None:
         """Set the info of the data collector.
@@ -160,7 +161,7 @@ class MockDataSampler(DataSampler):
         return True
 
     def remove(self, path: Path):
-        return True
+        return path
 
     def compose_path(self, directory: Path, episode: int):
         return directory / f"mock_{episode}.data"

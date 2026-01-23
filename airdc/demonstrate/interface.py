@@ -259,24 +259,23 @@ class DemonstrateInterface:
             )
             self._wait_action_futures(DemonstrateAction.save)
             # try to remove the data
-            if not self._remove(path, True):
+            removed_path = self._remove(path, True)
+            if not removed_path:
                 return False
             # the order is important
             self._sample_info.episode -= 1
             self._clear()
-            self.get_logger().info(Bcolors.green(f"Removed {path}"))
+            self.get_logger().info(Bcolors.green(f"Removed {removed_path}"))
         else:
             self.get_logger().warning("Not ever saved yet")
         return True
 
-    def _remove(self, path: str, log: bool = False) -> bool:
+    def _remove(self, path: str, log: bool = False):
         removed = self._sampler.remove(path)
         if removed is None:
             self._remove_path(path, log)
-            return True
-        elif removed:
-            return True
-        return False
+            return path
+        return removed
 
     def _remove_path(self, path: str, log: bool = False) -> bool:
         """Remove the data from the given or last saved path."""
