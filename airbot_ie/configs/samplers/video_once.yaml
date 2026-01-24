@@ -1,5 +1,7 @@
 # @package _global_
 
+update_rate: 5
+
 sampler:
   name: video_once_sampler
   instance:
@@ -8,9 +10,9 @@ sampler:
     # av_coder:
     #   non_monotonic_mode: drop
     #   non_monotonic_log: false
-    key_remap:
-      _target_: mcap_data_loader.utils.key.unique_count
-      prefix: port_
+    # key_remap:
+    #   _target_: mcap_data_loader.utils.key.unique_count
+    #   prefix: port_
 
 dataset:
   directory: video_once
