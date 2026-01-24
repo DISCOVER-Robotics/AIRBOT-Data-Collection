@@ -41,7 +41,6 @@ soft = [
     "transitions",
     "bidict",
     "tqdm",
-    "send2trash >=1.8.3",
 ]
 hard = [
     "pynput >=1.8.1",
@@ -59,7 +58,6 @@ cfg = [
 basic = [
     "bidict",
     "tqdm",
-    "send2trash >=1.8.3",
     "flatten-dict",
 ]
 all = [
