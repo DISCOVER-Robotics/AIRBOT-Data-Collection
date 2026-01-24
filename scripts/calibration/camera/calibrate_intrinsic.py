@@ -20,7 +20,7 @@ class CalibrationConfig(BaseModel):
     """Size of a square in your defined unit (point, millimeter,etc.)."""
     max_frames: int = 20
     """Maximum number of frames to use for calibration."""
-    frame_interval: int = 10
+    frame_interval: int = 1
     """Interval between frames to sample."""
     use_fisheye: bool = False
     """Whether to use fisheye model for calibration."""
@@ -152,7 +152,9 @@ def calibrate_from_video(
     cap.release()
 
     if len(candidate_frames) < max_frames:
-        raise RuntimeError("有效棋盘格帧数量不足")
+        raise RuntimeError(
+            f"No enough valid frames found for calibration. Found: {len(candidate_frames)}, Required: {max_frames}"
+        )
 
     # 按质量排序
     candidate_frames.sort(key=lambda x: x["quality"])
