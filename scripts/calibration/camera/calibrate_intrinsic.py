@@ -35,6 +35,41 @@ class CalibrationConfig(BaseModel):
             raise ValueError("Either video_dir or video_paths must be provided.")
 
 
+def compute_fov(intrinsics, image_size, in_degrees=True):
+    """
+    根据相机内参和图像尺寸计算水平和垂直视场角（FOV）。
+
+    参数:
+        intrinsics (np.ndarray or list): 3x3 相机内参矩阵 K
+        image_size (tuple): (width, height)，图像尺寸（像素）
+        in_degrees (bool): 若为 True，返回角度；否则返回弧度
+
+    返回:
+        dict: {'h': 水平FOV, 'v': 垂直FOV, 'd': 对角线FOV} （单位由 in_degrees 决定）
+    """
+    K = np.array(intrinsics)
+    if K.shape != (3, 3):
+        raise ValueError("intrinsics 必须是 3x3 矩阵")
+
+    fx = K[0, 0]
+    fy = K[1, 1]
+    width, height = image_size
+
+    # 避免除零
+    if fx <= 0 or fy <= 0:
+        raise ValueError("焦距 fx 和 fy 必须为正数")
+
+    fov_x = 2 * np.arctan(width / (2 * fx))
+    fov_y = 2 * np.arctan(height / (2 * fy))
+    fov_d = 2 * np.arctan(np.sqrt(width**2 + height**2) / (2 * np.sqrt(fx * fy)))
+
+    if in_degrees:
+        fov_x = np.degrees(fov_x)
+        fov_y = np.degrees(fov_y)
+        fov_d = np.degrees(fov_d)
+    return {"h": float(fov_x), "v": float(fov_y), "d": float(fov_d)}
+
+
 def calibrate_from_video(
     video_path,
     board_size,
@@ -184,9 +219,10 @@ def calibrate_from_video(
         "board_size": list(board_size),
         "square_size": square_size,
         "rms_reprojection_error": float(rms),
+        "fov": compute_fov(K, image_size),
     }
 
-    yaml_path = os.path.join(output_dir, "camera_calibration.yaml")
+    yaml_path = os.path.join(output_dir, "calibration.yaml")
     with open(yaml_path, "w") as f:
         yaml.dump(calib_data, f)
 
