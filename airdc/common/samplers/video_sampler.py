@@ -34,7 +34,7 @@ class VideoSampler(DataSampler):
         return True
 
     def compose_path(self, directory: Path, episode: int) -> Path:
-        self._first_encode = True
+        self._first_encode = {}
         self._stamps = defaultdict(list)
         for coder in self._coders.values():
             coder.reset()
@@ -47,8 +47,8 @@ class VideoSampler(DataSampler):
 
     def encode_frame(self, key: str, frame: dict):
         mapped_key = self.config.key_remap(key)
-        if self._first_encode:
-            self._first_encode = False
+        if self._first_encode.get(mapped_key) is None:
+            self._first_encode[mapped_key] = False
             if self.config.encode_to_file:
                 path = self._get_video_path(self._dir, mapped_key)
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -103,6 +103,21 @@ class VideoSampler(DataSampler):
 
 
 class VideoSamplerOnce(VideoSampler):
+    """Sampler that saves video data only in one folder for all episodes.
+    TODO: make this a common mode for all samplers in the sampler basis class.
+    """
+
+    def get_start_episode(self, directory: Path):
+        return int(directory.exists())
+
+    def compose_path(self, directory, episode):
+        # we do not know the video name until update
+        # TODO: use a warm-up phase to determine the data keys
+        super().compose_path(directory.parent, directory.name)
+        return directory
+
+
+class VideoSamplerEach(VideoSamplerOnce):
     def get_start_episode(self, directory):
         self._once = []
         if directory.exists():
@@ -116,12 +131,6 @@ class VideoSamplerOnce(VideoSampler):
 
     def _file_to_key(self, file: Path):
         return "/" + file.stem.replace(".", "/")
-
-    def compose_path(self, directory, episode):
-        # we do not know the video name until update
-        # TODO: use a warm-up phase to determine the data keys
-        super().compose_path(directory.parent, directory.name)
-        return directory
 
     def update(self, data: dict):
         if self._first_encode:
