@@ -38,7 +38,7 @@ airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_each
 ```
 
 上述命令会同时启动多个相机，但会依次采集每个相机的视频数据，采集顺序与配置文件中相机的顺序一致。
-因此，首先查看配置文件中第一个相机的名称，然后将标定板放置在该相机前方进行录制，保存后，下一次采集会自动按顺序切换到下一个相机，依次类推，完成所有相机的视频采集。完成后，将会在`dataset.directory`指定的目录下找到每个相机的视频文件。
+因此，首先查看配置文件中第一个相机的名称，然后将标定板放置在该相机前方进行录制，保存后，下一次采集会自动按顺序切换到下一个相机，依次类推，完成所有相机的视频采集。完成后，将会在`dataset.directory`指定的目录下找到每个相机的视频文件，命名形如`port_#.mp4`,其中`#`与相机的录制顺序对应。
 
 有如下录制建议：
 
@@ -81,7 +81,7 @@ airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_each
 airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_once +dataset.root=scripts/calibration/camera/calibration/ dataset.directory=extrinsic
 ```
 
-上述命令会同时启动多个相机，并同时采集所有相机的视频数据。多次重复录制会覆盖之前的数据。完成后，将会在`dataset.directory`指定的目录下找到每个相机的视频文件。
+上述命令会同时启动多个相机，并同时采集所有相机的视频数据。多次重复录制会覆盖之前的数据。完成后，将会在`dataset.directory`指定的目录下找到每个相机的视频文件，命名规则与前述内参标定时一致。
 
 有如下录制建议：
 
