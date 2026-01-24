@@ -24,7 +24,8 @@ pip install caliscope
 
 - 使用真正平整的标定板对于获得高质量的相机内参标定至关重要。标定算法的核心假设是：所有特征点都位于同一个平面上。如果使用胶带随意粘贴的纸张或已发生翘曲的纸板作为标定板，将严重损害标定结果的准确性。
 - 内参与外参标定可使用不同的标定板（需要在运行每次标定前相应地调整标定板的定义参数）。内参标定时可选用一块更加平整、对齐精度更高的标定板；而在进行外参标定时，则可使用由多张纸拼接而成的更大尺寸标定板，以覆盖更大的捕捉空间，便于多相机系统的外参标定。
-- 对于一组固定的相机，内参标定只需执行一次，之后可在使用相同相机的后续项目中直接复用该内参配置。
+- 每台相机只需进行一次内参标定。在新项目中使用相同相机时，可将之前标定得到的参数直接复制到`config.toml`文件中。
+- 为确保外参准确，请测量标定板上打印方格的实际边长。虽然该测量值的误差不会导致标定流程失败，但可能外参值过大或过小。请注意，即使您严格按照目标尺寸打印标定板，实际方格尺寸仍可能存在微小偏差。
 
 ### 视频录制
 
@@ -33,7 +34,7 @@ pip install caliscope
 #### 内参
 
 ```bash
-airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_each dataset.directory=scripts/calibration/camera/calibration/intrinsic
+airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_each +dataset.root=scripts/calibration/camera/calibration/ dataset.directory=intrinsic
 ```
 
 上述命令会同时启动多个相机，但会依次采集每个相机的视频数据，采集顺序与配置文件中相机的顺序一致。
@@ -77,7 +78,7 @@ airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_each
 这里标定的是多个相机之间的相对外参关系，而不是相机与机械臂等其他设备的外参关系。
 
 ```bash
-airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_once dataset.directory=scripts/calibration/camera/calibration/extrinsic
+airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_once +dataset.root=scripts/calibration/camera/calibration/ dataset.directory=extrinsic
 ```
 
 上述命令会同时启动多个相机，并同时采集所有相机的视频数据。多次重复录制会覆盖之前的数据。完成后，将会在`dataset.directory`指定的目录下找到每个相机的视频文件。
@@ -106,3 +107,30 @@ airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_once
   - 确保标定板左上角（如 Charuco 页面所示）处于相机视野内，并同时接触地面。
 
 <!-- 对于相机与机械臂的手眼标定，请参考[机械臂手眼标定文档](../robot/README.md#手眼标定)。 -->
+
+### 标定
+
+命令行执行`caliscope`，打开标定程序界面。左上角选择`File -> New/Open Project`打开`airdc/scripts/calibration/camera`。
+
+#### 内参
+
+1. 检查视频加载情况
+   在对应的 Camera 子选项卡 中，确认视频已正确加载。
+   通过滚动浏览视频，验证标定板的角点是否被成功识别（识别成功的角点上会显示红色圆点）。
+
+2. 标定方式选择
+
+   （选项 1）手动选择标定帧
+   - 浏览标定视频，点击 Add Grid 将当前帧加入标定数据集。
+   - 所有用于内参标定的标定板图像将逐步累积显示。
+   - 当您选好所需帧后，点击 Calibrate 开始标定过程。
+
+   （选项 2）自动标定（Autocalibrate）
+   - 设置用于标定的目标标定板数量（建议约 20 帧效果较好）。
+   - 设置“标定板阈值（Board Threshold）”，即标定板中必须被成功识别的最小比例，才将其纳入标定数据。
+   - 点击 Autocalibrate。
+   - 视频将自动播放，系统会定期采集合格的标定帧。视频播放结束后，将自动执行标定，并在图形界面中显示更新后的相机参数（同时保存至项目根目录下的 config.toml 文件中）。
+
+#### 外参
+
+TBD

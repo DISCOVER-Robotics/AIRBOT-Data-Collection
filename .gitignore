@@ -13,3 +13,4 @@ airbot_logs/
 # hydra outputs
 outputs/
 dist/
+*.mp4
