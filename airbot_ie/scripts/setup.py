@@ -282,9 +282,7 @@ for i, index in enumerate(list(used_camera_indices)):
         camera = IntelRealSenseCamera(config)
         camera_type = "realsense"
     else:
-        config = V4L2CameraConfig(
-            camera_index=index, pixel_format="MJPEG", decode=False, **camera_config
-        )
+        config = V4L2CameraConfig(camera_index=index, **camera_config)
         camera = V4L2Camera(config)
         camera_type = "v4l2"
     visualizer = OpenCVVisualizer(OpenCVVisualizerConfig(ignore_info=True, wait_key=-1))

@@ -143,8 +143,11 @@ class VideoSamplerEach(VideoSamplerOnce):
                 if not self._each:
                     raise ValueError("No video data found.")
                 self._each = self._each[:1]
+            # self.get_logger().info(f"Sampling {self._each[-1]}")
         key = self._each[-1]
         return super().update({key: data[key]})
 
     def remove(self, path):
-        return super().remove(self._get_video_path(path, self._each[-1]))
+        to_remove = self._get_video_path(path, self._each.pop())
+        # self.get_logger().info(f"Removing {to_remove}")
+        return super().remove(to_remove)

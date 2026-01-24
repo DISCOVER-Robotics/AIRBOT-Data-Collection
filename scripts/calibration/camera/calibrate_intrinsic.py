@@ -90,9 +90,7 @@ def calibrate_from_video(
         output_dir: 标定结果保存目录。
     """
     os.makedirs(output_dir, exist_ok=True)
-    raw_dir = os.path.join(output_dir, "raw_with_corners")
     undist_dir = os.path.join(output_dir, "undistorted")
-    os.makedirs(raw_dir, exist_ok=True)
     os.makedirs(undist_dir, exist_ok=True)
 
     # 棋盘格世界坐标
@@ -102,7 +100,7 @@ def calibrate_from_video(
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        raise IOError(f"无法打开视频文件: {video_path}")
+        raise IOError(f"Can not open video file: {video_path}")
 
     candidate_frames = []
     frame_idx = 0
@@ -112,7 +110,6 @@ def calibrate_from_video(
         if not ret:
             break
 
-        # 时间间隔采样
         if frame_idx % frame_interval != 0:
             frame_idx += 1
             continue
@@ -156,7 +153,6 @@ def calibrate_from_video(
             f"No enough valid frames found for calibration. Found: {len(candidate_frames)}, Required: {max_frames}"
         )
 
-    # 按质量排序
     candidate_frames.sort(key=lambda x: x["quality"])
     selected = candidate_frames[:max_frames]
 
@@ -171,9 +167,6 @@ def calibrate_from_video(
 
     image_size = selected[0]["gray"].shape[::-1]
 
-    # ===========================
-    # 相机标定
-    # ===========================
     if use_fisheye:
         K = np.zeros((3, 3))
         D = np.zeros((4, 1))
@@ -207,9 +200,6 @@ def calibrate_from_video(
         )
         rms = ret
 
-    # ===========================
-    # 保存 YAML
-    # ===========================
     calib_data = {
         "model": "fisheye" if use_fisheye else "pinhole",
         "camera_matrix": K.tolist(),
@@ -228,9 +218,6 @@ def calibrate_from_video(
     with open(yaml_path, "w") as f:
         yaml.dump(calib_data, f)
 
-    # ===========================
-    # 去畸变 & 可视化
-    # ===========================
     for i, item in enumerate(selected):
         vis = item["frame"]
         cv2.drawChessboardCorners(vis, board_size, item["corners"], True)
