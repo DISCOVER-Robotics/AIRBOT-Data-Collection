@@ -1,0 +1,16 @@
+camera_count = 0
+creation_date = 2026-01-24T11:43:28.353738
+fps_sync_stream_processing = 100
+save_tracked_points_video = true
+
+[charuco]
+columns = 4
+rows = 5
+board_height = 11.0
+board_width = 8.5
+dictionary = "DICT_4X4_50"
+units = "inch"
+aruco_scale = 0.75
+square_size_overide_cm = 5.4
+inverted = true
+legacy_pattern = false
