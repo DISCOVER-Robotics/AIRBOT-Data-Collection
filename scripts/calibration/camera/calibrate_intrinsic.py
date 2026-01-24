@@ -149,9 +149,11 @@ def calibrate_from_video(
     cap.release()
 
     if len(candidate_frames) < max_frames:
-        raise RuntimeError(
+        # raise RuntimeError(
+        print(
             f"No enough valid frames found for calibration. Found: {len(candidate_frames)}, Required: {max_frames}"
         )
+        return
 
     candidate_frames.sort(key=lambda x: x["quality"])
     selected = candidate_frames[:max_frames]

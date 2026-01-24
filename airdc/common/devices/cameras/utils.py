@@ -1,6 +1,6 @@
 import platform
 from enum import Enum
-from typing import List, Dict, Tuple, Optional, Union, Literal
+from typing import List, Dict, Tuple, Optional, Union
 from typing_extensions import Annotated, Self
 from pydantic import (
     BaseModel,

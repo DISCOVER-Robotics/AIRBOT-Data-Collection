@@ -114,27 +114,27 @@ airdc +demonstrator.instance.components.ignore_roles="[l,f]" samplers=video_once
 
 ### 标定
 
-命令行执行`caliscope`，打开标定程序界面。左上角选择`File -> New/Open Project`打开`airdc/scripts/calibration/camera`。
 
 #### 内参
 
-1. 检查视频加载情况
-   在对应的`Camera`子选项卡中，确认视频已正确加载。
-   通过滚动浏览视频，验证标定板的角点是否被成功识别（识别成功的角点上会显示红色圆点）。
+```bash
+python3 scripts/calibration/camera/calibrate_intrinsic.py --board-size "[11,8]" --square-size 0.02 --frame-interval 3 --max-frames 20
+```
 
-2. 标定方式选择
+参数说明：
+- `--board-size`：标定板的行数和列数
+- ``--square-size``：标定板上每个方格的实际边长，单位任意（建议使用米）
+- `--frame-interval`：从视频中采样帧的时间间隔，默认为1，即每帧都采样
+- `--max-frames`：用于标定的最大帧数，默认为20
 
-   （选项 1）手动选择标定帧
-   - 浏览标定视频，点击`Add Grid`将当前帧加入标定数据集。
-   - 所有用于内参标定的标定板图像将逐步累积显示。
-   - 当您选好所需帧后，点击`Calibrate`开始标定过程。
+运行后会依次对`intrinsic`目录下的每个视频文件进行标定，终端实时打印简要标定信息，标定结果保存在`outputs/intrinsic`目录下，每个相机对应一个文件夹（以相机名称命名），包含以下文件：
+- `calibration.yaml`：标定结果文件，包含相机内参矩阵、畸变系数、重投影误差、分辨率、标定使用的图像点和对应的物理点、FOV等信息
+- `undistorted`：该文件夹下包含标定过程中使用的图像帧（绘制有识别结果）去畸变后的图像
 
-   （选项 2）自动标定（Autocalibrate）
-   - 设置用于标定的目标标定板数量（建议至少20帧效果较好，最多支持100帧）。
-   - 设置“标定板阈值（Board Threshold）”，即标定板中必须被成功识别的最小比例，才将其纳入标定数据。当采集的视频帧数较多时，适当提高该阈值可提升标定质量（默认值为0.5）。
-   - 点击`Autocalibrate`。
-   - 视频将自动播放，系统会定期采集合格的标定帧。视频播放结束后，将自动执行标定，并在图形界面中显示更新后的相机参数（同时保存至项目根目录下的`config.toml`文件中）。
+其中，RMSE重投影误差是衡量标定质量的重要指标，通常该值越小，标定结果越准确。一般来说，RMSE小于0.2为佳，0.2到0.5之间略微欠佳，0.5到1.0之间也可接受，如果大于1.0则需要重新采数据后重新标定。
 
 #### 外参
+
+命令行执行`caliscope`，打开标定程序界面。左上角选择`File -> New/Open Project`打开`airdc/scripts/calibration/camera`。
 
 TBD
