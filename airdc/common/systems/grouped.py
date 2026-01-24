@@ -435,7 +435,11 @@ class ComponentGroupManager:
     def control_group_role(
         self, group_name: str, role: ComponentRole, mode: SystemMode, action_value: Any
     ) -> List[Component]:
-        for instance in self.components.grouped_instance[group_name][role]:
+        instances = self.components.grouped_instance.get(group_name, {}).get(role)
+        if instances is None:
+            self.get_logger().warning(f"No group {group_name} or group role {role}")
+            return True
+        for instance in instances:
             if instance.current_mode is mode or instance.switch_mode(mode):
                 instance.send_action(action_value)
             else:
