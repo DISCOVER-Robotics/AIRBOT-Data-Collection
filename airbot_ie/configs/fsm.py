@@ -42,7 +42,7 @@ STATE_MACHINE_CONFIG = StateMachineConfig(
                 # success
                 ToDestConfig(dest=None),
                 # failure
-                ToDestConfig(dest=None),
+                ToDestConfig(dest=State.active),
             ],
         },
         Action.abandon: {

@@ -17,22 +17,35 @@ Nameable = Union[str, Enum, partial, Callable]
 
 
 class CallbackEventType(StrEnum):
+    """Types of callback events."""
+
     PREPARE_EVENT_BEFORE = auto()
+    """The callback before prepare event."""
     PREPARE_EVENT = auto()
+    """The prepare event callback for an action."""
     PREPARE_EVENT_AFTER = auto()
+    """The callback after prepare event."""
     BEFORE_STATE_CHANGE = auto()
+    """The callback before state change."""
     AFTER_STATE_CHANGE = auto()
+    """The callback after state change."""
 
 
 class ToDestConfig(BaseModel, frozen=True):
     model_config = ConfigDict(extra="forbid")
 
     dest: State
+    """Destination state."""
     conditions: SMCallable = None
+    """Conditions to trigger this transition."""
     unless: SMCallable = None
+    """Unless conditions to trigger this transition."""
     before: SMCallable = None
+    """Callable before the transition."""
     after: SMCallable = None
+    """Callable after the transition."""
     prepare: SMCallable = None
+    """Callable to prepare the transition."""
 
 
 ActionTransitions = Dict[Union[State, Tuple[State, ...]], List[ToDestConfig]]
@@ -43,27 +56,33 @@ class StateMachineConfig(BaseModel, frozen=True):
     model_config = ConfigDict(extra="forbid")
 
     states: List[State] = []
+    """All possible states used in the fsm."""
     initial: State = None
-    # The action transitions will be added first, then the source transitions.
+    """Initial state of the fsm."""
     action_transitions: Dict[Action, ActionTransitions] = {}
-    # The source transitions will be added after the action transitions.
-    # Usually, this is used for the error source state.
+    """The action transitions will be added first, then the source transitions."""
     source_transitions: Dict[StateKey, SourceTransitions] = {}
-    # when True, any calls to trigger methods
-    # that are not valid for the present state (e.g., calling an
-    # a_to_b() trigger when the current state is c) will be silently
-    # ignored rather than raising an invalid transition exception.
+    """The source transitions will be added after the action transitions.
+    Usually, this is used for the error source state."""
     ignore_invalid_triggers: bool = True
-    # If a name is set, it will be used as a prefix for logger output
+    """
+    when True, any calls to trigger methods
+    that are not valid for the present state (e.g., calling an
+    a_to_b() trigger when the current state is c) will be silently
+    ignored rather than raising an invalid transition exception.
+    """
     name: Optional[str] = None
+    """If a name is set, it will be used as a prefix for logger outputs."""
     # # When True, processes transitions sequentially. A trigger
     # # executed in a state callback function will be queued and executed later.
     # # Due to the nature of the queued processing, all transitions will
     # # _always_ return True since conditional checks cannot be conducted at queueing time.
     # queued: bool = False
-    # A callable called on for each triggered event after transitions have been processed.
-    # This is also called when a transition raises an exception.
     finalize_event: SMCallable = None
+    """
+    A callable called on for each triggered event after transitions have been processed.
+    This is also called when a transition raises an exception.
+    """
     # # A callable called on for before possible transitions will be processed.
     # # It receives the very same args as normal callbacks.
     # prepare_event: Callable = None
@@ -115,9 +134,8 @@ class StateMachineBasis:
             for source, to_dests in transitions.items():
                 for index, to_dest in enumerate(to_dests):
                     if to_dest.conditions is None:
-                        success_index = index
                         break
-                if success_index == len(to_dests) - 1:
+                if index == len(to_dests) - 1:
                     # if the last transition is success, do not add failure
                     failure = None
                 else:
@@ -125,10 +143,10 @@ class StateMachineBasis:
                 self.add_action_source_transitions(
                     action_name,
                     source,
-                    success=to_dests[success_index],
+                    success=to_dests[index],
                     failure=failure,
-                    not_only_success=to_dests[:success_index],
-                    not_only_failure=to_dests[success_index + 1 : -1],
+                    not_only_success=to_dests[:index],
+                    not_only_failure=to_dests[index + 1 : -1],
                 )
 
     def add_source_transitions(
@@ -146,8 +164,8 @@ class StateMachineBasis:
         source: State,
         success: ToDestConfig,
         failure: ToDestConfig,
-        not_only_success: Optional[list[ToDestConfig]] = None,
-        not_only_failure: Optional[list[ToDestConfig]] = None,
+        not_only_success: Optional[List[ToDestConfig]] = None,
+        not_only_failure: Optional[List[ToDestConfig]] = None,
     ):
         action_name = self.get_name(action)
         assert not self.is_action_source_added(action_name, source)
@@ -163,7 +181,7 @@ class StateMachineBasis:
         action_name: str,
         source: State,
         only: ToDestConfig,
-        not_only: Optional[list[ToDestConfig]] = None,
+        not_only: Optional[List[ToDestConfig]] = None,
         kind: str = "success",
     ):
         not_only = not_only or []
@@ -185,7 +203,7 @@ class StateMachineBasis:
             )
 
     def _add_not_only_transitions(
-        self, action: str, source: State, to_dests: list[ToDestConfig], kind: str
+        self, action: str, source: State, to_dests: List[ToDestConfig], kind: str
     ):
         if kind == "success":
             cond = "conditions"
@@ -203,7 +221,7 @@ class StateMachineBasis:
             )
 
     def is_action_source_added(
-        self, action: str, source: Union[State, tuple[State]]
+        self, action: str, source: Union[State, Tuple[State]]
     ) -> bool:
         """Check if the action source is added."""
         if not isinstance(source, tuple):

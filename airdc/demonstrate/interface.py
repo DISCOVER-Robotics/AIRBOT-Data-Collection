@@ -7,7 +7,6 @@ from concurrent.futures import (
 )
 from logging import getLogger
 from typing import Any, List, Dict, Union
-from send2trash import send2trash
 from airdc.common import DataSampler, MockDataSampler, Visualizer
 from airdc.demonstrate.configs import (
     ConcurrentMode,
@@ -25,7 +24,6 @@ from collections import defaultdict
 from functools import partial
 from pathlib import Path
 import time
-import shutil
 
 
 class DemonstrateInterface:
@@ -70,6 +68,7 @@ class DemonstrateInterface:
             args = (action.name,) if mode is ConcurrentMode.thread else ()
             self._action_executors[action] = mode2executor[mode](max_workers, *args)
         self._action_futures: Dict[DemonstrateAction, List[Future]] = defaultdict(list)
+        self._action_exception = {}
         """store current episode data"""
         self._round_data = defaultdict(list)
         self._metrics = defaultdict(dict)
@@ -220,7 +219,7 @@ class DemonstrateInterface:
             self._metrics["durations"]["demonstrate/update"] = (
                 time.perf_counter() - start
             )
-            return True
+            return self._action_ok(DemonstrateAction.update)
 
     def _show_save_info(self, path: str, flag: bool) -> bool:
         if flag:
@@ -280,17 +279,20 @@ class DemonstrateInterface:
     def _use_executor(self, action: DemonstrateAction) -> bool:
         return action in self._action_executors
 
-    @staticmethod
-    def _check_future(future: Future):
+    def _check_future(self, action: DemonstrateAction, future: Future):
         if future.exception() is not None:
+            self._action_exception[action] = True
             raise future.exception()
+
+    def _action_ok(self, action: DemonstrateAction) -> bool:
+        return not self._action_exception.get(action)
 
     def _submit_action(
         self, action: DemonstrateAction, func: Any, *args, **kwargs
     ) -> Future:
         future = self._action_executors[action].submit(func, *args, **kwargs)
         self._action_futures[action].append(future)
-        future.add_done_callback(self._check_future)
+        future.add_done_callback(partial(self._check_future, action))
         return future
 
     def _cancel_action_futures(self, action: DemonstrateAction) -> None:
