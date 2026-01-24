@@ -191,12 +191,11 @@ def calibrate_from_video(
         yaml.dump(calib_data, f)
 
     # ===========================
-    # 可视化 & 去畸变
+    # 去畸变 & 可视化
     # ===========================
     for i, item in enumerate(selected):
-        vis = item["frame"].copy()
+        vis = item["frame"]
         cv2.drawChessboardCorners(vis, board_size, item["corners"], True)
-        cv2.imwrite(os.path.join(raw_dir, f"frame_{i:02d}_corners.jpg"), vis)
 
         if use_fisheye:
             undistorted = cv2.fisheye.undistortImage(item["frame"], K, D, Knew=K)
@@ -207,11 +206,11 @@ def calibrate_from_video(
             os.path.join(undist_dir, f"frame_{i:02d}_undistorted.jpg"), undistorted
         )
 
-    print("标定完成")
-    print(f"模型类型: {'Fisheye' if use_fisheye else 'Pinhole'}")
-    print(f"使用帧数: {len(selected)}")
-    print(f"RMS 重投影误差: {rms:.6f}")
-    print(f"结果保存至: {yaml_path}")
+    print("标定完成：")
+    print(f" - 模型类型: {'Fisheye' if use_fisheye else 'Pinhole'}")
+    print(f" - 使用帧数: {len(selected)}")
+    print(f" - RMS 重投影误差: {rms:.6f}")
+    print(f" - 结果保存至: {yaml_path}")
 
 
 if __name__ == "__main__":
