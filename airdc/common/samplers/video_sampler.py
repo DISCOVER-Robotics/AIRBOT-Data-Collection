@@ -119,32 +119,32 @@ class VideoSamplerOnce(VideoSampler):
 
 class VideoSamplerEach(VideoSamplerOnce):
     def get_start_episode(self, directory):
-        self._once = []
         if directory.exists():
-            self._once = [
+            self._each = [
                 self._file_to_key(file)
                 for file in directory.iterdir()
                 if not file.is_dir()
             ]
-            return len(self._once)
+            return len(self._each)
+        self._each = []
         return 0
 
     def _file_to_key(self, file: Path):
         return "/" + file.stem.replace(".", "/")
 
     def update(self, data: dict):
-        if self._first_encode:
+        if not self._first_encode:
             for key in data.keys():
                 if self._is_save_video(key):
-                    if key not in self._once:
-                        self._once.append(key)
+                    if key not in self._each:
+                        self._each.append(key)
                         break
             else:
-                if not self._once:
-                    raise ValueError("No video data found to save in VideoSamplerOnce.")
-                self._once = self._once[:1]
-        key = self._once[-1]
+                if not self._each:
+                    raise ValueError("No video data found.")
+                self._each = self._each[:1]
+        key = self._each[-1]
         return super().update({key: data[key]})
 
     def remove(self, path):
-        return super().remove(self._get_video_path(path, self._once[-1]))
+        return super().remove(self._get_video_path(path, self._each[-1]))
