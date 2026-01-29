@@ -143,10 +143,6 @@ for folder in folders:
 
         for stamp in times:
             stamps_ns.append(int(stamp * 1e9))
-        mcap_writer.add_attachment(
-            time.time_ns(),
-            time.time_ns(),
-        )
         mcap_tool.add_log_stamps_attachment(stamps_ns)
 
         for i, action in enumerate(acts):
