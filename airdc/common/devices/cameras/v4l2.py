@@ -12,6 +12,7 @@ from airdc.common.devices.cameras.utils import (
     ColorCameraConfig,
     find_camera_indices,
     get_camera_index_by_bus_info,
+    get_video_device_bus_info,
     CameraInfo,
     CameraControl,
 )
@@ -72,7 +73,13 @@ class V4L2Camera(Sensor):
             if "usb" in cam_id:
                 cam_id = get_camera_index_by_bus_info(cam_id)[0]
             self.device = Device(cam_id)
-        self.device.open()
+        try:
+            self.device.open()
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"Available cameras: {get_video_device_bus_info()}"
+            ) from e
+
         if self.device.closed:
             return False
         self._capture = VideoCapture(self.device, config.nb_buffers, config.mode)
