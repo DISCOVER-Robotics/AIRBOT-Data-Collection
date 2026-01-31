@@ -315,8 +315,12 @@ def get_camera_index_by_bus_info(
         sorting: Whether to sort the camera indices.
     Return: The camera indices that match the bus info.
     """
-    devices = find_video_capture_devices(False).get(bus_info, [])
-    assert allow_empty or devices, f"No camera indexes found with bus info: {bus_info}"
+    available = find_video_capture_devices(False)
+    devices = available.get(bus_info, [])
+    if not (allow_empty or devices):
+        raise ValueError(
+            f"No camera indexes found with bus info: {bus_info}. Available: {available}"
+        )
     if sorting:
         devices = sorted(devices)
     return devices

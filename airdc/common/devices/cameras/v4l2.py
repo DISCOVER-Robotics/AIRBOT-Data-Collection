@@ -60,6 +60,7 @@ class V4L2Camera(Sensor):
         self._frame = None
         self._swap_color = False
         self._jpeg = None
+        self._ok_frame: Optional[Frame] = None
 
     def on_configure(self) -> bool:
         config = self.config
@@ -124,7 +125,16 @@ class V4L2Camera(Sensor):
             self._event.clear()
         key = "color/image_raw"
         frame = self._frame
-        frame_array = self._jpeg.decode(frame.data) if self._jpeg else frame.array
+        try:
+            frame_array = self._jpeg.decode(frame.data) if self._jpeg else frame.array
+        except OSError as e:
+            self.get_logger().error(
+                f"Failed to decode MJPEG frame: {e}. The frame will be replaced with the last known good frame."
+            )
+            frame = self._ok_frame
+            frame_array = self._jpeg.decode(frame.data)
+        else:
+            self._ok_frame = frame
         obs = {key: {"t": self._get_stamp(frame)}}
         if len(frame_array.shape) > 1:
             image = frame_array[:, :, ::-1] if self._swap_color else frame_array
