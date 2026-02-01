@@ -1,3 +1,5 @@
+# @package _global_
+
 managers:
   names: [self_manager, vrcontrol]
   instances:

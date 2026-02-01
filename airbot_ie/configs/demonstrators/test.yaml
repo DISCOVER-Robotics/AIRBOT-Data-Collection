@@ -6,52 +6,51 @@ defaults:
   - basis
 
 demonstrator:
-  instance:
-    auto_control:
-      groups: null
-      rates: [100]
-      modes: [process]
-    components:
-      groups:
-        - left
-        - left
-        - right
-        - right
-        - /
-        # - /
-      names:
-        - lead
-        - follow
-        - lead
-        - follow
-        - env_camera
-        # - base
-      instances:
-        - "${merge_cfg:${robots}, {port: 50050}}"
-        - "${merge_cfg:${robots}, {port: 50051}}"
-        # - "${merge_cfg:${robots}, {port: 50051, product_type: play, eef_types: [G2]}}"
-        - "${merge_cfg:${robots}, {port: 50052}}"
-        - "${merge_cfg:${robots}, {port: 50053}}"
-        # - "${merge_cfg:${robots}, {port: 50053, product_type: play, eef_types: [G2]}}"
-        - _target_: airdc.common.devices.cameras.mock.MockCamera
-        # - _target_: airdc.common.devices.cameras.v4l2.V4L2Camera
-        # - _target_: airdc.common.devices.cameras.intelrealsense.IntelRealSenseCamera
-        #   camera_index: null
-        #   height: 480
-        #   width: 640
-        #   fps: 30
-        #   enable_depth: true
-        #   align_depth: true
-        # - _target_: airbot_ie.robots.slamtec_athena2.SlamtecAthena2
-        #   blocking: true
-        #   rate: 50
-      roles:
-        - l
-        - f
-        - l
-        - f
-        - o
-        # - l
+  auto_control:
+    groups: null
+    rates: [100]
+    modes: [process]
+  components:
+    groups:
+      - left
+      - left
+      - right
+      - right
+      - /
+      # - /
+    names:
+      - lead
+      - follow
+      - lead
+      - follow
+      - env_camera
+      # - base
+    instances:
+      - "${merge_cfg:${robots}, {port: 50050}}"
+      - "${merge_cfg:${robots}, {port: 50051}}"
+      # - "${merge_cfg:${robots}, {port: 50051, product_type: play, eef_types: [G2]}}"
+      - "${merge_cfg:${robots}, {port: 50052}}"
+      - "${merge_cfg:${robots}, {port: 50053}}"
+      # - "${merge_cfg:${robots}, {port: 50053, product_type: play, eef_types: [G2]}}"
+      - _target_: airdc.common.devices.cameras.mock.MockCamera
+      # - _target_: airdc.common.devices.cameras.v4l2.V4L2Camera
+      # - _target_: airdc.common.devices.cameras.intelrealsense.IntelRealSenseCamera
+      #   camera_index: null
+      #   height: 480
+      #   width: 640
+      #   fps: 30
+      #   enable_depth: true
+      #   align_depth: true
+      # - _target_: airbot_ie.robots.slamtec_athena2.SlamtecAthena2
+      #   blocking: true
+      #   rate: 50
+    roles:
+      - l
+      - f
+      - l
+      - f
+      - o
+      # - l
 
 action_class: airdc.common.systems.grouped.GroupsSendActionConfig
 
