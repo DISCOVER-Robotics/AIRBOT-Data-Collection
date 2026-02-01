@@ -28,10 +28,13 @@ def main() -> None:
             title=None,
             button_width=12,
             button_height=2,
+            n_cols=2,
         ),
+        buttons=["hello", "world", "info", "quit"],
         button_callbacks={
             "hello": lambda: print("hello clicked"),
             "world": lambda: print("world clicked"),
+            "info": "This is a popup message.\n\nString callbacks will show this window.",
         },
         on_press=on_press,
         on_close=on_close,

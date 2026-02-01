@@ -11,6 +11,7 @@ from airdc.state_machine.fsm import (
 from airdc.common.systems.basis import SystemMode
 from pprint import pformat
 from mcap_data_loader.utils.dict import merge_keys_by_value
+from functools import cached_property
 
 
 class ManagerAction(StrEnum):
@@ -58,6 +59,11 @@ class ManagerConfigBasis(BaseModel, frozen=True):
                 self.instruction[key] = action_info[action]
         return self
 
+    @cached_property
+    def instruction_str(self) -> str:
+        """Get the instruction string."""
+        return pformat(self.instruction)
+
 
 @runtime_checkable
 class DemonstrateManager(Protocol):
@@ -101,7 +107,7 @@ class DemonstrateManagerBasis(ConfigurableBasis):
         This function provides a user-friendly guide to inform the user about the available
         key press actions for controlling the system.
         """
-        self.get_logger().info(Bcolors.cyan(f" \n{pformat(self.config.instruction)}"))
+        self.get_logger().info(Bcolors.cyan(f" \n{self.config.instruction_str}"))
 
     def _act_key(self, key: Hashable):
         action = self.config.key_to_action.get(key)

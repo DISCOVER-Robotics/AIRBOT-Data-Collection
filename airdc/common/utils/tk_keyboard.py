@@ -14,15 +14,15 @@ Notes:
 """
 
 from math import ceil
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Union
 from typing_extensions import Self
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 import time
 import tkinter as tk
 
 
 ButtonName = str
-ButtonCallback = Callable[[], None]
+ButtonCallback = Union[Callable[[], None], str]
 OnPress = Callable[[ButtonName], None]
 
 
@@ -287,9 +287,26 @@ class Listener:
         """Dispatch callbacks for a pressed button."""
         cb = self._config.button_callbacks.get(key)
         if cb is not None:
-            cb()
+            if isinstance(cb, str):
+                self._show_text_popup(cb)
+            else:
+                cb()
         if self._config.on_press is not None:
             self._config.on_press(key)
+
+    def _show_text_popup(self, text: str) -> None:
+        """Show a small popup window displaying the given text."""
+        if self._root is None:
+            return
+
+        popup = tk.Toplevel(self._root)
+        popup.transient(self._root)
+
+        msg = tk.Message(popup, text=text, width=600)
+        msg.pack(padx=12, pady=12)
+
+        close_btn = tk.Button(popup, text="close", command=popup.destroy)
+        close_btn.pack(padx=12, pady=(0, 12))
 
     def _handle_window_close(self) -> None:
         """Handle the window manager close action."""

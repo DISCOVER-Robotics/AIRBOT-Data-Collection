@@ -13,7 +13,7 @@ class TkinterManagerConfig(ManagerConfigBasis):
     """Tkinter button-based manager config."""
 
     key_to_action: Dict[Union[DAction, MAction], str] = {
-        action.name.capitalize(): action
+        action.capitalize(): action
         for action in (
             DAction.sample,
             DAction.save,
@@ -43,6 +43,9 @@ class TkinterManager(DemonstrateManagerBasis):
                 buttons=self.config.key_to_action.keys(),
                 on_press=self._act_key,
                 on_close=self._on_close,
+                button_callbacks={
+                    MAction.INSTRUCTION.capitalize(): self.config.instruction_str
+                },
             )
         )
         self.listener.start()
