@@ -11,8 +11,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
 
-from airdc.managers.basis import DemonstrateManagerBasis
-from airdc.state_machine.fsm import DemonstrateAction as Action
+from airdc.managers.basis import DemonstrateManagerBasis, DemonstrateAction as Action
 from airdc.basis import Bcolors
 
 

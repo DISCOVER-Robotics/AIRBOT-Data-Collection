@@ -10,6 +10,7 @@ from airdc.basis import (
     ForceSetAttr,
     force_set_attr,
     Bcolors,
+    DictDataStamped,
 )
 from airdc.common.systems.basis import Sensor, System, SystemMode
 from airdc.common.utils.progress import Waitable
@@ -577,7 +578,7 @@ class GroupedComponentsSystem(System):
         self.get_logger().error("Failed to start following")
         return False
 
-    def capture_observation(self, timeout: Optional[float] = None):
+    def capture_observation(self, timeout: Optional[float] = None) -> DictDataStamped:
         # TODO: can be called when sampling?
         data = {}
 

@@ -5,8 +5,8 @@ from enum import IntEnum, auto
 from airdc.managers.basis import (
     DemonstrateManagerBasis,
     ManagerConfigBasis,
+    DemonstrateAction as Action,
 )
-from airdc.state_machine.fsm import DemonstrateAction as Action
 from typing import Dict, Union
 from functools import partial
 

@@ -2,8 +2,7 @@ from typing import Dict
 import time
 import rclpy
 from std_srvs.srv import SetBool
-from airdc.managers.basis import DemonstrateManagerBasis
-from airdc.state_machine.fsm import DemonstrateAction as Action
+from airdc.managers.basis import DemonstrateManagerBasis, DemonstrateAction as Action
 from airdc.common.devices.vr.quest import (
     VRQuest,
     VRQuestConfig,
