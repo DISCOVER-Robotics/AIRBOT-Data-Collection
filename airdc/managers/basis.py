@@ -26,7 +26,8 @@ class ManagerAction(StrEnum):
     """ Switch passive / resetting mode action."""
 
 
-KeyToAction = Dict[str, Union[DemonstrateAction, ManagerAction]]
+ActionType = Union[DemonstrateAction, ManagerAction]
+KeyToAction = Dict[str, ActionType]
 
 
 class ManagerConfigBasis(BaseModel, frozen=True):
@@ -102,8 +103,11 @@ class DemonstrateManagerBasis(ConfigurableBasis):
         """
         self.get_logger().info(Bcolors.cyan(f" \n{pformat(self.config.instruction)}"))
 
-    def _act(self, key: Hashable):
+    def _act_key(self, key: Hashable):
         action = self.config.key_to_action.get(key)
+        self._act(action)
+
+    def _act(self, action: ActionType):
         if action is ManagerAction.LOCK:
             self._locked = not self._locked
             self.get_logger().info(

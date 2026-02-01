@@ -60,7 +60,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         Returns:
             None: This function does not return any value.
         """
-        self._act(self._key_to_str(key).lower())
+        self._act_key(self._key_to_str(key).lower())
 
     def on_shutdown(self) -> bool:
         self.listener.stop()

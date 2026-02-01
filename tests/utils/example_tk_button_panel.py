@@ -20,6 +20,9 @@ def main() -> None:
         if name == "quit":
             listener_holder["listener"].stop()
 
+    def on_close() -> None:
+        print("Window closed.")
+
     config = TkButtonPanelConfig(
         layout=ButtonUILayout(
             title=None,
@@ -31,6 +34,7 @@ def main() -> None:
             "world": lambda: print("world clicked"),
         },
         on_press=on_press,
+        on_close=on_close,
     )
 
     listener = Listener(config=config)

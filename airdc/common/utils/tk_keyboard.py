@@ -6,21 +6,19 @@ This module provides a small API inspired by ``pynput.keyboard.Listener`` style:
 - Call ``start()`` to create the window.
 - Call ``update()`` periodically to pump UI events.
 - Mouse clicks on buttons trigger callbacks with a button name.
+- Closing the window triggers an optional close callback.
 
 Notes:
 - Tkinter must run on the thread that created the Tk root window. For stability,
     this implementation does NOT run Tk in a background thread.
 """
 
-from __future__ import annotations
-
 from math import ceil
 from typing import Callable, Dict, List, Optional, Sequence
+from typing_extensions import Self
+from pydantic import BaseModel, ConfigDict, model_validator
 import time
-
 import tkinter as tk
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 ButtonName = str
@@ -28,34 +26,30 @@ ButtonCallback = Callable[[], None]
 OnPress = Callable[[ButtonName], None]
 
 
-class ButtonUILayout(BaseModel):
-    """UI layout configuration for the button panel.
-
-    Args:
-        rows: Optional 2D grid of button names. Use "" (empty string) to leave a blank cell.
-            If not provided, layout can be inferred from button order using n_rows/n_cols.
-        n_rows: Optional number of rows when inferring layout.
-        n_cols: Optional number of columns when inferring layout.
-        title: Window title.
-        button_width: Tk button width (character units).
-        button_height: Tk button height (text lines).
-        padx/pady: Cell padding.
-        sticky: Grid sticky option, e.g. "nsew".
-    """
-
-    model_config = ConfigDict(frozen=True)
+class ButtonUILayout(BaseModel, frozen=True):
+    """Button panel UI layout."""
 
     rows: Optional[List[List[ButtonName]]] = None
+    """Optional 2D button grid; use "" for blank cells."""
     n_rows: Optional[int] = None
+    """Row count used when inferring layout (optional)."""
     n_cols: Optional[int] = None
+    """Column count used when inferring layout (optional)."""
     title: Optional[str] = None
+    """Window title (optional)."""
     button_width: int = 10
+    """Button width in Tk character units."""
     button_height: int = 2
+    """Button height in Tk text lines."""
     padx: int = 4
+    """Horizontal padding for each grid cell."""
     pady: int = 4
+    """Vertical padding for each grid cell."""
     sticky: str = "nsew"
+    """Tk grid sticky option, e.g. "nsew"."""
 
     def resolve_rows(self, buttons: Sequence[str]) -> List[List[str]]:
+        """Resolve the final 2D grid based on rows or inferred layout."""
         if self.rows is not None:
             return [list(r) for r in self.rows]
 
@@ -100,6 +94,7 @@ class ButtonUILayout(BaseModel):
         return rows
 
     def iter_buttons(self, buttons: Sequence[str]) -> List[str]:
+        """Flatten resolved rows into a list of non-empty button names."""
         resolved = self.resolve_rows(buttons)
         flat: List[str] = []
         for row in resolved:
@@ -111,31 +106,29 @@ class ButtonUILayout(BaseModel):
 
 
 class TkButtonPanelConfig(BaseModel):
-    """Configuration for the Tkinter button panel.
-
-    Notes:
-    - Button text defaults to the key name itself (no implicit renaming).
-    - If both per-key callback and on_press are configured, both will run.
-    """
-
-    layout: ButtonUILayout
-
-    # Optional explicit order for buttons when layout.rows is not provided.
-    # If empty, it defaults to the insertion order of button_callbacks.
-    buttons: List[ButtonName] = Field(default_factory=list)
-
-    # Optional mapping: button name -> callback for that specific button.
-    # This is intended for programmatic usage (not hydra-yaml), since callables
-    # are not serializable.
-    button_callbacks: Dict[ButtonName, ButtonCallback] = Field(default_factory=dict)
-
-    # Optional unified callback: will be called on any button press.
-    on_press: Optional[OnPress] = None
+    """Configuration for a Tkinter button panel listener."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    layout: ButtonUILayout = ButtonUILayout()
+    """Layout settings for the button panel."""
+    buttons: List[ButtonName] = []
+    """Optional explicit order for buttons when layout.rows is not provided.
+    If empty, it defaults to the insertion order of button_callbacks."""
+    button_callbacks: Dict[ButtonName, ButtonCallback] = {}
+    """
+    Optional mapping: button name -> callback for that specific button.
+    This is intended for programmatic usage (not hydra-yaml), since callables
+    are not serializable.
+    """
+    on_press: Optional[OnPress] = None
+    """Optional unified callback: will be called on any button press."""
+    on_close: Optional[Callable[[], None]] = None
+    """Callback triggered when the window is closed via the close button."""
+
     @model_validator(mode="after")
     def _validate_callbacks(self):
+        """Validate button layout and callback configuration."""
         ordered_buttons = self.buttons or list(self.button_callbacks.keys())
         layout_buttons = set(self.layout.iter_buttons(ordered_buttons))
 
@@ -168,16 +161,18 @@ class TkButtonPanelConfig(BaseModel):
 class Listener:
     """A Tkinter-based listener that triggers callbacks on mouse clicks."""
 
-    def __init__(
-        self,
-        *,
-        config: TkButtonPanelConfig,
-    ) -> None:
+    def __init__(self, config: TkButtonPanelConfig) -> None:
+        """Create a listener.
+
+        Args:
+            config: Button panel configuration.
+        """
         self._config = config
-
         self._root: Optional[tk.Tk] = None
+        self._close_callback_called = False
 
-    def start(self) -> "Listener":
+    def start(self) -> Self:
+        """Create the Tk window and build the UI."""
         if self._root is not None:
             return self
 
@@ -186,12 +181,13 @@ class Listener:
             self._root.title(self._config.layout.title)
 
         # Closing the window should stop and destroy cleanly.
-        self._root.protocol("WM_DELETE_WINDOW", self.stop)
+        self._root.protocol("WM_DELETE_WINDOW", self._handle_window_close)
 
         self._build_ui(self._root)
         return self
 
     def stop(self) -> None:
+        """Destroy the window if it exists."""
         if self._root is None:
             return
 
@@ -237,6 +233,7 @@ class Listener:
             time.sleep(0.01)
 
     def _build_ui(self, root: tk.Tk) -> None:
+        """Build the button grid UI."""
         container = tk.Frame(root)
         container.grid(row=0, column=0, sticky="nsew")
 
@@ -287,15 +284,24 @@ class Listener:
                 )
 
     def _emit(self, key: str) -> None:
+        """Dispatch callbacks for a pressed button."""
         cb = self._config.button_callbacks.get(key)
         if cb is not None:
             cb()
         if self._config.on_press is not None:
             self._config.on_press(key)
 
+    def _handle_window_close(self) -> None:
+        """Handle the window manager close action."""
+        if not self._close_callback_called:
+            self._close_callback_called = True
+            if self._config.on_close is not None:
+                self._config.on_close()
+        self.stop()
+
 
 def infer_rows(keys: Sequence[str], *, n_cols: int) -> List[List[str]]:
-    """Utility: convert a flat key list to a row/col layout."""
+    """Convert a flat button list to a row/col layout."""
 
     if n_cols <= 0:
         raise ValueError("n_cols must be > 0")
