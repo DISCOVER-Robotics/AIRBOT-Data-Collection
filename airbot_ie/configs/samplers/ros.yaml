@@ -17,14 +17,12 @@ key_merge:
 #   name: airbot_data_collection_node
 
 sampler:
-  name: mcap_ros_sampler
-  instance:
-    _target_: airdc.common.samplers.mcap_sampler_ros.McapDataSamplerROS
-    video_save_to: folder
-    av_coder:
-      non_monotonic_mode: drop
-      non_monotonic_log: false
-    key_remap: ${remap_func}
+  _target_: airdc.common.samplers.mcap_sampler_ros.McapDataSamplerROS
+  video_save_to: folder
+  av_coder:
+    non_monotonic_mode: drop
+    non_monotonic_log: false
+  key_remap: ${remap_func}
 
 dataset:
   directory: ros

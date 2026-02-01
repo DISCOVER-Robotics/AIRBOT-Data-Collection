@@ -1,37 +1,30 @@
 from enum import Enum
-from pprint import pformat
-from bidict import bidict
 from pynput import keyboard
-from airdc.common.systems.basis import SystemMode
 from airdc.managers.basis import (
     DemonstrateManagerBasis,
     ManagerConfigBasis,
+    DemonstrateAction as DAction,
+    ManagerAction as MAction,
+    KeyToAction,
 )
-from airdc.state_machine.fsm import DemonstrateAction as Action
-from airdc.basis import Bcolors
-from typing import Dict
 
 
 class KeyboardCallbackConfig(ManagerConfigBasis):
-    action_key: Dict[Action, str] = {
-        Action.sample: keyboard.Key.space.name,
-        Action.save: "s",
-        Action.abandon: "q",
-        Action.remove: "r",
-        Action.capture: "p",
-        Action.finish: "z",
-    }
-    instruction: Dict[str, str] = {
-        "i": "Show this instruction again",
-        "g": "Switch passive (gravity composation) / resetting mode of the leaders",
-        "f": "Start / stop following",
-        "f2": "Lock / unlock the keyboard control",
-    }
-    # TODO: auto add mapped keys to the instruction
-    key_mapping: Dict[str, str] = {
-        keyboard.Key.esc.name: "z",
-        keyboard.Key.enter.name: "s",
-        keyboard.Key.shift.name: "q",
+    key_to_action: KeyToAction = {
+        keyboard.Key.space.name: DAction.sample,
+        "s": DAction.save,
+        "q": DAction.abandon,
+        "r": DAction.remove,
+        "p": DAction.capture,
+        "z": DAction.finish,
+        "i": MAction.INSTRUCTION,
+        "g": MAction.MODE,
+        "f": MAction.FOLLOW,
+        "f2": MAction.LOCK,
+        # additional keys
+        keyboard.Key.esc.name: DAction.finish,
+        keyboard.Key.enter.name: DAction.save,
+        keyboard.Key.shift.name: DAction.abandon,
     }
 
 
@@ -48,8 +41,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
     def on_configure(self):
         self.listener = keyboard.Listener(on_press=self._keypress_callback)
         self.listener.start()
-        self.key_to_action = bidict(self.config.action_key).inverse
-        self._locked = False
+        self.show_instruction()
         return True
 
     def update(self) -> bool:
@@ -68,50 +60,7 @@ class KeyboardCallbackManager(DemonstrateManagerBasis):
         Returns:
             None: This function does not return any value.
         """
-        key = self._key_to_str(key).lower()
-        if key == "f2":
-            self._locked = not self._locked
-            self.get_logger().info(
-                Bcolors.green(
-                    f"Keyboard control is now {'locked' if self._locked else 'unlocked'}."
-                )
-            )
-            return
-        elif self._locked:
-            return
-        action = self.key_to_action.get(self.config.key_mapping.get(key, key), None)
-        if action is Action.capture:
-            self.fsm.act(action)
-            data = {}
-            # only print low dim data
-            for key, value in self.fsm.last_capture.items():
-                if "image" not in key and "depth" not in key:
-                    data[key] = value
-            self.get_logger().info(Bcolors.blue(f"\n{pformat(data)}"))
-        elif key == "i":
-            self.show_instruction()
-        elif key == "b":
-            self.get_logger().warning("Not implemented yet")
-        elif key == "g":
-            cur_mode = (
-                SystemMode.PASSIVE
-                if self.fsm.demonstrator.current_mode is not SystemMode.PASSIVE
-                else SystemMode.RESETTING
-            )
-            self.fsm.demonstrator.switch_mode(cur_mode)
-        elif key == "f":
-            if self.fsm.demonstrator.handler.is_stopped():
-                self.fsm.demonstrator.handler.start()
-            else:
-                self.fsm.demonstrator.handler.stop()
-        elif key in {"ctrl", "c"}:
-            pass
-        else:
-            if action is not None:
-                self.get_logger().info(f"Executing action: {action.name}")
-                self.fsm.act(action)
-            else:
-                self.get_logger().warning(f"Invalid key pressed: {key}")
+        self._act(self._key_to_str(key).lower())
 
     def on_shutdown(self) -> bool:
         self.listener.stop()

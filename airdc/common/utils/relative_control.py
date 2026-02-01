@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Tuple, Optional
 from logging import getLogger
-from airdc.common.utils.transformations import (
+from mcap_data_loader.utils.transformations import (
     quaternion_inverse,
     quaternion_multiply,
 )

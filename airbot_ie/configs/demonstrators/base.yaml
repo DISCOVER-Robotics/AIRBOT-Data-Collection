@@ -4,15 +4,14 @@ defaults:
   - basis
 
 demonstrator:
-  instance:
-    components:
-      groups:
-        - /
-      names:
-        - base
-      instances:
-        - _target_: airbot_ie.robots.slamtec_athena2.SlamtecAthena2
-          blocking: false
-          rate: 50
-      roles:
-        - l
+  components:
+    groups:
+      - /
+    names:
+      - base
+    instances:
+      - _target_: airbot_ie.robots.slamtec_athena2.SlamtecAthena2
+        blocking: false
+        rate: 50
+    roles:
+      - l

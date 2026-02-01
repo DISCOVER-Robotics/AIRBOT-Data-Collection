@@ -1,13 +1,11 @@
 # @package _global_
 
 sampler:
-  name: video_sampler
-  instance:
-    _target_: airdc.common.samplers.video_sampler.VideoSampler
-    remove_mode: trash
-    # av_coder:
-    #   non_monotonic_mode: drop
-    #   non_monotonic_log: false
+  _target_: airdc.common.samplers.video_sampler.VideoSampler
+  remove_mode: trash
+  # av_coder:
+  #   non_monotonic_mode: drop
+  #   non_monotonic_log: false
 
 dataset:
   directory: video

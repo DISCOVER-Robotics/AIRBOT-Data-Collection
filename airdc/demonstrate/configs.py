@@ -1,14 +1,16 @@
 from pathlib import Path
-from typing import Any, Dict, Literal, List, TypeVar, Generic, Union
+from typing import Any, Dict, List, TypeVar, Generic, Union
+from enum import auto
 from pydantic import (
     BaseModel,
     NonNegativeFloat,
     NonNegativeInt,
     ConfigDict,
     computed_field,
+    field_validator,
     model_validator,
 )
-from airdc.basis import ConcurrentMode, force_set_attr
+from airdc.basis import ConcurrentMode, StrEnum, force_set_attr
 from airdc.common.samplers.basis import DataSampler
 from airdc.common.visualizers.basis import VisualizerBasis
 from airdc.common.demonstrators.basis import Demonstrator
@@ -16,14 +18,17 @@ from airdc.demonstrate.basis import DemonstrateAction, DemonstrateState
 from airdc.state_machine.basis import CallbackEventType
 from mcap_data_loader.utils.dict import (
     CallableKeyMappingDict,
+    BaseModelDictable,
     MappingCall,
     MergeValuesCallType,
     pass_through,
 )
-from functools import cache
+from mcap_data_loader.basis.cfgable import ConfigurableBasis
+from functools import cache, cached_property
 
 
 T = TypeVar("T")
+# TODO: remove all the component(s) configs
 
 
 class ComponentConfig(BaseModel, Generic[T], frozen=True):
@@ -165,7 +170,42 @@ class ConcurrentConfig(BaseModel, frozen=True):
 SendActionValue = Union[Dict[DemonstrateAction, Any], Dict[DemonstrateState, Any]]
 
 
-class DemonstrateConfig(BaseModel, frozen=True):
+class DemonstrateModule(StrEnum):
+    """The modules used in the demonstration.
+    TODO: move to basis"""
+
+    DEMONSTRATOR = auto()
+    SAMPLER = auto()
+    VISUALIZER = auto()
+
+
+class DemonstrateModules(BaseModelDictable[str, ConfigurableBasis], frozen=True):
+    """The dict type for different demonstrate modules."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    demonstrator: Demonstrator
+    """the demonstrator to be used for the demonstration"""
+    sampler: DataSampler
+    """the data sampler to be used for data collection"""
+    visualizer: VisualizerBasis
+    """the visualizer to visualize the sampled data"""
+
+    @cached_property
+    def modules(self) -> "DemonstrateModules":
+        """Returns the demonstrate modules as a DemonstrateModules object."""
+        if self.__class__ is DemonstrateModules:
+            return self
+        return DemonstrateModules(
+            demonstrator=self.demonstrator,
+            sampler=self.sampler,
+            visualizer=self.visualizer,
+        )
+
+
+class DemonstrateConfig(DemonstrateModules):
+    """the configuration for the demonstration process"""
+
     dataset: DatasetConfig
     """configuration for the dataset where the demonstration data will be stored"""
     sample_limit: SampleLimit = SampleLimit()
@@ -173,28 +213,21 @@ class DemonstrateConfig(BaseModel, frozen=True):
     send_actions: Dict[CallbackEventType, SendActionValue] = {}
     """what the demonstrator to act on entering a fsm state for each group
     if None, no action values will be sent"""
-    demonstrator: ComponentConfig[Demonstrator]
-    """the demonstrator to be used for the demonstration"""
-    sampler: ComponentConfig[DataSampler]
-    """the data sampler to be used for data collection"""
-    visualizers: ComponentsConfig[VisualizerBasis] = ComponentsConfig[VisualizerBasis]()
-    """the visualizers to visualize the sampled data"""
     concurrent: ConcurrentConfig = ConcurrentConfig()
     """the concurrent configuration for different demonstrate actions"""
-    remove_mode: Literal["permanent", "trash"] = "permanent"
-    """what to do with the data when the demonstration is removed:
-        "permanent": delete the data permanently
-        "trash": move the data to the "trash" of the OS
-    """
+    module_config: Dict[DemonstrateModule, Dict[str, ComponentConfig]] = {}
+    """the extra configuration for different demonstrate modules"""
     key_merge: MergeValuesCallType = pass_through
     """Merging the data values."""
     key_remap: MappingCall = CallableKeyMappingDict
     """Remapping the data keys. It will be cached for efficiency.
     It will be applied after key_merge."""
 
-    def model_post_init(self, context):
-        if CallbackEventType.PREPARE_EVENT in self.send_actions:
+    @field_validator("send_actions", mode="after")
+    def validate_send_actions(cls, v):
+        if CallbackEventType.PREPARE_EVENT in v:
             raise ValueError(
                 "send_actions cannot contain PREPARE_EVENT, "
                 "as it is reserved for internal use."
             )
+        return v

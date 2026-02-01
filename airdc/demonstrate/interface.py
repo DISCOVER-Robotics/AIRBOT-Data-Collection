@@ -6,12 +6,12 @@ from concurrent.futures import (
     as_completed,
 )
 from logging import getLogger
-from typing import Any, List, Dict, Union
-from airdc.common import DataSampler, MockDataSampler, Visualizer
+from typing import Any, List, Dict
 from airdc.demonstrate.configs import (
     ConcurrentMode,
     DemonstrateAction,
     DemonstrateConfig,
+    DemonstrateModule as Module,
 )
 from airdc.demonstrate.basis import SampleInfo
 from airdc.basis import Bcolors
@@ -30,18 +30,12 @@ class DemonstrateInterface:
     def __init__(self, config: DemonstrateConfig):
         self._config = config
         """init sampler, visualizers and demonstrator"""
-        self._sampler = (
-            config.sampler.instance
-            if config.sampler.instance is not None
-            else MockDataSampler()
-        )
-        self._visualizers = config.visualizers.instance_dict
-        self._demonstrator = config.demonstrator.instance
+        self._modules = config.modules
         """init sample info"""
         start_round = self._config.sample_limit.start_round
         if start_round < 0:
             data_dir = self._config.dataset.absolute_directory
-            start_round = self._sampler.get_start_episode(data_dir)
+            start_round = self._modules.sampler.get_start_episode(data_dir)
         if start_round < 0:
             # detect the number of files in the directory
             start_round = (
@@ -72,6 +66,7 @@ class DemonstrateInterface:
         """store current episode data"""
         self._round_data = defaultdict(list)
         self._metrics = defaultdict(dict)
+        """other """
         self._register_fsm_callbacks()
 
     def get_logger(self):
@@ -82,30 +77,26 @@ class DemonstrateInterface:
 
     def configure(self) -> bool:
         """
-        Configure all the components.
+        Configure all the modules.
         """
-        # set info before configuring the sampler
-        # so that the sampler can use it for configuring
-        names = list(self._visualizers.keys())
-        components = list(self._visualizers.values())
-        types = ["visualizer"] * len(self._visualizers)
-        if self._configure_components(names, components, types):
-            self._sampler.set_info(
-                self._demonstrator.get_info() | {"system": SystemInfo.all_info()}
-            )
-            if self._configure_components(["sampler"], [self._sampler], ["sampler"]):
-                return True
-        return False
+        # NOTE: the demonstrator is configured by the fsm callback first
+        # NOTE: set info before configuring the sampler so that the sampler can use it for configuring
+        # TODO: should configure the demonstrator here?
+        self._modules.sampler.set_info(
+            self._modules.demonstrator.get_info() | {"system": SystemInfo.all_info()}
+        )
+        return self._configure_modules([Module.VISUALIZER, Module.SAMPLER])
 
-    def _configure_components(
-        self,
-        names: List[str],
-        components: List[Union[Visualizer, DataSampler]],
-        types: List[str],
-    ) -> bool:
-        for name, component, tp in zip(names, components, types):
-            if not component.configure():
-                self.get_logger().error(f"Failed to configure {tp}: {name}")
+    def _configure_module(self, module: Module) -> bool:
+        module_instance = self._modules[module]
+        if not module_instance.configure():
+            self.get_logger().error(f"Failed to configure {module}: {module_instance}")
+            return False
+        return True
+
+    def _configure_modules(self, modules: List[Module]) -> bool:
+        for module in modules:
+            if not self._configure_module(module):
                 return False
         return True
 
@@ -116,13 +107,13 @@ class DemonstrateInterface:
         for cb_type, configs in self._config.send_actions.items():
             for key, action in configs.items():
                 self.fsm_callbacks[cb_type][key] = partial(
-                    self._demonstrator.send_action, action
+                    self._modules.demonstrator.send_action, action
                 )
         # register react callbacks
         # TODO: Allow both prepare before and after.
         for action in DemonstrateAction:
             self.fsm_callbacks[CallbackEventType.PREPARE_EVENT_BEFORE][action] = (
-                partial(self._demonstrator.react, action)
+                partial(self._modules.demonstrator.react, action)
             )
 
     def activate(self) -> bool:
@@ -149,7 +140,7 @@ class DemonstrateInterface:
         self.get_logger().info(
             Bcolors.green(f"Start sampling episode: {self._sample_info.episode}")
         )
-        self._save_path = self._sampler.compose_path(
+        self._save_path = self._modules.sampler.compose_path(
             self._config.dataset.absolute_directory, self._sample_info.episode
         )
         self._bar.reset(desc=f"Episode {self._sample_info.episode}")
@@ -159,7 +150,7 @@ class DemonstrateInterface:
         # TODO: can be called when sampling?
         start = time.perf_counter()
         # TODO: configure each action
-        data = self._demonstrator.capture_observation(2)
+        data = self._modules.demonstrator.capture_observation(2)
         data = self._config.key_remap(self._config.key_merge(data))
         self._metrics["durations"]["demonstrate/update/demonstrator"] = (
             time.perf_counter() - start
@@ -167,14 +158,12 @@ class DemonstrateInterface:
         self.last_capture = data
         # update the visualizers
         start = time.perf_counter()
-        for name, visualizer in self._visualizers.items():
-            self.get_logger().debug("Updating visualizer %s", name)
-            visualizer.update(data, self._sample_info, warm_up)
+        self._modules.visualizer.update(data, self._sample_info, warm_up)
         self._metrics["durations"]["demonstrate/update/visualizers"] = (
             time.perf_counter() - start
         )
         self._metrics["durations"].update(
-            self._demonstrator.metrics.get("durations", {})
+            self._modules.demonstrator.metrics.get("durations", {})
         )
         return data
 
@@ -200,7 +189,7 @@ class DemonstrateInterface:
             # update the sampler
             def update_sampler(data: dict):
                 start_sampler = time.perf_counter()
-                for key, value in self._sampler.update(data).items():
+                for key, value in self._modules.sampler.update(data).items():
                     self._round_data[key].append(value)
                 self._metrics["durations"]["demonstrate/update/sampler"] = (
                     time.perf_counter() - start_sampler
@@ -235,14 +224,17 @@ class DemonstrateInterface:
         save_path = self._save_path
         if self._use_executor(DemonstrateAction.save):
             future = self._submit_action(
-                DemonstrateAction.save, self._sampler.save, save_path, self._round_data
+                DemonstrateAction.save,
+                self._modules.sampler.save,
+                save_path,
+                self._round_data,
             )
             future.add_done_callback(
                 lambda f: self._show_save_info(save_path, f.result())
             )
         else:
             if not self._show_save_info(
-                save_path, self._sampler.save(save_path, self._round_data)
+                save_path, self._modules.sampler.save(save_path, self._round_data)
             ):
                 return False
         self._sample_info.episode += 1
@@ -253,12 +245,12 @@ class DemonstrateInterface:
         """Remove the last episode saved sample."""
         last_round = self._sample_info.episode - 1
         if last_round >= 0:
-            path = self._sampler.compose_path(
+            path = self._modules.sampler.compose_path(
                 self._config.dataset.absolute_directory, last_round
             )
             self._wait_action_futures(DemonstrateAction.save)
             # try to remove the data
-            removed_path = self._sampler.remove(path)
+            removed_path = self._modules.sampler.remove(path)
             if removed_path is not None:
                 self.get_logger().info(Bcolors.green(f"Removed {removed_path}"))
             else:
@@ -272,7 +264,7 @@ class DemonstrateInterface:
 
     def _clear(self) -> None:
         self._round_data = defaultdict(list)
-        self._sampler.clear()
+        self._modules.sampler.clear()
         self._sample_info.index = 0
         self._save_path = ""
 
@@ -280,6 +272,8 @@ class DemonstrateInterface:
         return action in self._action_executors
 
     def _check_future(self, action: DemonstrateAction, future: Future):
+        if future.cancelled():
+            return
         if future.exception() is not None:
             self._action_exception[action] = True
             raise future.exception()
@@ -317,7 +311,7 @@ class DemonstrateInterface:
     def abandon(self) -> bool:
         """Abandon the current episode of sampling."""
         self._cancel_action_futures(DemonstrateAction.update)
-        self._sampler.remove(self._save_path)
+        self._modules.sampler.remove(self._save_path)
         self._clear()
         self.get_logger().info(
             Bcolors.green(f"Abandoned the current episode: {self._sample_info.episode}")
@@ -331,9 +325,8 @@ class DemonstrateInterface:
         self.get_logger().info(
             f"Finished the demonstration: from {self._sample_limit.start_round} to {self._sample_info.episode}"
         )
-        for vis in self._visualizers.values():
-            vis.shutdown()
-        self._sampler.shutdown()
+        self._modules.visualizer.shutdown()
+        self._modules.sampler.shutdown()
         return True
 
     def log_round(self):
@@ -358,7 +351,7 @@ class DemonstrateInterface:
 
     @property
     def demonstrator(self) -> Demonstrator:
-        return self._demonstrator
+        return self._modules.demonstrator
 
     @property
     def metrics(self) -> Dict[str, Any]:

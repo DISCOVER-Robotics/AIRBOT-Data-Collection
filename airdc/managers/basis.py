@@ -1,22 +1,45 @@
 from abc import abstractmethod
-from typing import Optional, Protocol, Dict, Any, final, runtime_checkable
-from pydantic import BaseModel
-from airdc.basis import ConfigurableBasis, Bcolors
+from typing import Optional, Protocol, Dict, Hashable, Union, final, runtime_checkable
+from pydantic import BaseModel, model_validator, Field
+from enum import auto
+from airdc.basis import ConfigurableBasis, Bcolors, StrEnum
 from airdc.state_machine.fsm import (
     DemonstrateAction,
     DemonstrateFSM,
     State,
 )
+from airdc.common.systems.basis import SystemMode
 from pprint import pformat
+from mcap_data_loader.utils.dict import merge_keys_by_value
+
+
+class ManagerAction(StrEnum):
+    """Actions for the manager."""
+
+    INSTRUCTION = auto()
+    """ Show instruction action."""
+    LOCK = auto()
+    """ Lock / unlock control action."""
+    FOLLOW = auto()
+    """ Start / stop following  action."""
+    MODE = auto()
+    """ Switch passive / resetting mode action."""
+
+
+KeyToAction = Dict[str, Union[DemonstrateAction, ManagerAction]]
 
 
 class ManagerConfigBasis(BaseModel, frozen=True):
     """Configuration for the manager."""
 
-    action_key: Dict[DemonstrateAction, Any] = {}
+    key_to_action: KeyToAction = Field(min_length=1)
+    """Mapping from DemonstrateAction to manager interface (e.g. key/button) names."""
     instruction: Dict[str, str] = {}
+    """Mapping from manager interface names to instruction strings.
+    If a key is missing, it will be auto filled according to the action."""
 
-    def model_post_init(self, context):
+    @model_validator(mode="after")
+    def validate_instruction(self):
         action_info = {
             DemonstrateAction.sample: "Start sampling",
             DemonstrateAction.save: "Save sampled data in the current episode",
@@ -24,9 +47,15 @@ class ManagerConfigBasis(BaseModel, frozen=True):
             DemonstrateAction.finish: "Finish the current episode and save all data",
             DemonstrateAction.remove: "Remove the last saved episode",
             DemonstrateAction.capture: "Capture current component observations",
+            ManagerAction.INSTRUCTION: "Show this instruction again",
+            ManagerAction.MODE: "Switch passive (gravity composation) / resetting mode of the leaders",
+            ManagerAction.FOLLOW: "Start / stop following",
+            ManagerAction.LOCK: "Lock / unlock the manager control",
         }
-        for action, key in self.action_key.items():
-            self.instruction[key] = action_info[action]
+        for key, action in merge_keys_by_value(self.key_to_action, "/").items():
+            if key not in self.instruction:
+                self.instruction[key] = action_info[action]
+        return self
 
 
 @runtime_checkable
@@ -45,10 +74,10 @@ class DemonstrateManagerBasis(ConfigurableBasis):
 
     @final
     def set_fsm(self, fsm: DemonstrateFSM):
+        """Set the demonstrate fsm. This must be called before configure."""
         self.fsm = fsm
         self.finalized = False
-        if getattr(self.config, "instruction", {}):
-            self.show_instruction()
+        self._locked = False
 
     @final
     def shutdown(self) -> bool:
@@ -72,6 +101,47 @@ class DemonstrateManagerBasis(ConfigurableBasis):
         key press actions for controlling the system.
         """
         self.get_logger().info(Bcolors.cyan(f" \n{pformat(self.config.instruction)}"))
+
+    def _act(self, key: Hashable):
+        action = self.config.key_to_action.get(key)
+        if action is ManagerAction.LOCK:
+            self._locked = not self._locked
+            self.get_logger().info(
+                Bcolors.green(
+                    f"Manager control is now {'locked' if self._locked else 'unlocked'}."
+                )
+            )
+            return
+        elif self._locked:
+            return
+        if action is ManagerAction.INSTRUCTION:
+            self.show_instruction()
+        elif action is ManagerAction.MODE:
+            cur_mode = (
+                SystemMode.PASSIVE
+                if self.fsm.demonstrator.current_mode is not SystemMode.PASSIVE
+                else SystemMode.RESETTING
+            )
+            self.fsm.demonstrator.switch_mode(cur_mode)
+        elif action is ManagerAction.FOLLOW:
+            if self.fsm.demonstrator.handler.is_stopped():
+                self.fsm.demonstrator.handler.start()
+            else:
+                self.fsm.demonstrator.handler.stop()
+        elif action is DemonstrateAction.capture:
+            self.fsm.act(action)
+            data = {}
+            # only print low dim data
+            for key, value in self.fsm.last_capture.items():
+                if "image" not in key and "depth" not in key:
+                    data[key] = value
+            self.get_logger().info(Bcolors.blue(f"\n{pformat(data)}"))
+        else:
+            if action is not None:
+                self.get_logger().info(f"Executing action: {action.name}")
+                self.fsm.act(action)
+            else:
+                self.get_logger().warning(f"Invalid: {key}")
 
 
 class SelfManagerConfig(BaseModel):
