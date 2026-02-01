@@ -14,9 +14,7 @@ from airdc.basis import (
 )
 from airdc.common.systems.basis import Sensor, System, SystemMode
 from airdc.common.utils.progress import Waitable
-
-# TODO: should we import from `demonstrate` here?
-from airdc.demonstrate.configs import (
+from airdc.common.configs.component import (
     ComponentConfig,
     ComponentsConfig,
     T,
