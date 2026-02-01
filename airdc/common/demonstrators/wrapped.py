@@ -122,7 +122,7 @@ class WrappedDemonstrator(Demonstrator):
 
 
 if __name__ == "__main__":
-    from airdc.common.utils.utils import (
+    from mcap_data_loader.utils.hydra_utils import (
         init_hydra_config,
         hydra_instance_from_dict,
     )

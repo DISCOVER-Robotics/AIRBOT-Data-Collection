@@ -25,10 +25,8 @@ from airdc.common.systems.wrappers import (
     SensorConcurrentWrapper,
 )
 from airdc.common.utils.progress import create_handler
-from airdc.common.utils.utils import (
-    defaultdict_to_dict,
-    ensure_equal_length,
-)
+from mcap_data_loader.utils.dict import defaultdict_to_dict
+from airdc.utils import ensure_equal_length
 from logging import getLogger
 from collections import defaultdict, Counter
 from functools import cached_property, cache

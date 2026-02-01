@@ -3,6 +3,8 @@ import math
 import os
 import subprocess
 from pydantic import BaseModel, AliasChoices
+from threading import Lock
+from typing import List, Dict
 from mcap_data_loader.utils.basic import get_items_by_ext, zip, StrEnum
 
 
@@ -217,3 +219,68 @@ def sort_index(order: list, name_list: list, value_list: list) -> tuple:
 
 def list_remove(lis: list, items: set) -> list:
     return [item for item in lis if item not in items]
+
+
+def ensure_equal_length(ref: list, value: list, one_copy: bool = True):
+    if len(value) == 1 and one_copy:
+        value *= len(ref)
+    if len(ref) != len(value):
+        raise ValueError(f"Length mismatch: {len(ref)} vs {len(value)}")
+    return value
+
+
+class EnvVarManager:
+    """Class to manage environment variables: store original values, clear, and restore them."""
+
+    def __init__(self, var_names: List[str]):
+        self._var_names = list(var_names)
+        self._original_values: Dict[str, str] = {}
+        self._lock = Lock()
+
+        with self._lock:
+            for name in self._var_names:
+                if name in os.environ:
+                    self._original_values[name] = os.environ[name]
+                else:
+                    self._original_values[name] = None
+
+    def clear(self) -> None:
+        with self._lock:
+            for name in self._var_names:
+                os.environ.pop(name, None)
+        return self
+
+    def restore(self) -> None:
+        with self._lock:
+            for name in self._var_names:
+                original_value = self._original_values.get(name)
+                if original_value is not None:
+                    os.environ[name] = original_value
+                else:
+                    os.environ.pop(name, None)
+        return self
+
+    def __enter__(self) -> "EnvVarManager":
+        return self.clear()
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.restore()
+
+
+proxy_context = EnvVarManager(
+    ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")
+)
+
+if __name__ == "__main__":
+    init = "original_value"
+    os.environ["TEST_ENV_VAR"] = init
+    print("Initial:", os.environ.get("TEST_ENV_VAR"))
+    manager = EnvVarManager(["TEST_ENV_VAR"])
+    os.environ["TEST_ENV_VAR"] = "modified_value"
+    print("Before clear:", os.environ.get("TEST_ENV_VAR"))
+
+    manager.clear()
+    print("After clear:", os.environ.get("TEST_ENV_VAR"))
+
+    manager.restore()
+    print("After restore:", os.environ.get("TEST_ENV_VAR"))

@@ -4,7 +4,7 @@ from pydantic import PositiveInt, Field
 from time import time_ns, perf_counter
 from collections import defaultdict
 from functools import partial, cached_property
-from airdc.utils import linear_map, zip_equal
+from airdc.utils import linear_map, zip_equal, proxy_context
 from airdc.common.systems.basis import (
     System,
     SystemConfig,
@@ -185,7 +185,9 @@ class AIRBOTPlay(System):
         # set action post process function TODO: configure this?
         self.action_post_process = self.action_data_to_list
         self.get_logger().info(f"Connecting to {config.url}:{config.port}")
-        if interface.connect():
+        with proxy_context:
+            result = interface.connect()
+        if result:
             # interface.set_speed_profile(self.config.speed_profile)
             interface.set_params(
                 {
