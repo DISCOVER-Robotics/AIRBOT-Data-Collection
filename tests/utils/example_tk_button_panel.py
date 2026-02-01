@@ -27,6 +27,7 @@ def main() -> None:
         print("Window closed.")
 
     script_path = Path(__file__).with_name("demo_long_running_script.py")
+    # script_path = "airdc.utils"
 
     config = TkButtonPanelConfig(
         layout=ButtonUILayout(

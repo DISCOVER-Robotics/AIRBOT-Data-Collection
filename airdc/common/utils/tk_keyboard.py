@@ -16,7 +16,9 @@ Notes:
 from math import ceil
 from pathlib import Path
 from queue import Queue
+import re
 import signal
+import shlex
 import subprocess
 import sys
 import threading
@@ -30,6 +32,15 @@ import tkinter as tk
 ButtonName = str
 ButtonCallback = Union[Callable[[], None], str]
 OnPress = Callable[[ButtonName], None]
+
+
+_PYTHON_MODULE_RE = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
+
+
+def _looks_like_module_path(value: str) -> bool:
+    """Return True if value looks like a Python module path."""
+
+    return bool(_PYTHON_MODULE_RE.match(value))
 
 
 class ButtonUILayout(BaseModel, frozen=True):
@@ -163,16 +174,35 @@ class TkButtonPanelConfig(BaseModel):
 
         for button_name, callback in self.button_callbacks.items():
             if isinstance(callback, str) and callback.strip().startswith("script:"):
-                script_path_str = callback.split(":", 1)[1].strip()
-                if not script_path_str:
+                script_target = callback.split(":", 1)[1].strip()
+                if not script_target:
                     raise ValueError(
                         f"script callback for button '{button_name}' is empty"
                     )
-                script_path = Path(script_path_str).expanduser()
-                if not script_path.exists():
+
+                parts = shlex.split(script_target)
+                if not parts:
                     raise ValueError(
-                        f"script callback for button '{button_name}' not found: {script_path}"
+                        f"script callback for button '{button_name}' is empty"
                     )
+                target = parts[0]
+                path_candidate = Path(target).expanduser()
+                is_path_like = (
+                    "/" in target
+                    or "\\" in target
+                    or target.endswith(".py")
+                    or path_candidate.exists()
+                )
+                if is_path_like:
+                    if not path_candidate.exists():
+                        raise ValueError(
+                            f"script callback for button '{button_name}' not found: {path_candidate}"
+                        )
+                else:
+                    if not _looks_like_module_path(target):
+                        raise ValueError(
+                            f"script callback for button '{button_name}' is not a valid module path: {target}"
+                        )
 
         return self
 
@@ -352,12 +382,28 @@ class Listener:
         if self._root is None:
             return
 
-        script_path = Path(script_path_str).expanduser()
+        parts = shlex.split(script_path_str)
+        if not parts:
+            self._show_text_popup("script callback is empty")
+            return
 
-        if script_path.suffix == ".py":
-            cmd = [sys.executable, str(script_path)]
+        target, *args = parts
+        path_candidate = Path(target).expanduser()
+        is_path_like = (
+            "/" in target
+            or "\\" in target
+            or target.endswith(".py")
+            or path_candidate.exists()
+        )
+
+        if is_path_like:
+            if path_candidate.suffix == ".py":
+                cmd = [sys.executable, str(path_candidate), *args]
+            else:
+                cmd = [str(path_candidate), *args]
         else:
-            cmd = [str(script_path)]
+            # Treat as python module path.
+            cmd = [sys.executable, "-m", target, *args]
 
         popup = tk.Toplevel(self._root)
         popup.transient(self._root)
@@ -379,7 +425,7 @@ class Listener:
             )
         except Exception as exc:
             popup.destroy()
-            self._show_text_popup(f"Failed to start script: {script_path}\n{exc}")
+            self._show_text_popup(f"Failed to start script: {script_path_str}\n{exc}")
             return
 
         output_queue: Queue[str | None] = Queue()
