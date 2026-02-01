@@ -98,6 +98,21 @@ def main() -> int:
     return main_loop(configurer.configure())
 
 
+def main_desktop() -> int:
+    import os
+    from pathlib import Path
+
+    logger = getLogger(PACKAGE_NAME)
+    work_dir = Path(__file__).parent.parent
+    if not (work_dir / "airdc.desktop").exists():
+        raise RuntimeError(
+            f"Cannot find `airdc.desktop` in {work_dir}. Make sure the package is installed in editable mode."
+        )
+    logger.info(f"Changing working directory to {work_dir}.")
+    os.chdir(work_dir)
+    return main()
+
+
 if __name__ == "__main__":
     import sys
 

@@ -42,31 +42,12 @@ soft = [
     "bidict",
     "tqdm",
 ]
-hard = [
-    "pynput >=1.8.1",
-    "linuxpy",
-    "PyTurboJPEG",
-    "pyudev",
-]
+hard = ["pynput >=1.8.1", "linuxpy", "PyTurboJPEG", "pyudev"]
 ml = ["torch", "torchvision"]
 plt = ["ipykernel", "holoviews"]
-cfg = [
-    "pydantic-settings",
-    "omegaconf >=2.3.0",
-    "hydra-zen",
-]
-basic = [
-    "bidict",
-    "tqdm",
-    "flatten-dict",
-]
-all = [
-    "airdc[basic]",
-    "airdc[cfg]",
-    "airdc[soft]",
-    "airdc[hard]",
-    "airdc[cv2]",
-]
+cfg = ["pydantic-settings", "omegaconf >=2.3.0", "hydra-zen"]
+basic = ["bidict", "tqdm", "flatten-dict"]
+all = ["airdc[basic]", "airdc[cfg]", "airdc[soft]", "airdc[hard]", "airdc[cv2]"]
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -74,3 +55,4 @@ include = ["airdc*", "airbot_ie*"]
 
 [project.scripts]
 airdc = "airdc.main:main"
+airdc-desktop = "airdc.main:main_desktop"
