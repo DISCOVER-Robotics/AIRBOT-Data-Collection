@@ -14,6 +14,12 @@ Notes:
 """
 
 from math import ceil
+from pathlib import Path
+from queue import Queue
+import signal
+import subprocess
+import sys
+import threading
 from typing import Callable, Dict, List, Optional, Sequence, Union
 from typing_extensions import Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -110,12 +116,12 @@ class TkButtonPanelConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    layout: ButtonUILayout = ButtonUILayout()
+    layout: ButtonUILayout = Field(default_factory=ButtonUILayout)
     """Layout settings for the button panel."""
-    buttons: List[ButtonName] = []
+    buttons: List[ButtonName] = Field(default_factory=list)
     """Optional explicit order for buttons when layout.rows is not provided.
     If empty, it defaults to the insertion order of button_callbacks."""
-    button_callbacks: Dict[ButtonName, ButtonCallback] = {}
+    button_callbacks: Dict[ButtonName, ButtonCallback] = Field(default_factory=dict)
     """
     Optional mapping: button name -> callback for that specific button.
     This is intended for programmatic usage (not hydra-yaml), since callables
@@ -154,6 +160,19 @@ class TkButtonPanelConfig(BaseModel):
                     "Missing per-button callbacks for buttons (on_press is not set): "
                     f"{sorted(missing)}"
                 )
+
+        for button_name, callback in self.button_callbacks.items():
+            if isinstance(callback, str) and callback.strip().startswith("script:"):
+                script_path_str = callback.split(":", 1)[1].strip()
+                if not script_path_str:
+                    raise ValueError(
+                        f"script callback for button '{button_name}' is empty"
+                    )
+                script_path = Path(script_path_str).expanduser()
+                if not script_path.exists():
+                    raise ValueError(
+                        f"script callback for button '{button_name}' not found: {script_path}"
+                    )
 
         return self
 
@@ -288,11 +307,157 @@ class Listener:
         cb = self._config.button_callbacks.get(key)
         if cb is not None:
             if isinstance(cb, str):
-                self._show_text_popup(cb)
+                self._handle_string_callback(cb)
             else:
                 cb()
         if self._config.on_press is not None:
             self._config.on_press(key)
+
+    def _handle_string_callback(self, value: str) -> None:
+        """Handle string callbacks.
+
+        Formats:
+        - Plain string: show a popup window with the string.
+        - "script: <path>": run the script and stream its output to a popup.
+        """
+
+        value = value.strip()
+        if value.startswith("script:"):
+            script_path_str = value.split(":", 1)[1].strip()
+            self._run_script_popup(script_path_str)
+            return
+        self._show_text_popup(value)
+
+    def _show_text_popup(self, text: str) -> None:
+        """Show a small popup window displaying the given text."""
+        if self._root is None:
+            return
+
+        popup = tk.Toplevel(self._root)
+        popup.transient(self._root)
+
+        msg = tk.Message(popup, text=text, width=600)
+        msg.pack(padx=12, pady=12)
+
+        close_btn = tk.Button(popup, text="close", command=popup.destroy)
+        close_btn.pack(padx=12, pady=(0, 12))
+
+    def _run_script_popup(self, script_path_str: str) -> None:
+        """Run a script and show its output in a popup.
+
+        The popup auto-closes when the script exits.
+        Closing the popup sends an interrupt request (SIGINT).
+        """
+
+        if self._root is None:
+            return
+
+        script_path = Path(script_path_str).expanduser()
+
+        if script_path.suffix == ".py":
+            cmd = [sys.executable, str(script_path)]
+        else:
+            cmd = [str(script_path)]
+
+        popup = tk.Toplevel(self._root)
+        popup.transient(self._root)
+
+        text = tk.Text(popup, wrap="word")
+        scrollbar = tk.Scrollbar(popup, command=text.yview)
+        text.configure(yscrollcommand=scrollbar.set)
+
+        text.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+        except Exception as exc:
+            popup.destroy()
+            self._show_text_popup(f"Failed to start script: {script_path}\n{exc}")
+            return
+
+        output_queue: Queue[str | None] = Queue()
+        stop_requested = {"count": 0}
+
+        def request_interrupt() -> None:
+            stop_requested["count"] += 1
+
+            if proc.poll() is not None:
+                try:
+                    popup.destroy()
+                except Exception:
+                    pass
+                return
+
+            if stop_requested["count"] == 1:
+                try:
+                    proc.send_signal(signal.SIGINT)
+                except Exception:
+                    pass
+                popup.title("interrupt requested")
+
+                def escalate_to_terminate() -> None:
+                    if proc.poll() is None:
+                        try:
+                            proc.terminate()
+                        except Exception:
+                            pass
+
+                def escalate_to_kill() -> None:
+                    if proc.poll() is None:
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+
+                popup.after(2000, escalate_to_terminate)
+                popup.after(4000, escalate_to_kill)
+                return
+
+            # Second close attempt: force stop.
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+        popup.protocol("WM_DELETE_WINDOW", request_interrupt)
+
+        def reader() -> None:
+            try:
+                assert proc.stdout is not None
+                for line in proc.stdout:
+                    output_queue.put(line)
+            finally:
+                output_queue.put(None)
+
+        threading.Thread(target=reader, daemon=True).start()
+
+        def pump() -> None:
+            try:
+                while True:
+                    item = output_queue.get_nowait()
+                    if item is None:
+                        # Script finished, close popup.
+                        try:
+                            popup.destroy()
+                        except Exception:
+                            pass
+                        return
+                    text.insert("end", item)
+                    text.see("end")
+            except Exception:
+                pass
+
+            if popup.winfo_exists():
+                popup.after(50, pump)
+
+        popup.after(50, pump)
 
     def _show_text_popup(self, text: str) -> None:
         """Show a small popup window displaying the given text."""

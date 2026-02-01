@@ -7,7 +7,10 @@ This is an interactive example: click buttons in the window.
 - Clicking "hello" triggers a per-button callback.
 - Clicking any button triggers on_press.
 - Clicking "quit" closes the window.
+- Clicking "script" runs a demo script and shows its output.
 """
+
+from pathlib import Path
 
 from airdc.common.utils.tk_keyboard import ButtonUILayout, Listener, TkButtonPanelConfig
 
@@ -23,6 +26,8 @@ def main() -> None:
     def on_close() -> None:
         print("Window closed.")
 
+    script_path = Path(__file__).with_name("demo_long_running_script.py")
+
     config = TkButtonPanelConfig(
         layout=ButtonUILayout(
             title=None,
@@ -30,11 +35,12 @@ def main() -> None:
             button_height=2,
             n_cols=2,
         ),
-        buttons=["hello", "world", "info", "quit"],
+        buttons=["hello", "world", "info", "script", "quit"],
         button_callbacks={
             "hello": lambda: print("hello clicked"),
             "world": lambda: print("world clicked"),
             "info": "This is a popup message.\n\nString callbacks will show this window.",
+            "script": f"script: {script_path}",
         },
         on_press=on_press,
         on_close=on_close,
