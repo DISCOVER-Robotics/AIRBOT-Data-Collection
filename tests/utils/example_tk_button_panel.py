@@ -8,6 +8,7 @@ This is an interactive example: click buttons in the window.
 - Clicking any button triggers on_press.
 - Clicking "quit" closes the window.
 - Clicking "script" runs a demo script and shows its output.
+- Clicking "cmd" runs a command and shows its output.
 """
 
 from pathlib import Path
@@ -36,12 +37,13 @@ def main() -> None:
             button_height=2,
             n_cols=2,
         ),
-        buttons=["hello", "world", "info", "script", "quit"],
+        buttons=["hello", "world", "info", "script", "cmd", "quit"],
         button_callbacks={
             "hello": lambda: print("hello clicked"),
             "world": lambda: print("world clicked"),
             "info": "This is a popup message.\n\nString callbacks will show this window.",
             "script": f"script: {script_path}",
+            "cmd": "cmd: python3 -V",
         },
         on_press=on_press,
         on_close=on_close,

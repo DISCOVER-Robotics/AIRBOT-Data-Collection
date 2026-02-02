@@ -17,6 +17,7 @@ from math import ceil
 from pathlib import Path
 from queue import Queue
 import re
+import shutil
 import signal
 import shlex
 import subprocess
@@ -31,6 +32,28 @@ import tkinter as tk
 
 ButtonName = str
 ButtonCallback = Union[Callable[[], None], str]
+"""Button callback type.
+
+Supported forms:
+
+- Callable: A zero-arg function, called when the button is pressed.
+- str: A special string action.
+
+        - Plain text: The text will be shown in a popup window.
+        - script: <target> [args...]
+
+            If <target> is a file path, it will be executed directly (or by Python when
+            it ends with ".py"). If <target> looks like a Python module path, it will be
+            executed via ``python -m <target>``.
+
+            The popup streams stdout/stderr output and auto-closes when the process exits.
+            Closing the popup requests an interrupt (SIGINT).
+
+        - cmd: <cmd> [args...]
+
+            Runs <cmd> from the current environment PATH and streams its output.
+            Closing the popup requests an interrupt (SIGINT).
+"""
 OnPress = Callable[[ButtonName], None]
 
 
@@ -204,6 +227,23 @@ class TkButtonPanelConfig(BaseModel):
                             f"script callback for button '{button_name}' is not a valid module path: {target}"
                         )
 
+            if isinstance(callback, str) and callback.strip().startswith("cmd:"):
+                cmd_target = callback.split(":", 1)[1].strip()
+                if not cmd_target:
+                    raise ValueError(
+                        f"cmd callback for button '{button_name}' is empty"
+                    )
+                parts = shlex.split(cmd_target)
+                if not parts:
+                    raise ValueError(
+                        f"cmd callback for button '{button_name}' is empty"
+                    )
+                cmd_name = parts[0]
+                if shutil.which(cmd_name) is None:
+                    raise ValueError(
+                        f"cmd callback for button '{button_name}' not found in PATH: {cmd_name}"
+                    )
+
         return self
 
 
@@ -348,13 +388,18 @@ class Listener:
 
         Formats:
         - Plain string: show a popup window with the string.
-        - "script: <path>": run the script and stream its output to a popup.
+        - "script: <target> [args...]": run a file path or python module and stream output.
+        - "cmd: <cmd> [args...]": run a command from PATH and stream output.
         """
 
         value = value.strip()
         if value.startswith("script:"):
             script_path_str = value.split(":", 1)[1].strip()
             self._run_script_popup(script_path_str)
+            return
+        if value.startswith("cmd:"):
+            cmd_str = value.split(":", 1)[1].strip()
+            self._run_cmd_popup(cmd_str)
             return
         self._show_text_popup(value)
 
@@ -405,8 +450,39 @@ class Listener:
             # Treat as python module path.
             cmd = [sys.executable, "-m", target, *args]
 
+        self._run_process_popup(cmd=cmd, title=f"script: {script_path_str}")
+
+    def _run_cmd_popup(self, cmd_str: str) -> None:
+        """Run a command and show its output in a popup.
+
+        The popup auto-closes when the command exits.
+        Closing the popup sends an interrupt request (SIGINT).
+        """
+
+        if self._root is None:
+            return
+
+        parts = shlex.split(cmd_str)
+        if not parts:
+            self._show_text_popup("cmd callback is empty")
+            return
+
+        cmd_name = parts[0]
+        if shutil.which(cmd_name) is None:
+            self._show_text_popup(f"cmd not found in PATH: {cmd_name}")
+            return
+
+        self._run_process_popup(cmd=parts, title=f"cmd: {cmd_str}")
+
+    def _run_process_popup(self, cmd: List[str], title: str) -> None:
+        """Run a subprocess and stream its output to a popup."""
+
+        if self._root is None:
+            return
+
         popup = tk.Toplevel(self._root)
         popup.transient(self._root)
+        popup.title(title)
 
         text = tk.Text(popup, wrap="word")
         scrollbar = tk.Scrollbar(popup, command=text.yview)
@@ -425,7 +501,7 @@ class Listener:
             )
         except Exception as exc:
             popup.destroy()
-            self._show_text_popup(f"Failed to start script: {script_path_str}\n{exc}")
+            self._show_text_popup(f"Failed to start process: {' '.join(cmd)}\n{exc}")
             return
 
         output_queue: Queue[str | None] = Queue()
@@ -489,7 +565,6 @@ class Listener:
                 while True:
                     item = output_queue.get_nowait()
                     if item is None:
-                        # Script finished, close popup.
                         try:
                             popup.destroy()
                         except Exception:
@@ -504,20 +579,6 @@ class Listener:
                 popup.after(50, pump)
 
         popup.after(50, pump)
-
-    def _show_text_popup(self, text: str) -> None:
-        """Show a small popup window displaying the given text."""
-        if self._root is None:
-            return
-
-        popup = tk.Toplevel(self._root)
-        popup.transient(self._root)
-
-        msg = tk.Message(popup, text=text, width=600)
-        msg.pack(padx=12, pady=12)
-
-        close_btn = tk.Button(popup, text="close", command=popup.destroy)
-        close_btn.pack(padx=12, pady=(0, 12))
 
     def _handle_window_close(self) -> None:
         """Handle the window manager close action."""
