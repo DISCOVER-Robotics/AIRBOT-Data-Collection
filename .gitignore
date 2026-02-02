@@ -12,5 +12,6 @@ test.py
 airbot_logs/
 # hydra outputs
 outputs/
+multirun/
 dist/
 *.mp4
